@@ -1,0 +1,19 @@
+{
+  "name": "marketing-all-in-one",
+  "version": "0.1.0",
+  "private": true,
+  "description": "자영업자 마케팅 종합 SaaS (마케팅올인원)",
+  "workspaces": [
+    "web",
+    "backend",
+    "bot",
+    "shared"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w web",
+    "dev:backend": "npm run dev -w backend",
+    "dev:bot": "npm run dev -w bot",
+    "typecheck": "tsc -b --noEmit",
+    "build": "npm run build -w web && npm run build -w backend && npm run build -w bot"
+  }
+}

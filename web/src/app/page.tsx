@@ -1,0 +1,198 @@
+import Link from 'next/link';
+import { SiteHeader } from '@/components/site-header';
+import { BriefingCard } from '@/components/briefing-card';
+import { DashboardPreview } from '@/components/dashboard-preview';
+import { ChannelMarketplace } from '@/components/channel-marketplace';
+import { LandingFx } from '@/components/landing-fx';
+
+export default function LandingPage() {
+  return (
+    <>
+      <LandingFx />
+      <SiteHeader />
+
+      {/* ===== HERO ===== */}
+      <section className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-5 pb-16 pt-12 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:gap-16 lg:pb-24 lg:pt-20">
+        <div>
+          <div className="rise inline-flex items-center gap-2 rounded-full border border-[var(--color-hair)] bg-[var(--color-panel)] px-3 py-1.5">
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--color-good)] text-[var(--color-good)]" />
+            <span className="mono text-[11px] text-[var(--color-fg-2)]">2026 · 파일럿 신청 접수 중</span>
+          </div>
+
+          <h1 className="display rise r2 mt-6">
+            매일 아침 9시,<br />
+            마케팅이 <span className="amber-text">끝나</span>
+            <br className="hidden sm:block" />있어요.
+          </h1>
+
+          <p className="rise r3 mt-6 max-w-md text-[16px] leading-relaxed text-[var(--color-fg-2)] sm:text-[17px]">
+            인스타·블로그·알림톡·리뷰까지 AI가 준비해 카카오톡으로 브리핑합니다.
+            사장님은 확인하고 발행만. <span className="text-[var(--color-fg)]">하루 5분이면 끝나요.</span>
+          </p>
+
+          <div className="rise r4 mt-8 flex flex-wrap items-center gap-3">
+            <Link href="/signup" className="btn-primary rounded-full px-5 py-3 text-[14px] font-semibold">
+              무료로 시작하기
+            </Link>
+            <Link href="#dashboard" className="rounded-full border border-[var(--color-hair-strong)] px-5 py-3 text-[14px] font-medium text-[var(--color-fg)] transition hover:bg-[var(--color-panel)]">
+              대시보드 보기 →
+            </Link>
+          </div>
+
+          <div className="rise r5 mt-12 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[var(--color-hair)] bg-[var(--color-hair)]">
+            <Stat n={12} suffix="초" label="콘텐츠 생성" />
+            <Stat n={30} suffix="초" label="블로그 발행" />
+            <Stat n={7} suffix="개" label="채널 연결" />
+          </div>
+        </div>
+
+        <div className="rise r3 flex justify-center lg:justify-end">
+          <BriefingCard />
+        </div>
+      </section>
+
+      {/* ===== channel marquee ===== */}
+      <div className="relative overflow-hidden border-y border-[var(--color-hair)] py-5">
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-[var(--color-bg)] to-transparent sm:w-28" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[var(--color-bg)] to-transparent sm:w-28" />
+        <div className="marq px-6">
+          {[...CHANNELS, ...CHANNELS].map((c, i) => (
+            <span key={i} className="mono flex items-center gap-2 whitespace-nowrap text-[13px] text-[var(--color-fg-3)]">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: c.color }} />
+              {c.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ===== features ===== */}
+      <section id="features" className="mx-auto max-w-6xl px-5 py-20 sm:px-6 lg:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+          <div className="reveal lg:sticky lg:top-28 lg:self-start">
+            <div className="eyebrow">기능</div>
+            <h2 className="h1 mt-4">채널마다<br />필요한 도구,<br /><span className="text-[var(--color-fg-3)]">손엔 카톡 하나.</span></h2>
+            <p className="mt-5 max-w-xs text-[15px] leading-relaxed text-[var(--color-fg-2)]">
+              흩어진 마케팅 채널을 하나의 리듬으로. 자동은 자동으로, 손이 필요한 건 30초로.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {FEATURES.map((f, i) => (
+              <div
+                key={f.title}
+                className={`spot reveal panel rounded-[var(--radius-lg)] p-5 ${i === 0 ? 'sm:col-span-2' : ''}`}
+                style={{ transitionDelay: `${i * 60}ms` }}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl text-[18px]" style={{ background: `${f.color}1c`, color: f.color, boxShadow: `inset 0 0 0 1px ${f.color}30` }}>
+                    {f.icon}
+                  </span>
+                  <span className="mono text-[10px]" style={{ color: f.color }}>{f.tag}</span>
+                </div>
+                <h3 className="mt-4 text-[17px] font-semibold">{f.title}</h3>
+                <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===== channel marketplace ===== */}
+      <section id="channels" className="mx-auto max-w-6xl px-5 py-20 sm:px-6 lg:py-28">
+        <ChannelMarketplace />
+      </section>
+
+      {/* ===== dashboard ===== */}
+      <section id="dashboard" className="mx-auto max-w-6xl px-5 py-20 sm:px-6 lg:py-28">
+        <div className="reveal">
+          <div className="eyebrow">대시보드</div>
+          <h2 className="h1 mt-4 max-w-2xl">감이 아니라 데이터로.<br /><span className="text-[var(--color-fg-3)]">모든 채널을 한 화면에서.</span></h2>
+        </div>
+        <div className="reveal panel mt-10 rounded-[var(--radius-lg)] p-2.5 sm:p-3">
+          <DashboardPreview />
+        </div>
+      </section>
+
+      {/* ===== pricing ===== */}
+      <section id="pricing" className="mx-auto max-w-6xl px-5 py-20 sm:px-6 lg:py-28">
+        <div className="reveal">
+          <div className="eyebrow">가격</div>
+          <h2 className="h1 mt-4 max-w-xl">파일럿은 무료.<br /><span className="text-[var(--color-fg-3)]">정식 출시 후 월 5만원부터.</span></h2>
+        </div>
+        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['전 채널 무제한', '카톡봇 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" delay={0} />
+          <Price name="스탠다드" price="₩49,000" period="월" feats={['인스타·블로그·알림톡', '네이버 리뷰 관리', '단골 500명', '이메일 지원']} cta="출시 대기" delay={60} />
+          <Price name="프로" price="₩99,000" period="월" feats={['스탠다드 전부', '배민·요기요·쿠팡', '단골 무제한', '카톡 채팅 지원']} cta="출시 대기" delay={120} />
+        </div>
+      </section>
+
+      {/* ===== CTA ===== */}
+      <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-6">
+        <div className="reveal panel overflow-hidden rounded-[var(--radius-lg)] px-6 py-16 text-center sm:py-24">
+          <h3 className="h1 mx-auto max-w-xl">매장 정보 한 번 등록하고,<br /><span className="amber-text">내일 아침 카톡</span>을 기다리세요.</h3>
+          <div className="mt-9 flex justify-center">
+            <Link href="/signup" className="btn-primary rounded-full px-6 py-3.5 text-[14px] font-semibold">
+              무료로 시작하기
+            </Link>
+          </div>
+        </div>
+        <footer className="mt-14 flex flex-col items-center justify-between gap-4 border-t border-[var(--color-hair)] pt-8 text-[12px] text-[var(--color-fg-3)] sm:flex-row">
+          <span>© 2026 마케팅올인원 · 사업자 등록 예정</span>
+          <div className="flex gap-6">
+            <Link href="/legal/terms" className="hover:text-[var(--color-fg-2)]">이용약관</Link>
+            <Link href="/legal/privacy" className="hover:text-[var(--color-fg-2)]">개인정보처리방침</Link>
+          </div>
+        </footer>
+      </section>
+    </>
+  );
+}
+
+const CHANNELS = [
+  { name: '인스타그램', color: '#ff4d8d' },
+  { name: '네이버 블로그', color: '#16d66a' },
+  { name: '카카오 알림톡', color: '#ffcd3c' },
+  { name: '네이버 플레이스', color: '#16d66a' },
+  { name: '배달의민족', color: '#2ac1bc' },
+  { name: '요기요', color: '#fa0050' },
+  { name: '구글 비즈니스', color: '#4285f4' },
+];
+
+const FEATURES = [
+  { title: 'AI 콘텐츠 엔진', tag: '핵심', color: '#ffb534', icon: '✦', body: '네이버 플레이스에서 매장 정보를 크롤하고 리뷰 톤까지 학습해, 업종별 카피를 자동 생성합니다. 블로그·인스타·리뷰 답글까지 한 엔진에서.' },
+  { title: '인스타그램 발행', tag: '완전 자동', color: '#ff4d8d', icon: '◎', body: 'Meta 공식 API로 예약 발행. 새벽에도 알아서 게시.' },
+  { title: '블로그 카톡봇', tag: '반자동 · 30초', color: '#16d66a', icon: '✉', body: '매일 아침 초안 카톡 → 3단계 붙여넣기 → 발행.' },
+  { title: '재방문 알림톡', tag: '완전 자동', color: '#ffcd3c', icon: '⚡', body: '단골 자동 관리. 마지막 방문 N일 후 트리거 발송.' },
+  { title: '리뷰 감정 모니터링', tag: '실시간', color: '#ff5f83', icon: '★', body: '네이버·배민·요기요 크롤. 부정 리뷰 즉시 카톡 + 답글 초안.' },
+  { title: '통합 성과 대시보드', tag: '분석', color: '#38e2a4', icon: '◈', body: '모든 채널 도달·전환·감정을 한 화면. 월간 리포트도 AI가.' },
+];
+
+function Stat({ n, suffix, label }: { n: number; suffix: string; label: string }) {
+  return (
+    <div className="bg-[var(--color-bg)] px-4 py-5 sm:px-5">
+      <div className="text-2xl font-bold tnum sm:text-3xl">
+        <span data-count={n} data-suffix={suffix}>0{suffix}</span>
+      </div>
+      <div className="mt-1 text-[11px] text-[var(--color-fg-3)] sm:text-xs">{label}</div>
+    </div>
+  );
+}
+
+function Price({ name, price, period, feats, cta, highlight, delay }: { name: string; price: string; period: string; feats: string[]; cta: string; highlight?: boolean; delay: number }) {
+  return (
+    <div className={`spot reveal rounded-[var(--radius-lg)] p-7 ${highlight ? 'border-2 border-[var(--color-amber)] bg-[var(--color-panel)]' : 'panel'}`} style={{ transitionDelay: `${delay}ms` }}>
+      {highlight && <div className="mono mb-4 inline-block rounded-full bg-[var(--color-amber)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-amber-ink)]">지금 파일럿</div>}
+      <div className="text-[14px] text-[var(--color-fg-2)]">{name}</div>
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="text-4xl font-bold tnum tracking-tight">{price}</span>
+        <span className="text-[13px] text-[var(--color-fg-3)]">/ {period}</span>
+      </div>
+      <ul className="mt-7 space-y-2.5 text-[14px] text-[var(--color-fg-2)]">
+        {feats.map((f) => (
+          <li key={f} className="flex items-center gap-2.5"><span className="text-[var(--color-amber)]">✓</span>{f}</li>
+        ))}
+      </ul>
+      <button type="button" className={`mono mt-8 w-full rounded-full py-2.5 text-[13px] font-semibold ${highlight ? 'btn-primary' : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)]'}`}>{cta}</button>
+    </div>
+  );
+}

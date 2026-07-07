@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.next/
+.turbo/
+__pycache__/
+*.pyc
+.venv/
+
+# Env
+.env
+.env.local
+.env.*.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Playwright
+.playwright-mcp/
+playwright-report/
+test-results/
+
+# Build
+*.zip
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Local artifacts
+output/
+tmp/
