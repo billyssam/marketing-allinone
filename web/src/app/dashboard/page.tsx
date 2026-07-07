@@ -5,6 +5,7 @@ import { DashboardPreview } from '@/components/dashboard-preview';
 import { signOut } from '@/app/auth/actions';
 import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
 import { GenerateButton } from '@/components/generate-button';
+import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
 
 export const metadata = { title: '대시보드' };
 
@@ -14,6 +15,13 @@ const POST_CHANNEL_LABEL: Record<string, string> = {
   facebook: '페이스북',
   google_gbp: '구글 비즈니스',
   threads: '스레드',
+};
+const POST_CHANNEL_COLOR: Record<string, string> = {
+  blog: 'var(--color-naver)',
+  instagram: 'var(--color-ig)',
+  facebook: 'var(--color-ig)',
+  google_gbp: 'var(--color-amber)',
+  threads: 'var(--color-fg-2)',
 };
 const POST_STATUS_LABEL: Record<string, string> = {
   draft: '초안',
@@ -55,6 +63,47 @@ export default async function DashboardPage() {
     .limit(8);
   const drafts = recentPosts ?? [];
 
+  // 오늘의 브리핑 = 발행 대기 초안(draft·ready) + 답글 대기 리뷰
+  const { data: todoPosts } = await supabase
+    .from('posts')
+    .select('id, channel, title, status')
+    .eq('store_id', store.id)
+    .in('status', ['draft', 'ready'])
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  const { data: pendingReviews } = await supabase
+    .from('reviews')
+    .select('id, source, rating, content')
+    .eq('store_id', store.id)
+    .not('reply_draft', 'is', null)
+    .is('reply_sent_at', null)
+    .order('posted_at', { ascending: false })
+    .limit(3);
+
+  const briefingItems: BriefingItem[] = [
+    ...(todoPosts ?? []).map((p) => ({
+      key: `post-${p.id}`,
+      kind: 'post' as const,
+      channelLabel: POST_CHANNEL_LABEL[p.channel] ?? p.channel,
+      color: POST_CHANNEL_COLOR[p.channel] ?? 'var(--color-amber)',
+      title: p.title || '(제목 없음)',
+      status: p.status === 'ready' ? '발행 준비됨' : '초안 준비됨',
+      actionLabel: '붙여넣기 →',
+      href: `/prepare?post=${p.id}`,
+    })),
+    ...(pendingReviews ?? []).map((r) => ({
+      key: `review-${r.id}`,
+      kind: 'review' as const,
+      channelLabel: '리뷰',
+      color: 'var(--color-review)',
+      title: `${r.rating ? '★'.repeat(r.rating) : ''} ${r.content}`.trim(),
+      status: '답글 대기',
+      actionLabel: '답글 확인 →',
+      href: '/dashboard',
+    })),
+  ];
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-[var(--color-hair)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
@@ -84,6 +133,11 @@ export default async function DashboardPage() {
             <GenerateButton />
           </div>
         </div>
+
+        {/* 오늘의 브리핑 (실데이터: 발행 대기 초안 + 답글 대기 리뷰) */}
+        <section className="mt-6">
+          <DashboardBriefing items={briefingItems} />
+        </section>
 
         {/* 연결된 채널 상태 */}
         <section className="mt-8">
