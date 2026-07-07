@@ -4,8 +4,25 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { DashboardPreview } from '@/components/dashboard-preview';
 import { signOut } from '@/app/auth/actions';
 import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
+import { GenerateButton } from '@/components/generate-button';
 
 export const metadata = { title: '대시보드' };
+
+const POST_CHANNEL_LABEL: Record<string, string> = {
+  blog: '네이버 블로그',
+  instagram: '인스타그램',
+  facebook: '페이스북',
+  google_gbp: '구글 비즈니스',
+  threads: '스레드',
+};
+const POST_STATUS_LABEL: Record<string, string> = {
+  draft: '초안',
+  ready: '발행 준비',
+  sent_to_owner: '카톡 전송됨',
+  published: '발행 완료',
+  failed: '실패',
+  archived: '보관',
+};
 
 export default async function DashboardPage() {
   const user = isSupabaseConfigured ? (await (await createClient()).auth.getUser()).data.user : null;
@@ -30,6 +47,14 @@ export default async function DashboardPage() {
   const { data: conns } = await supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id);
   const connected = (conns ?? []).map((c) => c.channel_id as ChannelId);
 
+  const { data: recentPosts } = await supabase
+    .from('posts')
+    .select('id, channel, title, status, created_at')
+    .eq('store_id', store.id)
+    .order('created_at', { ascending: false })
+    .limit(8);
+  const drafts = recentPosts ?? [];
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-[var(--color-hair)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
@@ -52,9 +77,12 @@ export default async function DashboardPage() {
             <div className="eyebrow">오늘의 브리핑</div>
             <h1 className="h1 mt-2">{store.name} 사장님, 좋은 아침이에요.</h1>
           </div>
-          <Link href="/channels" className="rounded-full border border-[var(--color-hair-strong)] px-4 py-2 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]">
-            + 채널 추가
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/channels" className="rounded-full border border-[var(--color-hair-strong)] px-4 py-2 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]">
+              + 채널 추가
+            </Link>
+            <GenerateButton />
+          </div>
         </div>
 
         {/* 연결된 채널 상태 */}
@@ -81,6 +109,35 @@ export default async function DashboardPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </section>
+
+        {/* 최근 초안 (posts 영속화 결과) */}
+        <section className="mt-10">
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
+            최근 초안 <span className="mono text-[var(--color-fg-3)]">{drafts.length}</span>
+          </div>
+          {drafts.length === 0 ? (
+            <div className="panel rounded-[var(--radius-lg)] p-8 text-center">
+              <p className="text-[14px] text-[var(--color-fg-2)]">아직 생성한 글이 없어요. 위 <b>‘오늘 글 생성’</b>을 눌러보세요.</p>
+            </div>
+          ) : (
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {drafts.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/prepare?post=${p.id}`}
+                  className="panel group rounded-[var(--radius)] p-4 transition hover:border-[var(--color-hair-strong)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="mono text-[10px] text-[var(--color-fg-3)]">{POST_CHANNEL_LABEL[p.channel] ?? p.channel}</span>
+                    <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">{POST_STATUS_LABEL[p.status] ?? p.status}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-[13.5px] font-medium group-hover:text-[var(--color-fg)]">{p.title || '(제목 없음)'}</p>
+                  <p className="mt-2 text-[11px] text-[var(--color-fg-3)]">붙여넣기 도우미 열기 →</p>
+                </Link>
+              ))}
             </div>
           )}
         </section>
