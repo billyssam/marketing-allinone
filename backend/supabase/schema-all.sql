@@ -1,4 +1,4 @@
--- 마케팅올인원 전체 스키마 (0001 + 0002 합본)
+-- 마케팅올인원 전체 스키마 (0001 + 0002 + 0003 + 0004 합본)
 -- Supabase SQL Editor에 통째로 붙여넣고 Run
 
 -- 마케팅올인원 초기 스키마
@@ -232,3 +232,15 @@ alter table stores add column if not exists onboarded_at timestamptz;
 
 -- 온보딩 미완료 매장 조회용
 create index if not exists idx_stores_onboarded on stores(owner_id, onboarded_at);
+
+-- ===== 0003 channel_connections 정렬 =====
+-- 기존 컬럼 channel(text) → channel_id, status 컬럼 추가
+alter table channel_connections rename column channel to channel_id;
+alter table channel_connections add column if not exists status text not null default 'pending';
+
+-- ===== 0004 리뷰 답글 관리 — 사장님 UPDATE 권한 =====
+-- 크롤 워커는 service_role로 upsert(RLS 우회)하지만,
+-- 사장님이 "답글 발송 완료" 체크(reply_sent_at)/초안 수정을 하려면 owner UPDATE 정책 필요
+create policy "owner updates own reviews" on reviews for update
+  using (exists (select 1 from stores s where s.id = reviews.store_id and s.owner_id = auth.uid()))
+  with check (exists (select 1 from stores s where s.id = reviews.store_id and s.owner_id = auth.uid()));

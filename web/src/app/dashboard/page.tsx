@@ -100,7 +100,7 @@ export default async function DashboardPage() {
       title: `${r.rating ? '★'.repeat(r.rating) : ''} ${r.content}`.trim(),
       status: '답글 대기',
       actionLabel: '답글 확인 →',
-      href: '/dashboard',
+      href: '/reviews',
     })),
   ];
 
@@ -114,6 +114,7 @@ export default async function DashboardPage() {
           </div>
           <nav className="flex items-center gap-5 text-[13px] text-[var(--color-fg-2)]">
             <Link href="/dashboard" className="text-[var(--color-fg)]">대시보드</Link>
+            <Link href="/reviews" className="hover:text-[var(--color-fg)]">리뷰</Link>
             <Link href="/channels" className="hover:text-[var(--color-fg)]">채널 연결</Link>
             <form action={signOut}><button type="submit" className="hover:text-[var(--color-fg)]">로그아웃</button></form>
           </nav>

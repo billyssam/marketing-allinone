@@ -1,5 +1,7 @@
 import type { ChannelAdapter, Connection, DraftContent, Review, StoreContext } from '../../../shared/channels/adapter.js';
 import { buildHandoff } from './assisted-helpers.js';
+import { crawlNaverPlaceReviews, extractPlaceId as extractReviewPlaceId } from '../../../shared/content-engine/review-crawler.js';
+import { analyzeSentiment } from '../../../shared/content-engine/review-analyzer.js';
 
 /**
  * 네이버 플레이스 — 반자동(소식 발행) + 모니터링(리뷰 크롤).
@@ -32,10 +34,19 @@ export const naverPlaceAdapter: ChannelAdapter = {
   },
 
   async fetchReviews(conn: Connection): Promise<Review[]> {
-    // 실제 구현: Oracle VM 크롤 워커가 m.place.naver.com/{id}/review 파싱
-    // (Pre-Service place-crawler 로직 재활용) → 여기선 인터페이스만
-    void conn;
-    return [];
+    // m.place.naver.com/{id}/review/visitor 크롤 + 룰베이스 감정 태깅.
+    // 답글초안 영속화까지는 backend/src/reviews.ts syncStoreReviews가 담당.
+    const placeId =
+      conn.externalId ?? extractReviewPlaceId((conn.metadata?.naverPlaceUrl as string) ?? '');
+    if (!placeId) return [];
+    const crawled = await crawlNaverPlaceReviews(placeId, { limit: 20 });
+    return crawled.map((r) => ({
+      externalId: r.externalId,
+      author: r.author,
+      content: r.content,
+      postedAt: r.visitedAt ? `${r.visitedAt}T00:00:00+09:00` : undefined,
+      sentiment: analyzeSentiment(r.content, r.keywords).sentiment,
+    }));
   },
 };
 
