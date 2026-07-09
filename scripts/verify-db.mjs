@@ -18,8 +18,15 @@ try {
   fail(`web/.env.local 이 없습니다 (${envPath})`);
 }
 const env = Object.fromEntries(
-  raw.split('\n').filter((l) => l.includes('=') && !l.trim().startsWith('#'))
-    .map((l) => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()]; }),
+  raw.replace(/^﻿/, '') // BOM 제거(첫 키 이름 오염 방지)
+    .split('\n').filter((l) => l.includes('=') && !l.trim().startsWith('#'))
+    .map((l) => {
+      const i = l.indexOf('=');
+      const k = l.slice(0, i).trim();
+      // 값 양끝 따옴표 제거(KEY="..." / KEY='...' 형태 지원)
+      const v = l.slice(i + 1).trim().replace(/^(['"])(.*)\1$/, '$2');
+      return [k, v];
+    }),
 );
 
 const URL_ = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,12 +46,18 @@ async function rest(path, key) {
 
 console.log(`Supabase: ${URL_}\n`);
 
-// 1) 도달성
+// 1) 도달성 — NXDOMAIN(삭제/미존재)은 fetch가 throw, pause/중단은 DNS는 살아도 5xx 반환
 try {
-  await rest('', SERVICE);
+  const res = await rest('', SERVICE);
+  if (res.status >= 500) {
+    fail(`프로젝트가 응답했지만 HTTP ${res.status} — pause/중단 상태로 보입니다. 대시보드에서 Restore 후 재시도.`);
+  }
+  if (res.status === 401 || res.status === 403) {
+    fail(`프로젝트 도달했으나 인증 거부(HTTP ${res.status}) — SERVICE_ROLE_KEY가 이 프로젝트 것이 맞는지 확인.`);
+  }
   pass('프로젝트 도달 (DNS/HTTPS OK)');
 } catch (e) {
-  fail(`프로젝트 도달 실패 — URL이 틀렸거나 프로젝트가 아직 pause 상태: ${e.cause?.code ?? e.message}`);
+  fail(`프로젝트 도달 실패 — URL이 틀렸거나 프로젝트가 삭제/미존재(NXDOMAIN): ${e.cause?.code ?? e.message}`);
 }
 
 // 2) 테이블 존재

@@ -49,37 +49,26 @@ export default async function DashboardPage() {
   }
 
   const supabase = await createClient();
-  const { data: store } = await supabase.from('stores').select('*').eq('owner_id', user.id).maybeSingle();
+  const { data: store, error: storeErr } = await supabase.from('stores').select('*').eq('owner_id', user.id).maybeSingle();
+  // 조회 에러(일시적 장애 등)를 "매장 없음"으로 오인해 온보딩으로 튕기지 않도록 구분
+  if (storeErr) throw new Error(`매장 정보를 불러오지 못했어요: ${storeErr.message}`);
   if (!store) redirect('/onboarding');
 
-  const { data: conns } = await supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id);
-  const connected = (conns ?? []).map((c) => c.channel_id as ChannelId);
+  // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 4왕복 → 1왕복)
+  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes] = await Promise.all([
+    supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
+    supabase.from('posts').select('id, channel, title, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
+    // 오늘의 브리핑 = 발행 대기 초안(draft·ready)
+    supabase.from('posts').select('id, channel, title, status').eq('store_id', store.id).in('status', ['draft', 'ready']).order('created_at', { ascending: false }).limit(6),
+    // + 답글 대기 리뷰
+    supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
+  ]);
 
-  const { data: recentPosts } = await supabase
-    .from('posts')
-    .select('id, channel, title, status, created_at')
-    .eq('store_id', store.id)
-    .order('created_at', { ascending: false })
-    .limit(8);
-  const drafts = recentPosts ?? [];
-
-  // 오늘의 브리핑 = 발행 대기 초안(draft·ready) + 답글 대기 리뷰
-  const { data: todoPosts } = await supabase
-    .from('posts')
-    .select('id, channel, title, status')
-    .eq('store_id', store.id)
-    .in('status', ['draft', 'ready'])
-    .order('created_at', { ascending: false })
-    .limit(6);
-
-  const { data: pendingReviews } = await supabase
-    .from('reviews')
-    .select('id, source, rating, content')
-    .eq('store_id', store.id)
-    .not('reply_draft', 'is', null)
-    .is('reply_sent_at', null)
-    .order('posted_at', { ascending: false })
-    .limit(3);
+  const connected = (connsRes.data ?? []).map((c) => c.channel_id as ChannelId);
+  const drafts = recentPostsRes.data ?? [];
+  const draftsLoadFailed = Boolean(recentPostsRes.error); // 에러를 "초안 없음"으로 오인하지 않도록 구분
+  const todoPosts = todoPostsRes.data;
+  const pendingReviews = pendingReviewsRes.data;
 
   const briefingItems: BriefingItem[] = [
     ...(todoPosts ?? []).map((p) => ({
@@ -175,7 +164,11 @@ export default async function DashboardPage() {
           </div>
           {drafts.length === 0 ? (
             <div className="panel rounded-[var(--radius-lg)] p-8 text-center">
-              <p className="text-[14px] text-[var(--color-fg-2)]">아직 생성한 글이 없어요. 위 <b>‘오늘 글 생성’</b>을 눌러보세요.</p>
+              {draftsLoadFailed ? (
+                <p className="text-[14px] text-[var(--color-fg-2)]">초안을 불러오지 못했어요. 잠시 후 새로고침 해주세요.</p>
+              ) : (
+                <p className="text-[14px] text-[var(--color-fg-2)]">아직 생성한 글이 없어요. 위 <b>‘오늘 글 생성’</b>을 눌러보세요.</p>
+              )}
             </div>
           ) : (
             <div className="grid gap-2.5 sm:grid-cols-2">

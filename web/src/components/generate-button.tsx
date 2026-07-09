@@ -18,13 +18,19 @@ export function GenerateButton() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({}), // 기본: 매장 블로그 1건
       });
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(
-          res.status === 429
-            ? 'Gemini 무료 한도(20회/일)를 다 썼어요. 잠시 후 다시 시도하거나 결제를 연결해주세요.'
-            : data.error ?? '생성 실패',
-        );
+        if (res.status === 429) {
+          throw new Error('Gemini 무료 한도(20회/일)를 다 썼어요. 잠시 후 다시 시도하거나 결제를 연결해주세요.');
+        }
+        // 비-JSON 에러 바디(500 HTML·502/504 게이트웨이)에도 안전하게
+        let message = '생성 실패';
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch {
+          /* 파싱 실패 시 기본 메시지 유지 */
+        }
+        throw new Error(message);
       }
       router.refresh();
     } catch (e) {

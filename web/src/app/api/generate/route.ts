@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
 
   let body: GenerateBody = {};
   try {
-    body = (await req.json()) as GenerateBody;
+    const parsed = await req.json();
+    // null/원시값 바디 방어 — 객체일 때만 채택(그 외엔 기본값)
+    if (parsed && typeof parsed === 'object') body = parsed as GenerateBody;
   } catch {
     // body 없이 호출 가능 — 기본값 사용
   }
@@ -46,7 +48,9 @@ export async function POST(req: NextRequest) {
   // 매장 조회: body.storeId 지정 시 그걸로(소유권은 RLS가 보증), 없으면 내 첫 매장
   const storeQuery = supabase
     .from('stores')
-    .select('id, name, industry_id, naver_place_url, naver_blog_url, address, brand_tone')
+    .select(
+      'id, name, industry_id, naver_place_url, naver_blog_url, address, brand_tone, channel_blog_enabled, channel_instagram_enabled',
+    )
     .order('created_at', { ascending: true })
     .limit(1);
   if (body.storeId) storeQuery.eq('id', body.storeId);
@@ -78,7 +82,15 @@ export async function POST(req: NextRequest) {
     targetLength: body.targetLength,
     angle: body.angle,
   };
-  const channels = body.channels?.length ? body.channels : DEFAULT_CHANNELS;
+  // 채널 우선순위: 요청 명시 > 매장의 켜진 채널 플래그 > 블로그 폴백
+  const enabled: ChannelId[] = [];
+  if (store.channel_blog_enabled) enabled.push('naver_blog');
+  if (store.channel_instagram_enabled) enabled.push('instagram');
+  const channels = body.channels?.length
+    ? body.channels
+    : enabled.length
+      ? enabled
+      : DEFAULT_CHANNELS;
 
   try {
     const bundle = await generateChannelDrafts(input, channels);

@@ -11,9 +11,14 @@ interface Draft {
   bodyPlain: string;
   tags: string[];
   storeName: string;
+  channel?: string;
 }
 
 const FLOW: Step[] = ['title', 'body', 'tags'];
+// 인스타는 해시태그가 본문(bodyPlain)에 이미 붙어 있어 별도 태그 단계가 있으면 이중 붙여넣기가 됨 → 태그 단계 생략
+function flowFor(channel?: string): Step[] {
+  return channel === 'instagram' ? ['title', 'body'] : FLOW;
+}
 
 const STEP_INFO: Record<Step, { idx: number; label: string; hint: string; cta: string }> = {
   title: { idx: 1, label: '제목', hint: '블로그 앱에서 제목 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 본문' },
@@ -47,26 +52,35 @@ function PrepareInner() {
       .catch((err) => setStatus({ tone: 'err', msg: `초안을 불러오지 못했어요 (${err.message ?? err})` }));
   }, [postId]);
 
+  const flow = flowFor(draft?.channel);
+
   async function advance() {
     if (!draft) return;
-    if (step === 'title') {
-      await copyToClipboard(draft.bodyPlain);
-      setStep('body');
-      setStatus({ tone: 'ok', msg: '본문이 복사됐어요.' });
-    } else if (step === 'body') {
-      await copyToClipboard(draft.tags.map((t) => `#${t}`).join(' '));
-      setStep('tags');
-      setStatus({ tone: 'ok', msg: '태그가 복사됐어요.' });
-    } else if (step === 'tags') {
+    if (step === 'done') {
+      window.close();
+      return;
+    }
+    const i = flow.indexOf(step);
+    if (i === -1 || i >= flow.length - 1) {
       setStep('done');
       setStatus({ tone: 'ok', msg: '' });
-    } else {
-      window.close();
+      return;
     }
+    const next = flow[i + 1];
+    if (next === 'body') {
+      await copyToClipboard(draft.bodyPlain);
+      setStatus({ tone: 'ok', msg: '본문이 복사됐어요.' });
+    } else if (next === 'tags') {
+      await copyToClipboard(draft.tags.map((t) => `#${t}`).join(' '));
+      setStatus({ tone: 'ok', msg: '태그가 복사됐어요.' });
+    }
+    setStep(next);
   }
 
   const info = STEP_INFO[step];
   const isDone = step === 'done';
+  const isLastStep = flow.indexOf(step) === flow.length - 1;
+  const ctaLabel = isDone ? STEP_INFO.done.cta : isLastStep ? '완료' : info.cta;
   const preview =
     step === 'title'
       ? draft?.title
@@ -84,12 +98,12 @@ function PrepareInner() {
       {/* 헤더: 매장명 + 단계 */}
       <div className="flex items-center justify-between">
         <span className="eyebrow">{draft?.storeName ?? '블로그 발행'}</span>
-        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {info.idx} / 3</span>}
+        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {info.idx} / {flow.length}</span>}
       </div>
 
       {/* 진행 세그먼트 */}
       <div className="mt-3 flex gap-1.5">
-        {FLOW.map((s) => {
+        {flow.map((s) => {
           const active = isDone || STEP_INFO[s].idx <= info.idx;
           return (
             <span
@@ -144,7 +158,7 @@ function PrepareInner() {
           disabled={!draft && !isDone}
           className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-semibold text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {info.cta}
+          {ctaLabel}
         </button>
         {!isDone && (
           <a

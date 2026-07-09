@@ -23,7 +23,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  if (!isSupabaseConfigured) {
+  // 이 라우트는 서비스롤로 조회 → SERVICE_ROLE_KEY까지 있어야 함(없으면 친절한 503)
+  if (!isSupabaseConfigured || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: 'Supabase가 설정돼 있지 않습니다.' }, { status: 503 });
   }
 
