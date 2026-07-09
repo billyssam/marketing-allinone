@@ -39,3 +39,6 @@ output/
 tmp/
 
 .vercel
+
+# 일회성 스크래치 스크립트
+web/_*.mjs
