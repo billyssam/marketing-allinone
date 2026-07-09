@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type Step = 'title' | 'body' | 'tags' | 'done';
@@ -13,50 +13,38 @@ interface Draft {
   storeName: string;
 }
 
-const STEP_INFO: Record<Step, { label: string; hint: string; buttonLabel: string }> = {
-  title: {
-    label: '1/3 · 제목',
-    hint: '네이버 블로그 앱에서 제목 자리를 길게 눌러 붙여넣기 하세요.',
-    buttonLabel: '다음: 본문 준비',
-  },
-  body: {
-    label: '2/3 · 본문',
-    hint: '본문 첫 문단을 길게 눌러 붙여넣기 하세요.',
-    buttonLabel: '다음: 태그 준비',
-  },
-  tags: {
-    label: '3/3 · 태그',
-    hint: '태그 입력창에 붙여넣기 하세요.',
-    buttonLabel: '완료',
-  },
-  done: {
-    label: '완료',
-    hint: '이제 네이버 블로그 앱에서 발행 버튼만 누르세요.',
-    buttonLabel: '닫기',
-  },
+const FLOW: Step[] = ['title', 'body', 'tags'];
+
+const STEP_INFO: Record<Step, { idx: number; label: string; hint: string; cta: string }> = {
+  title: { idx: 1, label: '제목', hint: '블로그 앱에서 제목 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 본문' },
+  body: { idx: 2, label: '본문', hint: '본문 첫 문단을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 태그' },
+  tags: { idx: 3, label: '태그', hint: '태그 입력칸에 붙여넣기 하세요.', cta: '완료' },
+  done: { idx: 4, label: '완료', hint: '이제 블로그 앱에서 발행 버튼만 누르면 끝이에요.', cta: '닫기' },
 };
 
-export default function PreparePage() {
+function PrepareInner() {
   const params = useSearchParams();
   const postId = params.get('post');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState<Step>('title');
-  const [status, setStatus] = useState<string>('불러오는 중…');
+  const [status, setStatus] = useState<{ tone: 'ok' | 'wait' | 'err'; msg: string }>({
+    tone: 'wait',
+    msg: '초안을 불러오는 중…',
+  });
 
   useEffect(() => {
     if (!postId) {
-      setStatus('❌ 잘못된 접근이에요. 카톡의 [보내기]를 다시 눌러주세요.');
+      setStatus({ tone: 'err', msg: '잘못된 접근이에요. 카톡의 [보내기]를 다시 눌러주세요.' });
       return;
     }
-
     fetch(`/api/prepare?post=${encodeURIComponent(postId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d: Draft) => {
         setDraft(d);
         return copyToClipboard(d.title);
       })
-      .then(() => setStatus('✅ 제목이 클립보드에 있어요. 붙여넣기 하세요.'))
-      .catch((err) => setStatus(`❌ 초안 로드 실패: ${err.message ?? err}`));
+      .then(() => setStatus({ tone: 'ok', msg: '제목이 복사됐어요. 붙여넣기 하세요.' }))
+      .catch((err) => setStatus({ tone: 'err', msg: `초안을 불러오지 못했어요 (${err.message ?? err})` }));
   }, [postId]);
 
   async function advance() {
@@ -64,57 +52,104 @@ export default function PreparePage() {
     if (step === 'title') {
       await copyToClipboard(draft.bodyPlain);
       setStep('body');
-      setStatus('✅ 본문이 클립보드에 있어요.');
+      setStatus({ tone: 'ok', msg: '본문이 복사됐어요.' });
     } else if (step === 'body') {
       await copyToClipboard(draft.tags.map((t) => `#${t}`).join(' '));
       setStep('tags');
-      setStatus('✅ 태그가 클립보드에 있어요.');
+      setStatus({ tone: 'ok', msg: '태그가 복사됐어요.' });
     } else if (step === 'tags') {
       setStep('done');
-      setStatus('');
+      setStatus({ tone: 'ok', msg: '' });
     } else {
       window.close();
     }
   }
 
   const info = STEP_INFO[step];
+  const isDone = step === 'done';
+  const preview =
+    step === 'title'
+      ? draft?.title
+      : step === 'body'
+        ? (draft?.bodyPlain ?? '').slice(0, 420) + ((draft?.bodyPlain?.length ?? 0) > 420 ? '…' : '')
+        : step === 'tags'
+          ? draft?.tags.map((t) => `#${t}`).join(' ')
+          : '';
+
+  const toneColor =
+    status.tone === 'ok' ? 'var(--color-good)' : status.tone === 'err' ? 'var(--color-bad)' : 'var(--color-fg-3)';
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-6 py-10">
-      <div>
-        <div className="text-[10px] uppercase tracking-wider text-[#6d7cff]">
-          {draft?.storeName ?? '초안 준비'}
-        </div>
-        <h1 className="mt-2 text-2xl font-bold">{info.label}</h1>
-        <p className="mt-4 text-sm text-[#a0a0a8]">{info.hint}</p>
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-8 pt-10">
+      {/* 헤더: 매장명 + 단계 */}
+      <div className="flex items-center justify-between">
+        <span className="eyebrow">{draft?.storeName ?? '블로그 발행'}</span>
+        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {info.idx} / 3</span>}
+      </div>
 
-        <div className="mt-6 rounded-lg border border-white/8 bg-white/2 p-4 text-sm">
-          {status}
-        </div>
+      {/* 진행 세그먼트 */}
+      <div className="mt-3 flex gap-1.5">
+        {FLOW.map((s) => {
+          const active = isDone || STEP_INFO[s].idx <= info.idx;
+          return (
+            <span
+              key={s}
+              className="h-1 flex-1 rounded-full transition-colors duration-500"
+              style={{ background: active ? 'var(--color-amber)' : 'var(--color-hair-strong)' }}
+            />
+          );
+        })}
+      </div>
 
-        {draft && step !== 'done' && (
-          <div className="mt-4 max-h-64 overflow-y-auto rounded-lg border border-white/8 bg-black/40 p-4 text-xs text-[#a0a0a8]">
-            {step === 'title' && draft.title}
-            {step === 'body' && draft.bodyPlain.slice(0, 400) + '…'}
-            {step === 'tags' && draft.tags.map((t) => `#${t}`).join(' ')}
+      {/* 본문 */}
+      <div className="mt-9 flex-1">
+        {isDone ? (
+          <div className="grid h-9 w-9 place-items-center rounded-full border border-[var(--color-good)] text-[16px] text-[var(--color-good)]">
+            ✓
+          </div>
+        ) : null}
+        <h1 className="mt-4 text-[26px] font-bold tracking-tight">{info.label}</h1>
+        <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{info.hint}</p>
+
+        {/* 상태 */}
+        {status.msg && (
+          <div className="panel mt-6 flex items-center gap-2.5 rounded-[var(--radius)] p-3.5">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: toneColor }} />
+            <span className="text-[13px]" style={{ color: toneColor }}>
+              {status.msg}
+            </span>
+          </div>
+        )}
+
+        {/* 붙여넣을 내용 미리보기 */}
+        {draft && !isDone && (
+          <div className="panel mt-3 rounded-[var(--radius-lg)] p-4">
+            <div className="mb-2 flex items-center gap-2.5">
+              <span className="eyebrow" style={{ color: 'var(--color-amber)' }}>클립보드</span>
+              <span className="h-px flex-1 bg-[var(--color-hair)]" />
+              <span className="text-[10px] text-[var(--color-fg-4)]">길게 눌러 붙여넣기</span>
+            </div>
+            <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-fg-2)]">
+              {preview}
+            </p>
           </div>
         )}
       </div>
 
-      <div className="mt-8 space-y-3">
+      {/* 하단 CTA */}
+      <div className="mt-8 space-y-2.5">
         <button
           type="button"
           onClick={advance}
-          disabled={!draft && step !== 'done'}
-          className="w-full rounded-lg bg-[#6d7cff] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#7d8cff] disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!draft && !isDone}
+          className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-semibold text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {info.buttonLabel}
+          {info.cta}
         </button>
-
-        {step !== 'done' && (
+        {!isDone && (
           <a
             href="naverblog://write"
-            className="block w-full rounded-lg border border-white/12 bg-white/2 px-4 py-3 text-center text-sm font-medium text-[#eaeaea] transition hover:bg-white/6"
+            className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
           >
             네이버 블로그 앱 열기
           </a>
@@ -124,11 +159,18 @@ export default function PreparePage() {
   );
 }
 
+export default function PreparePage() {
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-md px-5 pt-10 text-[13px] text-[var(--color-fg-3)]">불러오는 중…</main>}>
+      <PrepareInner />
+    </Suspense>
+  );
+}
+
 async function copyToClipboard(text: string) {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
-    // Fallback (구형 브라우저)
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
