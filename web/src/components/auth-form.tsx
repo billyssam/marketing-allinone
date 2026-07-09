@@ -25,7 +25,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         <form action={signInWithProvider}>
           <input type="hidden" name="provider" value="kakao" />
           <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fee500] py-3 text-[14px] font-semibold text-[#3c1e1e] transition hover:brightness-95">
-            <span className="text-[15px]">💬</span> 카카오로 {mode === 'login' ? '로그인' : '시작하기'}
+            <span className="font-black">K</span> 카카오로 {mode === 'login' ? '로그인' : '시작하기'}
           </button>
         </form>
         <div className="grid grid-cols-2 gap-2.5">

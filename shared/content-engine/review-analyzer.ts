@@ -139,14 +139,14 @@ export function draftReply(ctx: ReplyContext, sentiment: Sentiment): string {
   if (sentiment === 'positive') {
     const focus = detail ? `"${detail}"라고 해주신 말씀` : kw ? `${kw}라고 느껴주신 마음` : '따뜻한 후기';
     const openers = [
-      `${who}, ${focus} 정말 감사합니다! 😊`,
+      `${who}, ${focus} 정말 감사합니다.`,
       `${who}, ${focus}에 저희가 더 힘이 났어요.`,
       `${who}, ${focus} 남겨주셔서 하루가 환해졌습니다.`,
     ];
     const closers = [
-      `다음에 오실 때도 변함없는 정성으로 모실게요. 또 뵈어요! — ${store}`,
-      `기억해 주신 만큼 늘 한결같겠습니다. 또 들러주세요 🙌 — ${store}`,
-      `${store}는 늘 이 자리에서 기다리고 있겠습니다. 감사합니다!`,
+      `다음에 오실 때도 변함없는 정성으로 모시겠습니다. 또 뵈어요. — ${store}`,
+      `기억해 주신 만큼 늘 한결같겠습니다. 또 들러주세요. — ${store}`,
+      `${store}는 늘 이 자리에서 기다리고 있겠습니다. 감사합니다.`,
     ];
     return `${pick(openers, seed)} ${pick(closers, seed + 'c')}`;
   }

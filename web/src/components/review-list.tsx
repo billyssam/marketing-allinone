@@ -78,10 +78,10 @@ export function ReviewList({ reviews, placeId }: { reviews: ReviewRow[]; placeId
         <div className="panel rounded-[var(--radius-lg)] p-10 text-center">
           <p className="text-[14px] text-[var(--color-fg-2)]">
             {filter === 'pending'
-              ? '답글 대기 중인 리뷰가 없어요. 모두 처리하셨네요 👏'
+              ? '답글 대기 중인 리뷰가 없습니다. 모두 처리되었어요.'
               : filter === 'negative'
-                ? '부정 리뷰가 없어요. 좋은 신호예요 ✨'
-                : '아직 수집된 리뷰가 없어요. 리뷰 모니터링은 매일 자동으로 수집됩니다.'}
+                ? '부정 리뷰가 없습니다. 좋은 신호예요.'
+                : '아직 수집된 리뷰가 없습니다. 리뷰는 매일 자동으로 수집됩니다.'}
           </p>
         </div>
       ) : (
@@ -159,10 +159,11 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
       <p className="mt-3 text-[13.5px] leading-relaxed text-[var(--color-fg)]">{review.content}</p>
 
       {review.replyDraft && (
-        <div className="mt-3 rounded-[12px] border border-[var(--color-hair)] bg-[var(--color-panel-2)] p-3">
-          <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] font-semibold text-[var(--color-fg-3)]">
-            <span>✨ AI 답글 초안</span>
-            <span className="text-[var(--color-fg-4)]">· 확인 후 붙여넣기</span>
+        <div className="mt-3 rounded-[12px] border border-[var(--color-hair)] bg-[var(--color-panel-2)] p-3.5">
+          <div className="mb-2 flex items-center gap-2.5">
+            <span className="eyebrow" style={{ color: 'var(--color-amber)' }}>AI 답글 초안</span>
+            <span className="h-px flex-1 bg-[var(--color-hair)]" />
+            <span className="text-[10px] text-[var(--color-fg-4)]">확인 후 붙여넣기</span>
           </div>
           <p className="text-[13px] leading-relaxed text-[var(--color-fg-2)]">{review.replyDraft}</p>
         </div>

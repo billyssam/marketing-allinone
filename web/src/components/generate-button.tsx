@@ -42,7 +42,7 @@ export function GenerateButton() {
         disabled={loading}
         className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-semibold disabled:opacity-60"
       >
-        {loading ? '생성 중… (10~20초)' : '✍️ 오늘 글 생성'}
+        {loading ? '생성 중… (10~20초)' : '오늘 글 생성'}
       </button>
       {error && <p className="max-w-[260px] text-right text-[11.5px] text-[var(--color-danger,#e5484d)]">{error}</p>}
     </div>

@@ -30,7 +30,7 @@ const STEP_INFO: Record<Step, { label: string; hint: string; buttonLabel: string
     buttonLabel: '완료',
   },
   done: {
-    label: '🎉 완료',
+    label: '완료',
     hint: '이제 네이버 블로그 앱에서 발행 버튼만 누르세요.',
     buttonLabel: '닫기',
   },

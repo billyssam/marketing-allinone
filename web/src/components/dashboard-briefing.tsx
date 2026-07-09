@@ -28,8 +28,9 @@ export function DashboardBriefing({ items }: { items: BriefingItem[] }) {
 
   return (
     <div className="panel rounded-[var(--radius-lg)] p-4">
-      <div className="mb-3 px-1 text-[13.5px] text-[var(--color-fg-2)]">
-        오늘 준비된 <span className="font-semibold text-[var(--color-fg)]">{items.length}건</span>이에요 👋
+      <div className="mb-3 flex items-center gap-2 px-1">
+        <span className="eyebrow">오늘 처리할 항목</span>
+        <span className="mono text-[12px] text-[var(--color-fg)]">{items.length}</span>
       </div>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((it) => (

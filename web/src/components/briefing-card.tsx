@@ -18,7 +18,7 @@ export function BriefingCard() {
 
       <div className="px-3 pb-3 pt-3">
         <div className="mb-2.5 px-1 text-[13px] text-[var(--color-fg-2)]">
-          사장님, 오늘 준비된 <span className="font-semibold text-[var(--color-fg)]">3건</span>이에요 👋
+          사장님, 오늘 준비된 <span className="font-semibold text-[var(--color-fg)]">3건</span>이에요.
         </div>
         <div className="space-y-2">
           {items.map((it) => (
