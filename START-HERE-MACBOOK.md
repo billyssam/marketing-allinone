@@ -5,6 +5,16 @@
 
 ---
 
+## 🚀 최신 상태 (2026-07-09)
+
+- **라이브 배포**: https://marketing-allinone.vercel.app (Vercel · Git 자동배포 — `git push`하면 자동 반영)
+- **Supabase 새 프로젝트**: `exmbpietyadkjnunrhka` (옛 `oricgerprwgijnowjokn`는 무료한도로 폐기)
+  - ⚠️ 아래 STEP 3의 `.env.local` 키는 **`Desktop\마케팅올인원_새키_0709.txt`** 값(새 프로젝트)을 쓸 것
+- **리뷰 자동수집**: GitHub Actions 매일 09시 KST 자동 (수동 실행 불필요)
+- **다음 예정**: 소셜 로그인(카카오/구글) — 이제 배포 도메인 생겼으니 연결 가능
+
+---
+
 ## ⭐ STEP 0. 준비물 (맥북에 한 번만)
 
 터미널 열기: `⌘ + Space` → "터미널" 입력 → Enter
