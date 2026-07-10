@@ -5,6 +5,33 @@ import type { ChannelDraftBundle } from '@shared/content-engine/orchestrator';
 /** posts.channel enum (0001_init.sql: post_channel) */
 export type PostChannel = 'blog' | 'instagram' | 'facebook' | 'google_gbp' | 'threads';
 
+/** posts.status enum (0001_init.sql: post_status) */
+export type PostStatus = 'draft' | 'ready' | 'sent_to_owner' | 'published' | 'failed' | 'archived';
+
+/** PostChannel 표기 — UI 단일 진실원천(Record 완전성으로 enum 추가 시 컴파일 강제) */
+export const POST_CHANNEL_LABEL: Record<PostChannel, string> = {
+  blog: '네이버 블로그',
+  instagram: '인스타그램',
+  facebook: '페이스북',
+  google_gbp: '구글 비즈니스',
+  threads: '스레드',
+};
+export const POST_CHANNEL_COLOR: Record<PostChannel, string> = {
+  blog: 'var(--color-naver)',
+  instagram: 'var(--color-ig)',
+  facebook: 'var(--color-ig)',
+  google_gbp: 'var(--color-amber)',
+  threads: 'var(--color-fg-2)',
+};
+export const POST_STATUS_LABEL: Record<PostStatus, string> = {
+  draft: '초안',
+  ready: '발행 준비',
+  sent_to_owner: '카톡 전송됨',
+  published: '발행 완료',
+  failed: '실패',
+  archived: '보관',
+};
+
 /**
  * 콘텐츠 엔진의 ChannelId → posts.channel enum 매핑.
  * enum에 없는 채널(naver_place·danggeun 등)은 posts로 영속화하지 않는다(핸드오프 전용).

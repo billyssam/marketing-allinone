@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { ChannelId } from '../channels/registry';
 import type { DraftInput, DraftOutput } from './types';
 import { htmlToPlain } from './channel-formatter';
+import { STANDARD_LANGUAGE_RULE } from './prompts/base';
 
 /**
  * 채널 네이티브 재작성 — 마스터(블로그)를 각 단문 채널의 "고유 톤"으로 1회 호출 재작성.
@@ -61,7 +62,7 @@ export async function nativizeShortForm(
 
   const prompt = `아래 블로그 원본을 각 채널의 고유 톤으로 재작성하라.
 블로그를 자르지 말고, 채널 성격에 맞게 새로 쓴다. 사실(주소·메뉴·가격)은 원본과 일치시킨다.
-말투는 **표준어**로 쓴다. 매장 톤은 성격·분위기 지침일 뿐이며, "시골"·"푸근함" 같은 표현이 있어도 사투리로 옮기지 않는다(톤에 특정 사투리를 명시적으로 요구한 경우에만 그 사투리 하나로 일관되게, 지역 혼용 금지).
+말투 원칙: ${STANDARD_LANGUAGE_RULE}
 
 ## 매장
 - 상호: ${input.store.name}

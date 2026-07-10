@@ -6,31 +6,9 @@ import { signOut } from '@/app/auth/actions';
 import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
+import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, type PostChannel, type PostStatus } from '@/lib/posts';
 
 export const metadata = { title: '대시보드' };
-
-const POST_CHANNEL_LABEL: Record<string, string> = {
-  blog: '네이버 블로그',
-  instagram: '인스타그램',
-  facebook: '페이스북',
-  google_gbp: '구글 비즈니스',
-  threads: '스레드',
-};
-const POST_CHANNEL_COLOR: Record<string, string> = {
-  blog: 'var(--color-naver)',
-  instagram: 'var(--color-ig)',
-  facebook: 'var(--color-ig)',
-  google_gbp: 'var(--color-amber)',
-  threads: 'var(--color-fg-2)',
-};
-const POST_STATUS_LABEL: Record<string, string> = {
-  draft: '초안',
-  ready: '발행 준비',
-  sent_to_owner: '카톡 전송됨',
-  published: '발행 완료',
-  failed: '실패',
-  archived: '보관',
-};
 
 export default async function DashboardPage() {
   const user = isSupabaseConfigured ? (await (await createClient()).auth.getUser()).data.user : null;
@@ -74,8 +52,8 @@ export default async function DashboardPage() {
     ...(todoPosts ?? []).map((p) => ({
       key: `post-${p.id}`,
       kind: 'post' as const,
-      channelLabel: POST_CHANNEL_LABEL[p.channel] ?? p.channel,
-      color: POST_CHANNEL_COLOR[p.channel] ?? 'var(--color-amber)',
+      channelLabel: POST_CHANNEL_LABEL[p.channel as PostChannel] ?? p.channel,
+      color: POST_CHANNEL_COLOR[p.channel as PostChannel] ?? 'var(--color-amber)',
       title: p.title || '(제목 없음)',
       status: p.status === 'ready' ? '발행 준비됨' : '초안 준비됨',
       actionLabel: '붙여넣기 →',
@@ -179,8 +157,8 @@ export default async function DashboardPage() {
                   className="panel group rounded-[var(--radius)] p-4 transition hover:border-[var(--color-hair-strong)]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="mono text-[10px] text-[var(--color-fg-3)]">{POST_CHANNEL_LABEL[p.channel] ?? p.channel}</span>
-                    <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">{POST_STATUS_LABEL[p.status] ?? p.status}</span>
+                    <span className="mono text-[10px] text-[var(--color-fg-3)]">{POST_CHANNEL_LABEL[p.channel as PostChannel] ?? p.channel}</span>
+                    <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">{POST_STATUS_LABEL[p.status as PostStatus] ?? p.status}</span>
                   </div>
                   <p className="mt-2 line-clamp-2 text-[13.5px] font-medium group-hover:text-[var(--color-fg)]">{p.title || '(제목 없음)'}</p>
                   <p className="mt-2 text-[11px] text-[var(--color-fg-3)]">붙여넣기 도우미 열기 →</p>
