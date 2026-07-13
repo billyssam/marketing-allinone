@@ -10,6 +10,12 @@ import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, type PostCha
 
 export const metadata = { title: '대시보드' };
 
+const CONN_STATUS: Record<string, { label: string; color: string }> = {
+  connected: { label: '연결됨', color: 'var(--color-good)' },
+  pending: { label: '연결 대기', color: 'var(--color-fg-3)' },
+  error: { label: '오류', color: 'var(--color-bad)' },
+};
+
 export default async function DashboardPage() {
   const user = isSupabaseConfigured ? (await (await createClient()).auth.getUser()).data.user : null;
 
@@ -46,7 +52,9 @@ export default async function DashboardPage() {
     supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
   ]);
 
-  const connected = (connsRes.data ?? []).map((c) => c.channel_id as ChannelId);
+  const conns = (connsRes.data ?? []) as { channel_id: string; status: string | null }[];
+  const connected = conns.map((c) => c.channel_id as ChannelId);
+  const connStatus = new Map(conns.map((c) => [c.channel_id, c.status ?? 'pending']));
   const drafts = recentPostsRes.data ?? [];
   const draftsLoadFailed = Boolean(recentPostsRes.error); // 에러를 "초안 없음"으로 오인하지 않도록 구분
   const todoPosts = todoPostsRes.data;
@@ -136,13 +144,18 @@ export default async function DashboardPage() {
                 const ch = CHANNELS.find((c) => c.id === id);
                 if (!ch) return null;
                 const au = AUTOMATION_LABEL[ch.automation];
+                const st = CONN_STATUS[connStatus.get(id) ?? 'pending'] ?? CONN_STATUS.pending;
                 return (
                   <div key={id} className="panel rounded-[var(--radius)] p-3.5">
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: ch.color }} />
                       <span className="text-[13.5px] font-medium">{ch.name}</span>
                     </div>
-                    <div className="mono mt-2 text-[10px]" style={{ color: au.color }}>{au.label} · 대기중</div>
+                    <div className="mono mt-2 flex items-center gap-1.5 text-[10px]">
+                      <span style={{ color: au.color }}>{au.label}</span>
+                      <span className="text-[var(--color-fg-4)]">·</span>
+                      <span style={{ color: st.color }}>{st.label}</span>
+                    </div>
                   </div>
                 );
               })}
