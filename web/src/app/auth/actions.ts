@@ -37,22 +37,37 @@ export async function signUpWithEmail(_prev: AuthState, formData: FormData): Pro
   redirect('/onboarding');
 }
 
-/** 카카오·구글 — Supabase 네이티브 OAuth */
+/** 카카오·구글 — Supabase 네이티브 OAuth. 프로바이더 미설정 시 크래시/날JSON 대신 안내로 폴백 */
 export async function signInWithProvider(formData: FormData): Promise<void> {
   const provider = String(formData.get('provider') ?? '') as 'kakao' | 'google';
-  if (!isSupabaseConfigured || !['kakao', 'google'].includes(provider)) return;
+  const notice = `/login?notice=social-soon&p=${provider}`;
+  if (!isSupabaseConfigured || !['kakao', 'google'].includes(provider)) redirect(notice);
+
   const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL;
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${origin}/auth/callback?next=/onboarding` },
+    // 브라우저 자동 리다이렉트 끄고 url만 받아, 프로바이더가 켜졌는지 서버서 먼저 확인
+    options: { redirectTo: `${origin}/auth/callback?next=/onboarding`, skipBrowserRedirect: true },
   });
-  if (error) throw error;
-  if (data.url) redirect(data.url);
+  if (error || !data?.url) redirect(notice);
+
+  // 미설정 프로바이더는 authorize가 400(Unsupported provider) → 사용자 보내기 전 프로브.
+  // (redirect는 NEXT_REDIRECT를 throw하므로 try 밖에서 호출)
+  let enabled = true;
+  try {
+    const probe = await fetch(data.url, { redirect: 'manual', signal: AbortSignal.timeout(3500) });
+    enabled = probe.status < 400; // 켜짐=302(프로바이더로), 꺼짐=400
+  } catch {
+    /* 프로브 실패(네트워크·타임아웃)는 통과시켜 실제 플로우에 맡김 */
+  }
+  if (!enabled) redirect(notice);
+  redirect(data.url);
 }
 
-/** 네이버 — Supabase 미지원 → 커스텀 OAuth 시작 (/auth/naver/start로 위임) */
+/** 네이버 — Supabase 미지원 → 커스텀 OAuth. 키 없으면 안내로 폴백 */
 export async function signInWithNaver(): Promise<void> {
+  if (!process.env.NAVER_CLIENT_ID) redirect('/login?notice=social-soon&p=naver');
   redirect('/auth/naver/start');
 }
 

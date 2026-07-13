@@ -2,11 +2,17 @@
 
 import { useActionState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { signInWithEmail, signUpWithEmail, signInWithProvider, signInWithNaver, type AuthState } from '@/app/auth/actions';
+
+const PROVIDER_LABEL: Record<string, string> = { kakao: '카카오', google: '구글', naver: '네이버' };
 
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const action = mode === 'login' ? signInWithEmail : signUpWithEmail;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
+  const params = useSearchParams();
+  const socialSoon = params.get('notice') === 'social-soon';
+  const soonLabel = PROVIDER_LABEL[params.get('p') ?? ''] ?? '소셜';
 
   return (
     <div className="w-full max-w-sm">
@@ -19,6 +25,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">
         {mode === 'login' ? '사장님 계정으로 로그인하세요.' : '매장 하나로 모든 채널을 연결합니다.'}
       </p>
+
+      {socialSoon && (
+        <div className="mt-6 rounded-xl border border-[var(--color-hair-strong)] bg-[var(--color-panel-2)] p-3 text-[12.5px] text-[var(--color-fg-2)]">
+          <b className="text-[var(--color-fg)]">{soonLabel} 로그인</b>은 곧 지원돼요. 지금은 <b className="text-[var(--color-amber)]">이메일</b>로 바로 시작하실 수 있어요.
+        </div>
+      )}
 
       {/* 소셜 로그인 — 카카오(1순위)·네이버·구글 */}
       <div className="mt-8 space-y-2.5">
