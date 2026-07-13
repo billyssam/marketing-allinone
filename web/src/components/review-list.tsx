@@ -174,7 +174,7 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
           <button
             type="button"
             onClick={copyReply}
-            className="rounded-lg bg-[var(--color-amber)] px-3 py-1.5 text-[12px] font-semibold text-[var(--color-amber-ink)] transition hover:opacity-90"
+            className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-semibold text-[var(--color-amber-ink)] transition hover:opacity-90"
           >
             {copied ? '✓ 복사됨' : '답글 복사'}
           </button>
@@ -183,7 +183,7 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
           href={replyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg border border-[var(--color-hair-strong)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
+          className="rounded-lg border border-[var(--color-hair-strong)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
         >
           네이버에서 답글 달기 ↗
         </a>
@@ -191,7 +191,7 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
           type="button"
           onClick={toggleSent}
           disabled={pending}
-          className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition disabled:opacity-50 ${
+          className={`rounded-lg px-3.5 py-2 text-[12px] font-medium transition disabled:opacity-50 ${
             sent
               ? 'border border-[var(--color-hair)] text-[var(--color-fg-3)]'
               : 'border border-[var(--color-good)] text-[var(--color-good)]'
