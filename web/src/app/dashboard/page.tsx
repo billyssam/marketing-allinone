@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
-import { DashboardPreview } from '@/components/dashboard-preview';
+import { DashboardPerformance, type PerfData } from '@/components/dashboard-performance';
 import { signOut } from '@/app/auth/actions';
 import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
 import { GenerateButton } from '@/components/generate-button';
@@ -32,14 +32,18 @@ export default async function DashboardPage() {
   if (storeErr) throw new Error(`매장 정보를 불러오지 못했어요: ${storeErr.message}`);
   if (!store) redirect('/onboarding');
 
-  // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 4왕복 → 1왕복)
-  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes] = await Promise.all([
+  // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
+  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
     supabase.from('posts').select('id, channel, title, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready)
     supabase.from('posts').select('id, channel, title, status').eq('store_id', store.id).in('status', ['draft', 'ready']).order('created_at', { ascending: false }).limit(6),
     // + 답글 대기 리뷰
     supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
+    // 성과: 리뷰 감정 집계 (실데이터)
+    supabase.from('reviews').select('sentiment, reply_draft, reply_sent_at').eq('store_id', store.id).limit(1000),
+    // 성과: 초안 총계
+    supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
   ]);
 
   const connected = (connsRes.data ?? []).map((c) => c.channel_id as ChannelId);
@@ -47,6 +51,17 @@ export default async function DashboardPage() {
   const draftsLoadFailed = Boolean(recentPostsRes.error); // 에러를 "초안 없음"으로 오인하지 않도록 구분
   const todoPosts = todoPostsRes.data;
   const pendingReviews = pendingReviewsRes.data;
+
+  // 성과 실데이터 (없는 지표는 컴포넌트에서 "집계 예정"으로 정직 표시)
+  const allReviews = allReviewsRes.data ?? [];
+  const perfData: PerfData = {
+    totalReviews: allReviews.length,
+    positive: allReviews.filter((r) => r.sentiment === 'positive').length,
+    neutral: allReviews.filter((r) => r.sentiment === 'neutral').length,
+    negative: allReviews.filter((r) => r.sentiment === 'negative').length,
+    pendingReplies: allReviews.filter((r) => r.reply_draft && !r.reply_sent_at).length,
+    totalPosts: postsCountRes.count ?? 0,
+  };
 
   const briefingItems: BriefingItem[] = [
     ...(todoPosts ?? []).map((p) => ({
@@ -168,14 +183,12 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* 성과 대시보드 (데이터 쌓이면 실데이터로) */}
+        {/* 성과 (실데이터: 리뷰 감정·초안. 도달·조회는 채널 연동 후) */}
         <section className="mt-10">
           <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
-            성과 <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">데이터 수집 시작 후 실시간 반영</span>
+            성과 <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">실시간</span>
           </div>
-          <div className="panel rounded-[var(--radius-lg)] p-3">
-            <DashboardPreview />
-          </div>
+          <DashboardPerformance data={perfData} />
         </section>
       </main>
     </div>
