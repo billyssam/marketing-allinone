@@ -107,10 +107,10 @@ export default async function DashboardPage() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 border-b border-[var(--color-hair)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
+          <Link href="/settings" className="group flex items-center gap-3" title="매장 설정">
             <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
-            <span className="text-[15px] font-semibold">{store.name}</span>
-          </div>
+            <span className="text-[15px] font-semibold transition group-hover:text-[var(--color-amber)]">{store.name}</span>
+          </Link>
           <nav className="flex items-center gap-4 text-[13px] text-[var(--color-fg-2)] sm:gap-5">
             <Link href="/dashboard" className="text-[var(--color-fg)]">대시보드</Link>
             <Link href="/reviews" className="hover:text-[var(--color-fg)]">리뷰</Link>
