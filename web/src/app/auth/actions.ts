@@ -28,12 +28,15 @@ export async function signUpWithEmail(_prev: AuthState, formData: FormData): Pro
 
   const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL;
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: `${origin}/auth/callback?next=/onboarding` },
   });
   if (error) return { error: translate(error.message) };
+  // 확인메일 ON 프로젝트: 세션이 안 잡힘 → 온보딩으로 보내면 미들웨어가 튕김.
+  // 세션 있으면(확인 OFF) 바로 온보딩, 없으면 "메일 확인" 안내.
+  if (!data.session) redirect('/signup?notice=check-email');
   redirect('/onboarding');
 }
 
@@ -80,7 +83,8 @@ export async function signOut(): Promise<void> {
 function translate(msg: string): string {
   const m = msg.toLowerCase();
   if (m.includes('invalid login')) return '이메일 또는 비밀번호가 올바르지 않습니다';
-  if (m.includes('already registered')) return '이미 가입된 이메일입니다';
+  if (m.includes('already registered') || m.includes('already been registered')) return '이미 가입된 이메일입니다';
+  if (m.includes('invalid') && m.includes('email')) return '이메일 형식이 올바르지 않습니다';
   if (m.includes('rate limit')) return '잠시 후 다시 시도해주세요';
   return '문제가 발생했습니다. 다시 시도해주세요';
 }

@@ -11,7 +11,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const action = mode === 'login' ? signInWithEmail : signUpWithEmail;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
   const params = useSearchParams();
-  const socialSoon = params.get('notice') === 'social-soon';
+  const notice = params.get('notice');
+  const socialSoon = notice === 'social-soon';
+  const checkEmail = notice === 'check-email';
   const soonLabel = PROVIDER_LABEL[params.get('p') ?? ''] ?? '소셜';
 
   return (
@@ -29,6 +31,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       {socialSoon && (
         <div className="mt-6 rounded-xl border border-[var(--color-hair-strong)] bg-[var(--color-panel-2)] p-3 text-[12.5px] text-[var(--color-fg-2)]">
           <b className="text-[var(--color-fg)]">{soonLabel} 로그인</b>은 곧 지원돼요. 지금은 <b className="text-[var(--color-amber)]">이메일</b>로 바로 시작하실 수 있어요.
+        </div>
+      )}
+
+      {checkEmail && (
+        <div className="mt-6 rounded-xl border border-[var(--color-good)] bg-[var(--color-panel-2)] p-3.5 text-[12.5px] text-[var(--color-fg-2)]">
+          <b className="text-[var(--color-good)]">확인 메일을 보냈어요.</b> 메일함(스팸함 포함)의 링크를 누르면 가입이 완료됩니다.
         </div>
       )}
 

@@ -50,6 +50,13 @@
   - `https://marketing-allinone.vercel.app/auth/callback`
   - `http://localhost:3000/auth/callback` (로컬 개발용)
 
+## 5. (권장) 이메일 회원가입 매끄럽게 — 확인메일 OFF
+
+파일럿 사장님이 이메일로 가입할 때 확인메일 없이 바로 시작하게 하려면:
+[Sign In / Providers → Email](https://supabase.com/dashboard/project/exmbpietyadkjnunrhka/auth/providers) → **Confirm email 끄기(OFF)**
+- 코드는 확인메일 ON/OFF **둘 다 대응**(ON이면 "확인 메일 보냈어요" 안내). OFF면 즉시 온보딩 진입.
+- 소셜 로그인(카카오/구글)만 쓸 거면 이 단계 생략 가능.
+
 ## 등록 후 체크리스트
 
 - [ ] 카카오·구글 = Supabase 대시보드 Providers에만 입력 (키를 코드/깃에 넣지 말 것)
