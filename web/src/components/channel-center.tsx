@@ -61,10 +61,11 @@ export function ChannelCenter({
             <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
             <span className="text-[15px] font-semibold">{storeName}</span>
           </div>
-          <nav className="flex items-center gap-5 text-[13px] text-[var(--color-fg-2)]">
+          <nav className="flex items-center gap-4 text-[13px] text-[var(--color-fg-2)] sm:gap-5">
             <Link href="/dashboard" className="hover:text-[var(--color-fg)]">대시보드</Link>
             <Link href="/reviews" className="hover:text-[var(--color-fg)]">리뷰</Link>
-            <Link href="/channels" className="text-[var(--color-fg)]">채널 연결</Link>
+            <Link href="/regulars" className="hover:text-[var(--color-fg)]">단골</Link>
+            <Link href="/channels" className="text-[var(--color-fg)]">채널</Link>
           </nav>
         </div>
       </header>
