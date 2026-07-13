@@ -7,6 +7,7 @@ import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/reg
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
 import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, type PostChannel, type PostStatus } from '@/lib/posts';
+import { isReactivationTarget, daysSince } from '@shared/content-engine/reactivation';
 
 export const metadata = { title: '대시보드' };
 
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
   if (!store) redirect('/onboarding');
 
   // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
-  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes] = await Promise.all([
+  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes, regularsRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
     supabase.from('posts').select('id, channel, title, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready)
@@ -50,6 +51,8 @@ export default async function DashboardPage() {
     supabase.from('reviews').select('sentiment, reply_draft, reply_sent_at').eq('store_id', store.id).limit(1000),
     // 성과: 초안 총계
     supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
+    // 재방문: 단골 방문일
+    supabase.from('regulars').select('last_visit_at').eq('store_id', store.id).limit(1000),
   ]);
 
   const conns = (connsRes.data ?? []) as { channel_id: string; status: string | null }[];
@@ -70,6 +73,12 @@ export default async function DashboardPage() {
     pendingReplies: allReviews.filter((r) => r.reply_draft && !r.reply_sent_at).length,
     totalPosts: postsCountRes.count ?? 0,
   };
+
+  // 재방문 유도 대상(끊긴 단골) 수
+  const nowMs = Date.now();
+  const reactivationTargets = (regularsRes.data ?? []).filter((r) =>
+    isReactivationTarget(daysSince(r.last_visit_at as string | null, nowMs)),
+  ).length;
 
   const briefingItems: BriefingItem[] = [
     ...(todoPosts ?? []).map((p) => ({
@@ -130,6 +139,17 @@ export default async function DashboardPage() {
         <section className="mt-6">
           <DashboardBriefing items={briefingItems} />
         </section>
+
+        {/* 재방문 유도 넛지 (끊긴 단골 있을 때) */}
+        {reactivationTargets > 0 && (
+          <Link href="/regulars" className="mt-3 flex items-center justify-between rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 transition hover:border-[var(--color-hair-strong)]">
+            <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-amber)]" />
+              <span><b className="text-[var(--color-fg)]">{reactivationTargets}명</b>의 끊긴 단골에게 재방문 메시지가 준비됐어요</span>
+            </span>
+            <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">단골 관리 →</span>
+          </Link>
+        )}
 
         {/* 연결된 채널 상태 */}
         <section className="mt-8">
