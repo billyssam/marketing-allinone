@@ -1,7 +1,18 @@
-# Supabase 복구 가이드 (5분)
+# Supabase 복구 가이드 (참고용)
 
-> 2026-07-08 확인: 기존 프로젝트 `oricgerprwgijnowjokn.supabase.co` = **NXDOMAIN** (무료한도 초과로 조기 중단).
-> 로그인·대시보드·글 생성 등 DB 기능 전부 이 복구가 선행돼야 함. 코드는 문제 없음.
+> ✅ **이미 해결됨 (2026-07-09)**: 새 무료 계정 프로젝트 **`exmbpietyadkjnunrhka`** 로 이전 완료 +
+> Vercel 배포 라이브(https://marketing-allinone.vercel.app). `node scripts/verify-db.mjs` 9/9 통과.
+> **지금은 이 문서대로 새로 만들 필요 없음** — 아래는 *향후 프로젝트가 또 죽을 때* 대비 참고 절차.
+> (현 schema-all.sql은 0001~0004 합본이며, 소셜 로그인 설정은 `docs/oauth-setup.md` 참고.)
+>
+> ⚠️ 무료 한도는 **계정당 활성 프로젝트 2개**. 재발 시 billyssam 말고 **별도 무료 계정**에 만들 것.
+
+---
+
+<details><summary>옛 기록 (2026-07-08): 기존 프로젝트 NXDOMAIN 진단</summary>
+
+기존 `oricgerprwgijnowjokn.supabase.co` = NXDOMAIN (무료한도 초과 중단). 이후 위와 같이 새 계정으로 이전해 해결됨.
+</details>
 
 ## 빌리쌤이 하는 것 (브라우저, ~5분)
 
