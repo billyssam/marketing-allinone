@@ -5,12 +5,12 @@ import { completeOnboarding } from '@/app/onboarding/actions';
 import { CHANNELS, AUTOMATION_LABEL, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
 
 const INDUSTRIES = [
-  { id: 'cafe', label: '카페·베이커리', emoji: '☕' },
-  { id: 'restaurant', label: '음식점', emoji: '🍽️' },
-  { id: 'vet', label: '동물병원', emoji: '🐾' },
-  { id: 'beauty', label: '미용실·네일샵', emoji: '💇' },
-  { id: 'gym', label: '헬스·PT', emoji: '💪' },
-  { id: 'kids', label: '학원·키즈', emoji: '📚' },
+  { id: 'cafe', label: '카페·베이커리', tone: '따뜻·감성' },
+  { id: 'restaurant', label: '음식점', tone: '식욕·신선' },
+  { id: 'vet', label: '동물병원', tone: '신뢰·전문' },
+  { id: 'beauty', label: '미용실·네일샵', tone: '세련·트렌디' },
+  { id: 'gym', label: '헬스·PT', tone: '동기·전문' },
+  { id: 'kids', label: '학원·키즈', tone: '신뢰·따뜻' },
 ];
 
 const GROUP_ORDER: ChannelGroup[] = ['acquire', 'sell', 'retain'];
@@ -63,13 +63,19 @@ export function OnboardingWizard() {
       {step === 1 && (
         <Step title="어떤 업종이세요?" desc="업종에 맞는 콘텐츠 톤을 자동으로 잡아드려요.">
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {INDUSTRIES.map((ind) => (
-              <button key={ind.id} onClick={() => setIndustryId(ind.id)}
-                className={`rounded-xl border p-3 text-center transition ${industryId === ind.id ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)] hover:border-[var(--color-hair-strong)]'}`}>
-                <div className="text-[22px]">{ind.emoji}</div>
-                <div className="mt-1 text-[12px]">{ind.label}</div>
-              </button>
-            ))}
+            {INDUSTRIES.map((ind) => {
+              const on = industryId === ind.id;
+              return (
+                <button key={ind.id} onClick={() => setIndustryId(ind.id)}
+                  className={`rounded-xl border p-3.5 text-left transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)] hover:border-[var(--color-hair-strong)]'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[13px] font-medium">{ind.label}</div>
+                    {on && <span className="text-[11px] text-[var(--color-amber)]">✓</span>}
+                  </div>
+                  <div className="eyebrow mt-1.5">{ind.tone}</div>
+                </button>
+              );
+            })}
           </div>
         </Step>
       )}
