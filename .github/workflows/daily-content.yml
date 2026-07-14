@@ -1,0 +1,36 @@
+name: 데일리 콘텐츠 생성
+
+# 매일 09:05 KST(00:05 UTC) — 온보딩된 매장마다 블로그 초안 1건 자동 생성 → 아침 브리핑에 표시.
+# "매일 아침 9시, 마케팅이 끝나 있어요"의 실체. 멱등(오늘 데일리 있으면 스킵).
+on:
+  schedule:
+    - cron: '5 0 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-content
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 의존성 설치 (워크스페이스)
+        run: npm install
+
+      - name: 데일리 초안 생성
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npx tsx src/generate-daily.ts
