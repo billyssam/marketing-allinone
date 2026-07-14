@@ -3,9 +3,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-/** 대시보드에서 오늘 글 초안을 생성 → posts 저장 → 목록 새로고침 */
+const LENGTHS: { v: 'short' | 'medium' | 'long'; l: string }[] = [
+  { v: 'short', l: '짧게' },
+  { v: 'medium', l: '보통' },
+  { v: 'long', l: '길게' },
+];
+
+/** 오늘 글 컴포저 — 주제·길이 선택 → /api/generate → posts 저장 → 새로고침 */
 export function GenerateButton() {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [angle, setAngle] = useState('');
+  const [length, setLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -16,22 +25,26 @@ export function GenerateButton() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({}), // 기본: 매장 블로그 1건
+        body: JSON.stringify({ angle: angle.trim() || undefined, targetLength: length }),
       });
       if (!res.ok) {
         if (res.status === 429) {
-          throw new Error('Gemini 무료 한도(20회/일)를 다 썼어요. 잠시 후 다시 시도하거나 결제를 연결해주세요.');
+          throw new Error('Gemini 무료 한도를 다 썼어요. 결제를 연결하면 계속 만들 수 있어요.');
         }
-        // 비-JSON 에러 바디(500 HTML·502/504 게이트웨이)에도 안전하게
-        let message = '생성 실패';
+        if (res.status === 503) {
+          throw new Error('아직 AI 키가 연결되지 않았어요. 설정에서 Gemini를 연결해주세요.');
+        }
+        let message = '생성에 실패했어요. 잠시 후 다시 시도해주세요.';
         try {
           const data = await res.json();
           if (data?.error) message = data.error;
         } catch {
-          /* 파싱 실패 시 기본 메시지 유지 */
+          /* 비-JSON 에러 바디는 기본 메시지 유지 */
         }
         throw new Error(message);
       }
+      setOpen(false);
+      setAngle('');
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -41,16 +54,56 @@ export function GenerateButton() {
   }
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
+    <div className="relative">
       <button
         type="button"
-        onClick={generate}
-        disabled={loading}
-        className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-semibold disabled:opacity-60"
+        onClick={() => { setOpen((o) => !o); setError(null); }}
+        className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-semibold"
       >
-        {loading ? '생성 중… (10~20초)' : '오늘 글 생성'}
+        오늘 글 생성
       </button>
-      {error && <p className="max-w-[260px] text-right text-[11.5px] text-[var(--color-danger,#e5484d)]">{error}</p>}
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => !loading && setOpen(false)} />
+          <div className="panel absolute right-0 z-50 mt-2 w-[288px] rounded-[var(--radius-lg)] p-4 shadow-2xl">
+            <div className="eyebrow">오늘 뭘 알릴까요?</div>
+            <input
+              autoFocus
+              value={angle}
+              onChange={(e) => setAngle(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !loading) generate(); }}
+              placeholder="예: 신메뉴 대추라떼 출시"
+              className="mt-2 w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]"
+            />
+            <p className="mt-1.5 text-[11px] text-[var(--color-fg-3)]">비우면 매장 정보로 알아서 써드려요.</p>
+
+            <div className="mt-3 flex gap-1.5">
+              {LENGTHS.map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setLength(o.v)}
+                  className={`flex-1 rounded-lg py-2 text-[12px] font-medium transition ${length === o.v ? 'bg-[var(--color-fg)] text-[var(--color-bg)]' : 'border border-[var(--color-hair)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={generate}
+              disabled={loading}
+              className="btn-primary mt-3 w-full rounded-full py-2.5 text-[13px] font-semibold disabled:opacity-60"
+            >
+              {loading ? '생성 중… (10~20초)' : '생성하기'}
+            </button>
+
+            {error && <p className="mt-2.5 text-[11.5px] leading-relaxed text-[var(--color-bad)]">{error}</p>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
