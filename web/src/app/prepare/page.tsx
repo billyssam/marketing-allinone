@@ -15,9 +15,9 @@ interface Draft {
 }
 
 const FLOW: Step[] = ['title', 'body', 'tags'];
-// 인스타는 해시태그가 본문(bodyPlain)에 이미 붙어 있어 별도 태그 단계가 있으면 이중 붙여넣기가 됨 → 태그 단계 생략
+// 인스타는 제목이 없고(캡션 단일) 해시태그도 캡션에 포함 → 캡션 한 단계만
 function flowFor(channel?: string): Step[] {
-  return channel === 'instagram' ? ['title', 'body'] : FLOW;
+  return channel === 'instagram' ? ['body'] : FLOW;
 }
 
 const STEP_INFO: Record<Step, { idx: number; label: string; hint: string; cta: string }> = {
@@ -44,11 +44,18 @@ function PrepareInner() {
     }
     fetch(`/api/prepare?post=${encodeURIComponent(postId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((d: Draft) => {
+      .then(async (d: Draft) => {
         setDraft(d);
-        return copyToClipboard(d.title);
+        // 인스타(캡션 단일)는 body부터 시작 — null 제목 복사 방지
+        if (flowFor(d.channel)[0] === 'body') {
+          setStep('body');
+          await copyToClipboard(d.bodyPlain);
+          setStatus({ tone: 'ok', msg: '캡션이 복사됐어요. 인스타에 붙여넣기 하세요.' });
+        } else {
+          await copyToClipboard(d.title);
+          setStatus({ tone: 'ok', msg: '제목이 복사됐어요. 붙여넣기 하세요.' });
+        }
       })
-      .then(() => setStatus({ tone: 'ok', msg: '제목이 복사됐어요. 붙여넣기 하세요.' }))
       .catch((err) => setStatus({ tone: 'err', msg: `초안을 불러오지 못했어요 (${err.message ?? err})` }));
   }, [postId]);
 
@@ -106,13 +113,13 @@ function PrepareInner() {
       {/* 헤더: 매장명 + 단계 */}
       <div className="flex items-center justify-between">
         <span className="eyebrow">{draft?.storeName ?? '블로그 발행'}</span>
-        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {info.idx} / {flow.length}</span>}
+        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {flow.indexOf(step) + 1} / {flow.length}</span>}
       </div>
 
       {/* 진행 세그먼트 */}
       <div className="mt-3 flex gap-1.5">
         {flow.map((s) => {
-          const active = isDone || STEP_INFO[s].idx <= info.idx;
+          const active = isDone || flow.indexOf(s) <= flow.indexOf(step);
           return (
             <span
               key={s}
@@ -130,8 +137,16 @@ function PrepareInner() {
             ✓
           </div>
         ) : null}
-        <h1 className="mt-4 text-[26px] font-bold tracking-tight">{info.label}</h1>
-        <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{info.hint}</p>
+        <h1 className="mt-4 text-[26px] font-bold tracking-tight">
+          {draft?.channel === 'instagram' && step === 'body' ? '캡션' : info.label}
+        </h1>
+        <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">
+          {draft?.channel === 'instagram'
+            ? isDone
+              ? '이제 인스타그램 앱에서 게시 버튼만 누르면 끝이에요.'
+              : '인스타그램 새 게시물 캡션 칸에 길게 눌러 붙여넣기 하세요.'
+            : info.hint}
+        </p>
 
         {/* 상태 */}
         {status.msg && (
@@ -170,10 +185,10 @@ function PrepareInner() {
         </button>
         {!isDone && (
           <a
-            href="naverblog://write"
+            href={draft?.channel === 'instagram' ? 'instagram://app' : 'naverblog://write'}
             className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
           >
-            네이버 블로그 앱 열기
+            {draft?.channel === 'instagram' ? '인스타그램 앱 열기' : '네이버 블로그 앱 열기'}
           </a>
         )}
       </div>

@@ -9,12 +9,18 @@ const LENGTHS: { v: 'short' | 'medium' | 'long'; l: string }[] = [
   { v: 'long', l: '길게' },
 ];
 
-/** 오늘 글 컴포저 — 주제·길이 선택 → /api/generate → posts 저장 → 새로고침 */
+const TARGETS: { v: 'blog' | 'blog_insta'; l: string }[] = [
+  { v: 'blog', l: '블로그' },
+  { v: 'blog_insta', l: '블로그 + 인스타' },
+];
+
+/** 오늘 글 컴포저 — 주제·길이·채널 선택 → /api/generate → posts 저장 → 새로고침 */
 export function GenerateButton() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [angle, setAngle] = useState('');
   const [length, setLength] = useState<'short' | 'medium' | 'long'>('medium');
+  const [target, setTarget] = useState<'blog' | 'blog_insta'>('blog');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +31,11 @@ export function GenerateButton() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ angle: angle.trim() || undefined, targetLength: length }),
+        body: JSON.stringify({
+          angle: angle.trim() || undefined,
+          targetLength: length,
+          channels: target === 'blog_insta' ? ['naver_blog', 'instagram'] : ['naver_blog'],
+        }),
       });
       if (!res.ok) {
         if (res.status === 429) {
@@ -90,6 +100,22 @@ export function GenerateButton() {
                 </button>
               ))}
             </div>
+
+            <div className="mt-2 flex gap-1.5">
+              {TARGETS.map((o) => (
+                <button
+                  key={o.v}
+                  type="button"
+                  onClick={() => setTarget(o.v)}
+                  className={`flex-1 rounded-lg py-2 text-[12px] font-medium transition ${target === o.v ? 'bg-[var(--color-fg)] text-[var(--color-bg)]' : 'border border-[var(--color-hair)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+            {target === 'blog_insta' && (
+              <p className="mt-1.5 text-[10.5px] text-[var(--color-fg-4)]">인스타 캡션·해시태그까지 인스타 말투로 함께 만들어요.</p>
+            )}
 
             <button
               type="button"
