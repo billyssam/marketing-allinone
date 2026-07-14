@@ -4,6 +4,42 @@ import { getPreparePost } from '@/lib/posts';
 
 export const runtime = 'nodejs';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 발행 완료 마킹 — /prepare 3단계를 끝낸 초안을 published로.
+ * 카톡 딥링크 흐름이라 로그인 세션이 없을 수 있음 → 조회와 동일하게
+ * "추측 불가한 UUID를 안다 = 핸드오프 링크 소유자" 모델로 서비스롤 갱신.
+ * (draft/ready/sent_to_owner 상태에서만 전이 — 임의 상태 덮어쓰기 방지)
+ */
+export async function POST(req: NextRequest) {
+  if (!isSupabaseConfigured || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({ error: 'Supabase가 설정돼 있지 않습니다.' }, { status: 503 });
+  }
+  let body: { post?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    /* 아래 검증에서 걸러짐 */
+  }
+  const postId = body.post ?? '';
+  if (!UUID_RE.test(postId)) {
+    return NextResponse.json({ error: '초안을 찾을 수 없습니다' }, { status: 404 });
+  }
+
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ status: 'published', published_at: new Date().toISOString() })
+    .eq('id', postId)
+    .in('status', ['draft', 'ready', 'sent_to_owner'])
+    .select('id')
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // 이미 published였거나 없는 id → 멱등하게 ok (다시 눌러도 무해)
+  return NextResponse.json({ ok: true, updated: Boolean(data) });
+}
+
 export async function GET(req: NextRequest) {
   const postId = req.nextUrl.searchParams.get('post');
   if (!postId) {
@@ -29,7 +65,6 @@ export async function GET(req: NextRequest) {
   }
 
   // post id는 UUID — 형식이 어긋나면 DB 에러(500) 대신 없는 초안(404)으로 처리
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!UUID_RE.test(postId)) {
     return NextResponse.json({ error: '초안을 찾을 수 없습니다', postId }, { status: 404 });
   }

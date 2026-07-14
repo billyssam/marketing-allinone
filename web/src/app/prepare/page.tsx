@@ -64,6 +64,14 @@ function PrepareInner() {
     if (i === -1 || i >= flow.length - 1) {
       setStep('done');
       setStatus({ tone: 'ok', msg: '' });
+      // 발행 완료 마킹 → 브리핑에서 이 초안이 빠짐(멱등, 실패해도 UX 막지 않음)
+      if (postId && postId !== 'MOCK') {
+        fetch('/api/prepare', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ post: postId }),
+        }).catch(() => {});
+      }
       return;
     }
     const next = flow[i + 1];
