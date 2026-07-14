@@ -5,24 +5,28 @@
 
 ---
 
-## 🚀 최신 상태 (2026-07-13, HEAD `6dc2904`)
+## 🚀 최신 상태 (2026-07-14)
 
 - **라이브 배포**: https://marketing-allinone.vercel.app (Vercel · Git 자동배포 — `git push`하면 자동 반영)
 - **Supabase 프로젝트**: `exmbpietyadkjnunrhka`
   - ⚠️ 맥북 `.env.local`은 옛 키일 수 있음 → **`Desktop\마케팅올인원_새키_0709.txt`** 값(새 프로젝트)으로 맞출 것
-- **리뷰 자동수집**: GitHub Actions 매일 09시 KST 자동
-- **demo 계정**: `demo@example.com` / `Demo!2345` (쿵더쿵 데모, 리뷰9·단골1)
+- **demo 계정**: `demo@example.com` / `Demo!2345` (쿵더쿵 데모 — 리뷰9·단골1·초안 여러 건·인스타 연결됨)
 
-### ✅ 오늘(7/13) 완성된 것 — 전부 라이브·실측
-가입→온보딩(프리미엄)→채널연결(실토글)→리뷰수집·답글→**재방문 단골관리(/regulars)**→**매장설정(/settings)** 전 루프 작동.
-+ 성과 실데이터, 소셜로그인 우아한 폴백, 모바일 QA, 404/에러/로딩 스켈레톤, 이메일가입 견고화.
+### ✅ 완성된 자동 사이클 (사장님 관점, 전부 실측)
+1. **가입 → 1분 내 첫 초안** (온보딩 직후 백그라운드 웰컴 드래프트, PROD 검증)
+2. **매일 아침 자동**: 09:00 리뷰 수집(+플레이스 사실 크롤, 3회/일) → 09:05 초안 자동 생성
+   - 인스타 연결 매장은 **블로그+인스타 세트**로
+   - 글에 **진짜 메뉴·가격·영업시간** 주입 ("수제대추차(5,800원)" 급 사실 기반)
+3. 브리핑 확인 → /prepare 30초 붙여넣기 → **자동 published** (적체 없음)
+4. 리뷰 답글 관리(/reviews) · 끊긴 단골 재방문(/regulars) · 매장설정(/settings) · 채널토글(/channels)
++ 컴포저(주제·길이·채널 선택), Gemini 429/키미연결 우아한 안내, `/api/probe-after` 인프라 프로브
 
 ### 🔜 집에서 이어서 할 것 (우선순위)
-1. **소셜 로그인 켜기** (사장님 몫, 코드·폴백 완성) — `docs/oauth-setup.md` 따라 카카오/구글 앱등록 → Supabase Providers에 키 입력. Redirect URI=`https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback`
-2. **콘텐츠 생성 살리기** — Gemini 결제 연결(aistudio.google.com/app/apikey) → '오늘 글 생성' 실동작
-3. **이메일 확인메일 OFF** (선택, 파일럿 매끄러운 가입) — Supabase Auth→Email→Confirm email OFF
-4. **재방문 알림톡 발송 연결** — 알리고/카카오비즈 알림톡 credential (지금은 메시지 생성·복사까지 됨)
-5. 남은 신규: 카톡봇 진입점, 콘텐츠 생성 UX 강화
+1. **소셜 로그인 켜기** (외부 등록, 코드·폴백 완성) — `docs/oauth-setup.md` 그대로. Redirect URI=`https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback`
+2. **Gemini 결제** (선택) — 무료도 매장 몇 곳까진 돌아감(20/일, 분당 제한 있음). 파일럿 확장 시 결제
+3. **이메일 확인메일 OFF** (선택) — Supabase Auth→Email→Confirm email OFF
+4. **재방문 알림톡 발송 연결** — 알리고 credential (메시지 생성·복사까진 이미 됨)
+5. 남은 신규: 카톡봇 진입점(카카오 비즈채널 필요), 주간 리포트
 
 > 집에서 Claude 열고 **"마케팅올인원 이어서 하자"** → 위 상태 다 기억함(계정 메모리 동기화).
 

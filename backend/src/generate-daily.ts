@@ -114,30 +114,47 @@ async function main() {
     };
 
     try {
-      const bundle = await generateChannelDrafts(input, ['naver_blog']);
-      const draft = bundle.perChannel.naver_blog;
-      if (!draft) throw new Error('naver_blog 드래프트 없음');
+      // 연결 채널 존중: 인스타를 켠 매장은 블로그+인스타 세트로 (블로그는 항상 기본)
+      const { data: conns } = await supabase
+        .from('channel_connections')
+        .select('channel_id')
+        .eq('store_id', s.id)
+        .eq('channel_id', 'instagram');
+      const channels: ('naver_blog' | 'instagram')[] = conns?.length
+        ? ['naver_blog', 'instagram']
+        : ['naver_blog'];
+
+      const bundle = await generateChannelDrafts(input, channels);
+      const CH_MAP = { naver_blog: 'blog', instagram: 'instagram' } as const;
+      const rows = channels
+        .map((ch) => {
+          const draft = bundle.perChannel[ch];
+          if (!draft) return null;
+          return {
+            store_id: s.id,
+            channel: CH_MAP[ch],
+            title: draft.title ?? (ch === 'naver_blog' ? bundle.master.title : null),
+            body_html: draft.bodyHtml ?? null,
+            body_plain: draft.bodyPlain ?? null,
+            tags: draft.tags ?? [],
+            status: 'draft' as const,
+            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true },
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      if (!rows.length) throw new Error('생성된 드래프트 없음');
 
       const { data: inserted, error: insErr } = await supabase
         .from('posts')
-        .insert({
-          store_id: s.id,
-          channel: 'blog',
-          title: draft.title ?? bundle.master.title,
-          body_html: draft.bodyHtml ?? null,
-          body_plain: draft.bodyPlain ?? null,
-          tags: draft.tags ?? [],
-          status: 'draft',
-          metadata: { engineChannel: 'naver_blog', auto: 'daily', qualityNotes: bundle.master.qualityNotes ?? [] },
-        })
-        .select('id, title')
-        .single();
+        .insert(rows)
+        .select('id, channel, title');
       if (insErr) throw new Error(insErr.message);
 
       made++;
-      console.log(`[${s.name}] ✅ 생성: ${inserted.title}`);
+      const blogPost = inserted?.find((p) => p.channel === 'blog') ?? inserted?.[0];
+      console.log(`[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')}): ${bundle.master.title}`);
       await sendTelegram(
-        `☀️ <b>${s.name}</b> 오늘의 블로그 초안이 준비됐어요\n${inserted.title}\n${APP_URL}/prepare?post=${inserted.id}`,
+        `☀️ <b>${s.name}</b> 오늘의 초안 ${inserted?.length}건이 준비됐어요 (${inserted?.map((p) => p.channel).join('·')})\n${bundle.master.title}\n${APP_URL}/prepare?post=${blogPost?.id}`,
       );
     } catch (e) {
       failed++;
