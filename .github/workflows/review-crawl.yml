@@ -4,7 +4,11 @@ name: 리뷰 자동 수집
 # 부수효과: 매일 DB 쓰기 활동 → Supabase 무료 프로젝트 자동 일시정지 방지.
 on:
   schedule:
+    # 09:00 / 12:00 / 18:00 KST — 신규 온보딩 매장도 몇 시간 내 리뷰·플레이스 사실 확보
+    # (리뷰 upsert·플레이스 7일 체크 모두 멱등이라 추가 실행 무해)
     - cron: '0 0 * * *'
+    - cron: '0 3 * * *'
+    - cron: '0 9 * * *'
   workflow_dispatch: {} # 수동 실행(테스트)용
 
 concurrency:

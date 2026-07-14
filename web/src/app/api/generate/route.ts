@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
-import { persistDrafts } from '@/lib/posts';
-import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
-import { placeFromBrandTone } from '@shared/content-engine/place-facts';
+import { generateForStore } from '@/lib/generate';
 import type { ChannelId } from '@shared/channels/registry';
-import type { DraftInput, IndustryId, BrandTone, StoreProfile } from '@shared/content-engine/types';
+import type { DraftInput } from '@shared/content-engine/types';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-/** 요청 body가 채널을 안 주면 이걸로 (블로그=단일 Gemini 호출, 무료티어 절약) */
-const DEFAULT_CHANNELS: ChannelId[] = ['naver_blog'];
 
 interface GenerateBody {
   storeId?: string;
@@ -67,41 +62,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const profile: StoreProfile = {
-    id: store.id,
-    name: store.name,
-    industryId: (store.industry_id ?? 'cafe') as IndustryId,
-    naverPlaceUrl: store.naver_place_url ?? undefined,
-    naverBlogUrl: store.naver_blog_url ?? undefined,
-    address: store.address ?? undefined,
-    brandTone: (store.brand_tone ?? {}) as BrandTone,
-  };
-
-  const input: DraftInput = {
-    store: profile,
-    // 크롤된 매장 실사실(메뉴·가격·영업시간) → 프롬프트에 주입돼 지어내지 않는 글
-    place: placeFromBrandTone(store.brand_tone),
-    photos: body.photos ?? [],
-    targetLength: body.targetLength,
-    angle: body.angle,
-  };
-  // 채널 우선순위: 요청 명시 > 매장의 켜진 채널 플래그 > 블로그 폴백
+  // 채널 우선순위: 요청 명시 > 매장의 켜진 채널 플래그 > 블로그 폴백(lib 기본)
   const enabled: ChannelId[] = [];
   if (store.channel_blog_enabled) enabled.push('naver_blog');
   if (store.channel_instagram_enabled) enabled.push('instagram');
-  const channels = body.channels?.length
-    ? body.channels
-    : enabled.length
-      ? enabled
-      : DEFAULT_CHANNELS;
+  const channels = body.channels?.length ? body.channels : enabled;
 
   try {
-    const bundle = await generateChannelDrafts(input, channels);
-    const posts = await persistDrafts(supabase, store.id, bundle);
+    const { title, posts } = await generateForStore(supabase, store, {
+      channels,
+      targetLength: body.targetLength,
+      angle: body.angle,
+      photos: body.photos,
+    });
     return NextResponse.json({
       storeId: store.id,
       storeName: store.name,
-      title: bundle.master.title,
+      title,
       posts,
       count: posts.length,
     });

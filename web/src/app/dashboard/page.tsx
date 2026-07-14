@@ -6,6 +6,7 @@ import { signOut } from '@/app/auth/actions';
 import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
+import { FirstDraftPending } from '@/components/first-draft-pending';
 import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, type PostChannel, type PostStatus } from '@/lib/posts';
 import { isReactivationTarget, daysSince } from '@shared/content-engine/reactivation';
 
@@ -74,6 +75,10 @@ export default async function DashboardPage() {
     totalPosts: postsCountRes.count ?? 0,
   };
 
+  // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
+  const justOnboarded =
+    !!store.onboarded_at && Date.now() - Date.parse(store.onboarded_at) < 5 * 60_000;
+
   // 재방문 유도 대상(끊긴 단골) 수
   const nowMs = Date.now();
   const reactivationTargets = (regularsRes.data ?? []).filter((r) =>
@@ -137,7 +142,11 @@ export default async function DashboardPage() {
 
         {/* 오늘의 브리핑 (실데이터: 발행 대기 초안 + 답글 대기 리뷰) */}
         <section className="mt-6">
-          <DashboardBriefing items={briefingItems} />
+          {briefingItems.length === 0 && perfData.totalPosts === 0 && justOnboarded ? (
+            <FirstDraftPending />
+          ) : (
+            <DashboardBriefing items={briefingItems} />
+          )}
         </section>
 
         {/* 재방문 유도 넛지 (끊긴 단골 있을 때) */}
