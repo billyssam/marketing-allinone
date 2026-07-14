@@ -5,13 +5,26 @@
 
 ---
 
-## 🚀 최신 상태 (2026-07-09)
+## 🚀 최신 상태 (2026-07-13, HEAD `6dc2904`)
 
 - **라이브 배포**: https://marketing-allinone.vercel.app (Vercel · Git 자동배포 — `git push`하면 자동 반영)
-- **Supabase 새 프로젝트**: `exmbpietyadkjnunrhka` (옛 `oricgerprwgijnowjokn`는 무료한도로 폐기)
-  - ⚠️ 아래 STEP 3의 `.env.local` 키는 **`Desktop\마케팅올인원_새키_0709.txt`** 값(새 프로젝트)을 쓸 것
-- **리뷰 자동수집**: GitHub Actions 매일 09시 KST 자동 (수동 실행 불필요)
-- **다음 예정**: 소셜 로그인(카카오/구글) — 이제 배포 도메인 생겼으니 연결 가능
+- **Supabase 프로젝트**: `exmbpietyadkjnunrhka`
+  - ⚠️ 맥북 `.env.local`은 옛 키일 수 있음 → **`Desktop\마케팅올인원_새키_0709.txt`** 값(새 프로젝트)으로 맞출 것
+- **리뷰 자동수집**: GitHub Actions 매일 09시 KST 자동
+- **demo 계정**: `demo@example.com` / `Demo!2345` (쿵더쿵 데모, 리뷰9·단골1)
+
+### ✅ 오늘(7/13) 완성된 것 — 전부 라이브·실측
+가입→온보딩(프리미엄)→채널연결(실토글)→리뷰수집·답글→**재방문 단골관리(/regulars)**→**매장설정(/settings)** 전 루프 작동.
++ 성과 실데이터, 소셜로그인 우아한 폴백, 모바일 QA, 404/에러/로딩 스켈레톤, 이메일가입 견고화.
+
+### 🔜 집에서 이어서 할 것 (우선순위)
+1. **소셜 로그인 켜기** (사장님 몫, 코드·폴백 완성) — `docs/oauth-setup.md` 따라 카카오/구글 앱등록 → Supabase Providers에 키 입력. Redirect URI=`https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback`
+2. **콘텐츠 생성 살리기** — Gemini 결제 연결(aistudio.google.com/app/apikey) → '오늘 글 생성' 실동작
+3. **이메일 확인메일 OFF** (선택, 파일럿 매끄러운 가입) — Supabase Auth→Email→Confirm email OFF
+4. **재방문 알림톡 발송 연결** — 알리고/카카오비즈 알림톡 credential (지금은 메시지 생성·복사까지 됨)
+5. 남은 신규: 카톡봇 진입점, 콘텐츠 생성 UX 강화
+
+> 집에서 Claude 열고 **"마케팅올인원 이어서 하자"** → 위 상태 다 기억함(계정 메모리 동기화).
 
 ---
 
