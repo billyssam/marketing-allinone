@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { persistDrafts } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
+import { placeFromBrandTone } from '@shared/content-engine/place-facts';
 import type { ChannelId } from '@shared/channels/registry';
 import type { DraftInput, IndustryId, BrandTone, StoreProfile } from '@shared/content-engine/types';
 
@@ -78,6 +79,8 @@ export async function POST(req: NextRequest) {
 
   const input: DraftInput = {
     store: profile,
+    // 크롤된 매장 실사실(메뉴·가격·영업시간) → 프롬프트에 주입돼 지어내지 않는 글
+    place: placeFromBrandTone(store.brand_tone),
     photos: body.photos ?? [],
     targetLength: body.targetLength,
     angle: body.angle,

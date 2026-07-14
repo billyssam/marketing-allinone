@@ -16,6 +16,7 @@ import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { generateChannelDrafts } from '../../shared/content-engine/orchestrator.js';
+import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -106,6 +107,8 @@ async function main() {
         address: s.address ?? undefined,
         brandTone: (s.brand_tone ?? {}) as BrandTone,
       },
+      // 크롤된 매장 실사실(메뉴·가격·영업시간) → 프롬프트 placeFactSection
+      place: placeFromBrandTone(s.brand_tone),
       photos: [],
       targetLength: 'medium',
     };
