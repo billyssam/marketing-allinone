@@ -7,7 +7,7 @@ import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/reg
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
 import { FirstDraftPending } from '@/components/first-draft-pending';
-import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, type PostChannel, type PostStatus } from '@/lib/posts';
+import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, postDisplayTitle, type PostChannel, type PostStatus } from '@/lib/posts';
 import { isReactivationTarget, daysSince } from '@shared/content-engine/reactivation';
 import { buildWeekly, buildFeed } from '@/lib/activity';
 
@@ -44,9 +44,10 @@ export default async function DashboardPage() {
   // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
   const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
-    supabase.from('posts').select('id, channel, title, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
-    // 오늘의 브리핑 = 발행 대기 초안(draft·ready)
-    supabase.from('posts').select('id, channel, title, status').eq('store_id', store.id).in('status', ['draft', 'ready']).order('created_at', { ascending: false }).limit(6),
+    supabase.from('posts').select('id, channel, title, body_plain, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
+    // 오늘의 브리핑 = 발행 대기 초안(draft·ready) 중 최근 2일 것만.
+    // 지난 글은 지우지 않고 아래 '최근 초안'에 남김 — 브리핑은 오늘 할 일이어야 함(무덤 방지)
+    supabase.from('posts').select('id, channel, title, body_plain, status').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(6),
     // + 답글 대기 리뷰
     supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
     // 성과: 리뷰 감정 집계 (실데이터)
@@ -100,7 +101,7 @@ export default async function DashboardPage() {
       kind: 'post' as const,
       channelLabel: POST_CHANNEL_LABEL[p.channel as PostChannel] ?? p.channel,
       color: POST_CHANNEL_COLOR[p.channel as PostChannel] ?? 'var(--color-amber)',
-      title: p.title || '(제목 없음)',
+      title: postDisplayTitle(p),
       status: p.status === 'ready' ? '발행 준비됨' : '초안 준비됨',
       actionLabel: '붙여넣기 →',
       href: `/prepare?post=${p.id}`,
@@ -227,7 +228,7 @@ export default async function DashboardPage() {
                     <span className="mono text-[10px] text-[var(--color-fg-3)]">{POST_CHANNEL_LABEL[p.channel as PostChannel] ?? p.channel}</span>
                     <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">{POST_STATUS_LABEL[p.status as PostStatus] ?? p.status}</span>
                   </div>
-                  <p className="mt-2 line-clamp-2 text-[13.5px] font-medium group-hover:text-[var(--color-fg)]">{p.title || '(제목 없음)'}</p>
+                  <p className="mt-2 line-clamp-2 text-[13.5px] font-medium group-hover:text-[var(--color-fg)]">{postDisplayTitle(p)}</p>
                   <p className="mt-2 text-[11px] text-[var(--color-fg-3)]">붙여넣기 도우미 열기 →</p>
                 </Link>
               ))}

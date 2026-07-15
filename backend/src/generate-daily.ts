@@ -79,6 +79,21 @@ async function main() {
   const todayStart = kstTodayStartISO();
   console.log(`📋 대상 매장 ${stores.length}곳 (오늘 KST 시작: ${todayStart})\n`);
 
+  // 적체 방지: 지난 '자동 데일리' 초안은 보관 처리.
+  // 마케팅 글은 시의성이 생명이라 어제 것을 오늘 브리핑에 남기면 무덤이 됨.
+  // (사장님이 직접 만든 초안(auto!=daily)은 손대지 않음 — 의도적으로 요청한 것)
+  {
+    const { data: archived, error: arcErr } = await supabase
+      .from('posts')
+      .update({ status: 'archived' })
+      .eq('status', 'draft')
+      .contains('metadata', { auto: 'daily' })
+      .lt('created_at', todayStart)
+      .select('id');
+    if (arcErr) console.log(`⚠️ 지난 초안 보관 실패(무시하고 진행): ${arcErr.message}`);
+    else if (archived?.length) console.log(`🗂  지난 자동 초안 ${archived.length}건 보관 처리\n`);
+  }
+
   let made = 0, skipped = 0, failed = 0;
   for (const s of stores) {
     // 멱등: 오늘 데일리 초안이 이미 있으면 스킵

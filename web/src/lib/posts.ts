@@ -33,6 +33,21 @@ export const POST_STATUS_LABEL: Record<PostStatus, string> = {
 };
 
 /**
+ * 목록에 보여줄 초안 제목.
+ * 인스타는 캡션 단일이라 title이 null — "(제목 없음)" 대신 캡션 첫 줄을 제목처럼 쓴다.
+ */
+export function postDisplayTitle(p: { title?: string | null; body_plain?: string | null }): string {
+  const t = (p.title ?? '').trim();
+  if (t) return t;
+  const first = (p.body_plain ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (!first) return '(내용 없음)';
+  return first.length > 46 ? `${first.slice(0, 46)}…` : first;
+}
+
+/**
  * 콘텐츠 엔진의 ChannelId → posts.channel enum 매핑.
  * enum에 없는 채널(naver_place·danggeun 등)은 posts로 영속화하지 않는다(핸드오프 전용).
  */
