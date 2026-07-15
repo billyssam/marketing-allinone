@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * 로그인 후 원래 페이지로 돌아오는 next= 흐름이 작동한다.
  * `/prepare`는 UUID 캡버빌리티 링크(붙여넣기용)라 의도적으로 공개.
  */
-const PROTECTED_ROUTES = ['/dashboard', '/onboarding', '/channels', '/reviews', '/regulars', '/settings'];
+const PROTECTED_ROUTES = ['/dashboard', '/onboarding', '/channels', '/reviews', '/regulars', '/settings', '/posts'];
 
 /** 세션 자동 갱신 + 보호 라우트 가드 */
 export async function updateSession(request: NextRequest) {

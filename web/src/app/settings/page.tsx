@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
-import { signOut } from '@/app/auth/actions';
+import { AppHeader } from '@/components/app-header';
 import { SettingsForm, type StoreForm } from '@/components/settings-form';
 
 export const metadata = { title: '매장 설정' };
@@ -38,18 +38,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-hair)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-2xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
-            <span className="text-[15px] font-semibold">{store.name}</span>
-          </div>
-          <nav className="flex items-center gap-4 text-[13px] text-[var(--color-fg-2)] sm:gap-5">
-            <Link href="/dashboard" className="hover:text-[var(--color-fg)]">대시보드</Link>
-            <form action={signOut}><button type="submit" className="hover:text-[var(--color-fg)]">로그아웃</button></form>
-          </nav>
-        </div>
-      </header>
+      <AppHeader storeName={store.name as string} current="/settings" width="2xl" />
 
       <main className="mx-auto max-w-2xl px-5 py-8 sm:px-6">
         <div className="eyebrow">매장 설정</div>

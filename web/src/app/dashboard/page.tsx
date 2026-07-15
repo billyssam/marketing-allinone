@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { DashboardPerformance, type PerfData } from '@/components/dashboard-performance';
-import { signOut } from '@/app/auth/actions';
+import { AppHeader } from '@/components/app-header';
 import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
@@ -120,21 +120,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-hair)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/settings" className="group flex items-center gap-3" title="매장 설정">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
-            <span className="text-[15px] font-semibold transition group-hover:text-[var(--color-amber)]">{store.name}</span>
-          </Link>
-          <nav className="flex items-center gap-4 text-[13px] text-[var(--color-fg-2)] sm:gap-5">
-            <Link href="/dashboard" className="text-[var(--color-fg)]">대시보드</Link>
-            <Link href="/reviews" className="hover:text-[var(--color-fg)]">리뷰</Link>
-            <Link href="/regulars" className="hover:text-[var(--color-fg)]">단골</Link>
-            <Link href="/channels" className="hover:text-[var(--color-fg)]">채널</Link>
-            <form action={signOut}><button type="submit" className="hover:text-[var(--color-fg)]">로그아웃</button></form>
-          </nav>
-        </div>
-      </header>
+      <AppHeader storeName={store.name} current="/dashboard" />
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -205,8 +191,13 @@ export default async function DashboardPage() {
 
         {/* 최근 초안 (posts 영속화 결과) */}
         <section className="mt-10">
-          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
-            최근 초안 <span className="mono text-[var(--color-fg-3)]">{drafts.length}</span>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-[13px] font-semibold">
+              최근 초안 <span className="mono text-[var(--color-fg-3)]">{drafts.length}</span>
+            </div>
+            <Link href="/posts" className="mono text-[12px] text-[var(--color-fg-3)] transition hover:text-[var(--color-fg)]">
+              전체 글 보기 →
+            </Link>
           </div>
           {drafts.length === 0 ? (
             <div className="panel rounded-[var(--radius-lg)] p-8 text-center">

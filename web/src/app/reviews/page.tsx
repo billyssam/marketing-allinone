@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
-import { signOut } from '@/app/auth/actions';
+import { AppHeader } from '@/components/app-header';
 import { ReviewList, type ReviewRow } from '@/components/review-list';
 
 export const metadata = { title: '리뷰 관리' };
@@ -63,21 +63,7 @@ export default async function ReviewsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b border-[var(--color-hair)] bg-[var(--color-bg)]/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
-            <span className="text-[15px] font-semibold">{store.name}</span>
-          </div>
-          <nav className="flex items-center gap-4 text-[13px] text-[var(--color-fg-2)] sm:gap-5">
-            <Link href="/dashboard" className="hover:text-[var(--color-fg)]">대시보드</Link>
-            <Link href="/reviews" className="text-[var(--color-fg)]">리뷰</Link>
-            <Link href="/regulars" className="hover:text-[var(--color-fg)]">단골</Link>
-            <Link href="/channels" className="hover:text-[var(--color-fg)]">채널</Link>
-            <form action={signOut}><button type="submit" className="hover:text-[var(--color-fg)]">로그아웃</button></form>
-          </nav>
-        </div>
-      </header>
+      <AppHeader storeName={store.name as string} current="/reviews" />
 
       <main className="mx-auto max-w-4xl px-5 py-8 sm:px-6">
         <div className="eyebrow">리뷰 모니터링</div>
