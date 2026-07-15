@@ -1,6 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+/**
+ * 사장님 전용(로그인 필수) 라우트. 새 사장님 페이지를 추가하면 여기 한 줄 넣을 것.
+ * 각 페이지가 자체 getUser() 가드도 갖지만(방어심층), 프록시에서 먼저 막아야
+ * 로그인 후 원래 페이지로 돌아오는 next= 흐름이 작동한다.
+ * `/prepare`는 UUID 캡버빌리티 링크(붙여넣기용)라 의도적으로 공개.
+ */
+const PROTECTED_ROUTES = ['/dashboard', '/onboarding', '/channels', '/reviews', '/regulars', '/settings'];
+
 /** 세션 자동 갱신 + 보호 라우트 가드 */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -26,7 +34,7 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isProtected = path.startsWith('/dashboard') || path.startsWith('/onboarding') || path.startsWith('/channels');
+  const isProtected = PROTECTED_ROUTES.some((p) => path.startsWith(p));
   const isAuthPage = path.startsWith('/login') || path.startsWith('/signup');
 
   if (isProtected && !user) {
