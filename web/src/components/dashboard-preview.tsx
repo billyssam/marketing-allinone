@@ -196,7 +196,7 @@ function Act({ t, tag, c, txt, meta }: { t: string; tag: string; c: string; txt:
     <div className="grid grid-cols-[54px_54px_1fr_auto] items-center gap-2 text-[11px]">
       <span className="mono text-[9px] text-[var(--color-fg-4)]">{t}</span>
       <span className="w-fit rounded px-1.5 py-0.5 text-[9px] font-medium" style={{ background: `${c}22`, color: c }}>{tag}</span>
-      <span className="truncate text-[var(--color-fg)]">{txt}</span>
+      <span className="min-w-0 truncate text-[var(--color-fg)]">{txt}</span>
       <span className="mono text-[9px] text-[var(--color-fg-3)]">{meta}</span>
     </div>
   );

@@ -82,8 +82,9 @@ export function DashboardPerformance({
       )}
 
       {/* 주간 생성 차트 + 활동 피드 (실데이터) */}
+      {/* 그리드 아이템에 min-w-0: 내용 min-content가 트랙을 밀어내는 블로우아웃 방지 */}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div>
+        <div className="min-w-0">
           <div className="mb-2 flex items-center justify-between">
             <span className="eyebrow">최근 7일 초안 생성</span>
             <span className="mono text-[10px] text-[var(--color-fg-3)]">{weekTotal}건</span>
@@ -105,7 +106,7 @@ export function DashboardPerformance({
           </div>
         </div>
 
-        <div>
+        <div className="min-w-0">
           <div className="mb-2 flex items-center gap-2">
             <span className="eyebrow">최근 활동</span>
             <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--color-good)] text-[var(--color-good)]" />
@@ -118,7 +119,9 @@ export function DashboardPerformance({
                 <li key={i} className="flex items-baseline gap-2 text-[12px]">
                   <span className="mono w-14 shrink-0 text-[10px] text-[var(--color-fg-4)]">{f.when}</span>
                   <span className="h-1.5 w-1.5 shrink-0 translate-y-[1px] rounded-full" style={{ background: f.color }} />
-                  <span className="truncate text-[var(--color-fg-2)]">{f.text}</span>
+                  {/* min-w-0 필수: truncate(nowrap)는 flex 아이템의 min-width:auto와 만나면
+                      한 줄 전체 폭이 최소폭이 돼 그리드째 뷰포트를 뚫음(375px에서 503px 실측) */}
+                  <span className="min-w-0 flex-1 truncate text-[var(--color-fg-2)]">{f.text}</span>
                 </li>
               ))}
             </ul>
