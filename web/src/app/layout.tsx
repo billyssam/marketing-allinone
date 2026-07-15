@@ -8,8 +8,15 @@ export const metadata: Metadata = {
     template: '%s · 마케팅올인원',
   },
   description:
-    '인스타·블로그·알림톡·리뷰 대응까지 하나로. 카카오톡 봇이 매일 아침 오늘의 마케팅을 준비합니다.',
+    '매일 아침 블로그·인스타 초안이 준비돼 있어요. 리뷰 답글까지 자동으로. 사장님은 확인하고 붙여넣기만.',
   manifest: '/manifest.webmanifest',
+  icons: {
+    icon: [
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -19,15 +26,13 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ko_KR',
     title: '마케팅올인원 — 자영업자 마케팅 종합 SaaS',
-    description: '인스타·블로그·알림톡·리뷰까지. 하루 5분으로 끝나는 마케팅.',
+    description: '매일 아침 마케팅이 끝나 있어요. 확인하고 붙여넣기만, 하루 5분.',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#0a0a0c' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0c' },
-  ],
+  // 앱 배경(globals.css --color-bg)과 일치 — 브라우저 크롬·PWA 상태바 이음새 제거
+  themeColor: '#08080a',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

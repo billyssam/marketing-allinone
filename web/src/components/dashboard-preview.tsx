@@ -116,7 +116,7 @@ export function DashboardPreview() {
             <div className="space-y-2">
               <Act t="방금" tag="발행" c={IG} txt="인스타 릴스 게시됨" meta="도달 314" />
               <Act t="14분 전" tag="알림" c="#f2597f" txt="리뷰 ★★☆ 감지" meta="답글 준비됨" />
-              <Act t="1시간 전" tag="블로그" c={NAVER} txt="오늘 초안 카톡 전송" meta="미확인" />
+              <Act t="1시간 전" tag="블로그" c={NAVER} txt="오늘 초안 생성 완료" meta="미확인" />
               <Act t="어제" tag="알림톡" c={KAKAO} txt="단골 12명 발송" meta="열람 76%" />
             </div>
           </div>

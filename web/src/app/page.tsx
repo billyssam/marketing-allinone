@@ -87,7 +87,13 @@ export default function LandingPage() {
                   <span className="grid h-10 w-10 place-items-center rounded-xl text-[18px]" style={{ background: `${f.color}1c`, color: f.color, boxShadow: `inset 0 0 0 1px ${f.color}30` }}>
                     {f.icon}
                   </span>
-                  <span className="mono text-[10px]" style={{ color: f.color }}>{f.tag}</span>
+                  {f.soon ? (
+                    <span className="mono rounded-full border border-[var(--color-hair-strong)] px-2 py-0.5 text-[10px] text-[var(--color-fg-3)]">
+                      준비중
+                    </span>
+                  ) : (
+                    <span className="mono text-[10px]" style={{ color: f.color }}>{f.tag}</span>
+                  )}
                 </div>
                 <h3 className="mt-4 text-[17px] font-semibold">{f.title}</h3>
                 <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{f.body}</p>
@@ -120,7 +126,7 @@ export default function LandingPage() {
           <h2 className="h1 mt-4 max-w-xl">파일럿은 무료.<br /><span className="text-[var(--color-fg-3)]">정식 출시 후 월 5만원부터.</span></h2>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['전 채널 무제한', '카톡봇 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" delay={0} />
+          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['전 채널 무제한', '매일 초안 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" delay={0} />
           <Price name="스탠다드" price="₩49,000" period="월" feats={['인스타·블로그·알림톡', '네이버 리뷰 관리', '단골 500명', '이메일 지원']} cta="출시 대기" delay={60} />
           <Price name="프로" price="₩99,000" period="월" feats={['스탠다드 전부', '배민·요기요·쿠팡', '단골 무제한', '카톡 채팅 지원']} cta="출시 대기" delay={120} />
         </div>
@@ -158,13 +164,17 @@ const CHANNELS = [
   { name: '구글 비즈니스', color: '#4285f4' },
 ];
 
-const FEATURES = [
-  { title: 'AI 콘텐츠 엔진', tag: '핵심', color: '#ffb534', icon: '✦', body: '네이버 플레이스에서 매장 정보를 크롤하고 리뷰 톤까지 학습해, 업종별 카피를 자동 생성합니다. 블로그·인스타·리뷰 답글까지 한 엔진에서.' },
-  { title: '인스타그램 발행', tag: '완전 자동', color: '#ff4d8d', icon: '◎', body: 'Meta 공식 API로 예약 발행. 새벽에도 알아서 게시.' },
-  { title: '블로그 카톡봇', tag: '반자동 · 30초', color: '#16d66a', icon: '✉', body: '매일 아침 초안 카톡 → 3단계 붙여넣기 → 발행.' },
-  { title: '재방문 알림톡', tag: '완전 자동', color: '#ffcd3c', icon: '⚡', body: '단골 자동 관리. 마지막 방문 N일 후 트리거 발송.' },
-  { title: '리뷰 감정 모니터링', tag: '실시간', color: '#ff5f83', icon: '★', body: '네이버·배민·요기요 크롤. 부정 리뷰 즉시 카톡 + 답글 초안.' },
-  { title: '통합 성과 대시보드', tag: '분석', color: '#38e2a4', icon: '◈', body: '모든 채널 도달·전환·감정을 한 화면. 월간 리포트도 AI가.' },
+/**
+ * 기능 카드 — 채널 마켓플레이스와 같은 정직 기준.
+ * soon: true면 '준비중' 뱃지. 파일럿 사장님이 없는 기능을 기다리게 두지 않는다.
+ */
+const FEATURES: { title: string; tag?: string; color: string; icon: string; soon?: boolean; body: string }[] = [
+  { title: 'AI 콘텐츠 엔진', tag: '핵심', color: '#ffb534', icon: '✦', body: '네이버 플레이스에서 매장 정보를 크롤하고 리뷰 톤까지 학습해, 업종별 카피를 자동 생성합니다. 메뉴·가격·영업시간 같은 실제 사실이 글에 그대로 들어갑니다.' },
+  { title: '매일 아침 초안', tag: '완전 자동', color: '#16d66a', icon: '✦', body: '매일 아침 7시 30분, 블로그·인스타 초안이 대시보드에 준비됩니다. 확인하고 30초 붙여넣기.' },
+  { title: '리뷰 감정 모니터링', tag: '하루 3회', color: '#ff5f83', icon: '★', body: '네이버 리뷰를 자동 수집해 긍정·부정을 분류하고, 답글 초안까지 매장 톤으로 써둡니다.' },
+  { title: '통합 성과 대시보드', tag: '분석', color: '#38e2a4', icon: '◈', body: '발행량·리뷰 감정·주간 활동을 한 화면에서. 오늘 할 일은 아침 브리핑으로.' },
+  { title: '인스타그램 자동 발행', color: '#ff4d8d', icon: '◎', soon: true, body: '지금은 캡션을 자동 생성해 붙여넣기로 발행합니다. Meta 공식 API 예약 발행은 준비 중.' },
+  { title: '재방문 알림톡', color: '#ffcd3c', icon: '⚡', soon: true, body: '단골 이탈을 감지해 메시지 초안까지 만들어 둡니다. 알림톡 자동 발송은 채널 심사 후 연결 예정.' },
 ];
 
 function Stat({ n, suffix, label }: { n: number; suffix: string; label: string }) {

@@ -39,7 +39,7 @@ function PrepareInner() {
 
   useEffect(() => {
     if (!postId) {
-      setStatus({ tone: 'err', msg: '잘못된 접근이에요. 카톡의 [보내기]를 다시 눌러주세요.' });
+      setStatus({ tone: 'err', msg: '잘못된 접근이에요. 대시보드에서 초안의 [붙여넣기 →]를 다시 눌러주세요.' });
       return;
     }
     fetch(`/api/prepare?post=${encodeURIComponent(postId)}`)

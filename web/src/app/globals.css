@@ -30,6 +30,11 @@
   --radius-lg: 18px;
 }
 
+/* 베이스 리셋 — 반드시 @layer base 안에 둘 것.
+   레이어 순서는 theme < base < components < utilities 이고, 비레이어 규칙은
+   레이어 전체를 이긴다. 예전엔 이 블록이 비레이어라 `border-*`/`hover:border-*`
+   유틸이 전부 조용히 무시됐다(전 페이지 hover 테두리가 죽어 있었음). */
+@layer base {
 * { border-color: var(--color-hair); }
 html { color-scheme: dark; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
@@ -55,6 +60,11 @@ body::after {
   opacity: 0.02;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
+} /* @layer base */
+
+/* 디자인 시스템 컴포넌트 — utilities보다 앞 레이어라 유틸로 덮어쓸 수 있다.
+   (.panel의 테두리를 hover:border-* 로 밝히는 식) */
+@layer components {
 
 /* ---- type ---- */
 .display {
@@ -115,6 +125,8 @@ body::after {
 
 .marq { display:flex; gap:40px; width:max-content; animation: mq 36s linear infinite; }
 @keyframes mq { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+} /* @layer components */
 
 .pulse-dot { position: relative; }
 .pulse-dot::before {
