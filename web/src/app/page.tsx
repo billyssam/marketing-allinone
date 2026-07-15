@@ -126,7 +126,7 @@ export default function LandingPage() {
           <h2 className="h1 mt-4 max-w-xl">파일럿은 무료.<br /><span className="text-[var(--color-fg-3)]">정식 출시 후 월 5만원부터.</span></h2>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['전 채널 무제한', '매일 초안 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" delay={0} />
+          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['전 채널 무제한', '매일 초안 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" href="/signup" delay={0} />
           <Price name="스탠다드" price="₩49,000" period="월" feats={['인스타·블로그·알림톡', '네이버 리뷰 관리', '단골 500명', '이메일 지원']} cta="출시 대기" delay={60} />
           <Price name="프로" price="₩99,000" period="월" feats={['스탠다드 전부', '배민·요기요·쿠팡', '단골 무제한', '카톡 채팅 지원']} cta="출시 대기" delay={120} />
         </div>
@@ -188,7 +188,7 @@ function Stat({ n, suffix, label }: { n: number; suffix: string; label: string }
   );
 }
 
-function Price({ name, price, period, feats, cta, highlight, delay }: { name: string; price: string; period: string; feats: string[]; cta: string; highlight?: boolean; delay: number }) {
+function Price({ name, price, period, feats, cta, href, highlight, delay }: { name: string; price: string; period: string; feats: string[]; cta: string; href?: string; highlight?: boolean; delay: number }) {
   return (
     <div className={`spot reveal rounded-[var(--radius-lg)] p-7 ${highlight ? 'border-2 border-[var(--color-amber)] bg-[var(--color-panel)]' : 'panel'}`} style={{ transitionDelay: `${delay}ms` }}>
       {highlight && <div className="mono mb-4 inline-block rounded-full bg-[var(--color-amber)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-amber-ink)]">지금 파일럿</div>}
@@ -202,7 +202,12 @@ function Price({ name, price, period, feats, cta, highlight, delay }: { name: st
           <li key={f} className="flex items-center gap-2.5"><span className="text-[var(--color-amber)]">✓</span>{f}</li>
         ))}
       </ul>
-      <button type="button" className={`mono mt-8 w-full rounded-full py-2.5 text-[13px] font-semibold ${highlight ? 'btn-primary' : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)]'}`}>{cta}</button>
+      {href ? (
+        <Link href={href} className={`mono mt-8 block w-full rounded-full py-2.5 text-center text-[13px] font-semibold ${highlight ? 'btn-primary' : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)]'}`}>{cta}</Link>
+      ) : (
+        // 출시 전 플랜 — 눌러도 갈 곳이 없으니 정직하게 비활성
+        <button type="button" disabled className="mono mt-8 w-full cursor-not-allowed rounded-full border border-[var(--color-hair)] py-2.5 text-[13px] font-semibold text-[var(--color-fg-4)]">{cta}</button>
+      )}
     </div>
   );
 }
