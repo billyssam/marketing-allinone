@@ -5,28 +5,39 @@
 
 ---
 
-## 🚀 최신 상태 (2026-07-14)
+## 🚀 최신 상태 (2026-07-15, HEAD `983cf6c`)
 
 - **라이브 배포**: https://marketing-allinone.vercel.app (Vercel · Git 자동배포 — `git push`하면 자동 반영)
 - **Supabase 프로젝트**: `exmbpietyadkjnunrhka`
   - ⚠️ 맥북 `.env.local`은 옛 키일 수 있음 → **`Desktop\마케팅올인원_새키_0709.txt`** 값(새 프로젝트)으로 맞출 것
-- **demo 계정**: `demo@example.com` / `Demo!2345` (쿵더쿵 데모 — 리뷰9·단골1·초안 여러 건·인스타 연결됨)
+- **demo 계정**: `demo@example.com` / `Demo!2345` (쿵더쿵 데모 — 리뷰9·단골1·글9건·인스타 연결됨)
 
 ### ✅ 완성된 자동 사이클 (사장님 관점, 전부 실측)
 1. **가입 → 1분 내 첫 초안** (온보딩 직후 백그라운드 웰컴 드래프트, PROD 검증)
-2. **매일 아침 자동**: 09:00 리뷰 수집(+플레이스 사실 크롤, 3회/일) → 09:05 초안 자동 생성
+2. **매일 아침 자동**: 09:00 리뷰 수집(+플레이스 사실 크롤, 3회/일) → **07:30 초안 자동 생성**(크론 지연 흡수용 전진)
    - 인스타 연결 매장은 **블로그+인스타 세트**로
    - 글에 **진짜 메뉴·가격·영업시간** 주입 ("수제대추차(5,800원)" 급 사실 기반)
-3. 브리핑 확인 → /prepare 30초 붙여넣기 → **자동 published** (적체 없음)
-4. 리뷰 답글 관리(/reviews) · 끊긴 단골 재방문(/regulars) · 매장설정(/settings) · 채널토글(/channels)
-+ 컴포저(주제·길이·채널 선택), Gemini 429/키미연결 우아한 안내, `/api/probe-after` 인프라 프로브
+3. 브리핑 확인 → /prepare 30초 붙여넣기 → **자동 published** (지난 자동초안은 아침에 자동 보관 — 무덤 방지)
+4. **글 보관함(/posts)** · 리뷰(/reviews) · 단골(/regulars) · 설정(/settings) · 채널(/channels) — 공용 AppHeader nav
++ 컴포저(주제·길이·채널), Gemini 429 우아한 안내, `/api/probe-after` 인프라 프로브
 
-### 🔜 집에서 이어서 할 것 (우선순위)
-1. **소셜 로그인 켜기** (외부 등록, 코드·폴백 완성) — `docs/oauth-setup.md` 그대로. Redirect URI=`https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback`
-2. **Gemini 결제** (선택) — 무료도 매장 몇 곳까진 돌아감(20/일, 분당 제한 있음). 파일럿 확장 시 결제
-3. **이메일 확인메일 OFF** (선택) — Supabase Auth→Email→Confirm email OFF
-4. **재방문 알림톡 발송 연결** — 알리고 credential (메시지 생성·복사까진 이미 됨)
-5. 남은 신규: 카톡봇 진입점(카카오 비즈채널 필요), 주간 리포트
+### 🆕 7/15 세션 (11커밋, 전부 PROD 실측)
+- **크론 07:30 전진** + 주간차트·활동피드(3대 원칙 대시보드 완성) + 브리핑 무덤방지
+- **PWA 복구**(아이콘 실재하지 않던 것 생성, #08080a 통일) + **없는 기능 약속 4곳 제거**(카톡봇·인스타API·알림톡 → '준비중' 뱃지)
+- 🔴 **CSS 레이어 버그**: globals.css 비레이어 → border 유틸 17곳이 처음부터 죽어있었음 → @layer 분리 복원
+- **middleware→proxy**(Next16 deprecation) + **보호라우트 최신화**(/reviews·/regulars·/settings·/posts 가드 누락 복구, 유출은 0이었음)
+- **OG 이미지 신설**(카톡 공유 미리보기!) + favicon 브랜드 재생성(⚠️Turbopack ICO는 RGBA PNG 필수) + robots·sitemap
+- **글 보관함 /posts** + AppHeader 공용화(5곳 복붙 해소) + 랜딩 죽은 CTA("파일럿 신청"→/signup) 수리
+- **모바일 회귀**: truncate+flex min-width:auto 블로우아웃(대시보드 375px서 503px) → min-w-0 처방, 전수점검
+- **파일럿 키트** `docs/pilot-kit.md` (카톡 초대문·체크리스트·FAQ)
+
+### 🔜 이어서 할 것 (우선순위)
+1. **⏰ 내일 아침: 데일리 크론 07:30 발화 확인** (GitHub Actions daily-content, 어제 첫 스케줄분 미발화로 전진시킴)
+2. **소셜 로그인 켜기** (외부 등록, 코드·폴백 완성) — `docs/oauth-setup.md` 그대로. Redirect URI=`https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback`
+3. **Gemini 결제** (선택) — 무료는 파일럿 3~4매장까지(20/일, 분당 제한도 있음)
+4. **이메일 확인메일 OFF** (선택) — Supabase Auth→Email→Confirm email OFF
+5. **재방문 알림톡 발송 연결** — 알리고 credential (메시지 생성·복사까진 이미 됨)
+6. 남은 신규: 카톡봇 진입점(카카오 비즈채널 필요), 주간 리포트, 파일럿 초대(`docs/pilot-kit.md` 준비됨)
 
 > 집에서 Claude 열고 **"마케팅올인원 이어서 하자"** → 위 상태 다 기억함(계정 메모리 동기화).
 
@@ -76,7 +87,7 @@ cd marketing-allinone
 > - `GOOGLE_GENERATIVE_AI_API_KEY`
 >
 > ※ 백업 파일을 못 옮겼으면? 대시보드에서 재발급 가능:
-> - Supabase: supabase.com/dashboard → 프로젝트 `oricgerprwgijnowjokn` → Settings → API Keys
+> - Supabase: supabase.com/dashboard → 프로젝트 **`exmbpietyadkjnunrhka`** (⚠️별도 무료계정 소속, 옛 oricger…는 폐기됨) → Settings → API Keys
 > - Gemini: aistudio.google.com/app/apikey
 
 ---
@@ -145,23 +156,11 @@ Claude 뜨면 이렇게 입력:
 
 ---
 
-## 📋 오늘까지 완료 / 다음 할 일
+## 🚨 기억할 제약
 
-### ✅ 완료
-- **A구간**: Supabase 인증(이메일·카카오·구글·네이버) + 온보딩 위저드 + 대시보드. DB E2E 검증 통과.
-- **B구간 코어**: 콘텐츠엔진 → 채널별 재단(블로그·인스타·플레이스·당근) + 네이티브 재작성 + 발행 라우팅.
-- **채널 플랫폼**: 28채널 레지스트리 + Wave1 어댑터 7개.
-
-### ⏳ 집에서 이어갈 것 (우선순위)
-1. **Gemini 유료 전환 확인** → 네이티브 톤 라이브 검증 (무료 20회/일 한도 소진됨)
-   - aistudio.google.com/app/apikey → 결제 연결 (Flash 매우 저렴, 월 몇 천원)
-2. **posts 테이블 영속화** (생성 드래프트 DB 저장)
-3. **대시보드 "오늘의 브리핑"** 실연동
-4. **소셜 OAuth 앱 등록** (카카오·구글·네이버 개발자앱 → 실제 소셜 로그인 켜기)
-
-### 🚨 기억할 제약
-- Supabase 조직 `billyssam` 무료한도 초과 → **2026-07-14까지 grace**. 파일럿 전 별도 org 이전 필요.
-- Gemini 무료 20회/일 → 유료 전환 필요.
+- **Gemini 무료 20회/일 + 분당(RPM) 제한** → 파일럿 3~4매장이 무료 한계. 그 이상은 결제.
+- Supabase는 **별도 무료계정의 `exmbpietyadkjnunrhka`가 정본** (계정당 무료 2프로젝트 한도 때문. 옛 oricger…는 폐기, CARTON 프로젝트 건드리지 말 것).
+- 크롤(Playwright)은 Vercel 서버리스 불가 → **GitHub Actions**가 담당(리뷰 3회/일 + 데일리 07:30). GitHub 크론은 1~2시간 지연이 정상.
 
 ---
 
