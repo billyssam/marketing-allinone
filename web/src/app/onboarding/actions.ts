@@ -56,7 +56,12 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
             address: payload.address ?? null,
             brand_tone: {},
           },
-          { angle: '우리 매장을 처음 소개하는 따뜻한 첫 인사 글', targetLength: 'medium' },
+          {
+            angle: '우리 매장을 처음 소개하는 따뜻한 첫 인사 글',
+            targetLength: 'medium',
+            // 온보딩에서 인스타를 켰으면 첫 초안부터 세트로 (데일리 크론과 동일 정책)
+            channels: payload.channels.includes('instagram') ? ['naver_blog', 'instagram'] : ['naver_blog'],
+          },
         );
       } catch (e) {
         // 웰컴 드래프트 실패는 온보딩을 막지 않음(다음날 크론이 만들어줌)
