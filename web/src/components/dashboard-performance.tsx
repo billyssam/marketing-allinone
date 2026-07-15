@@ -7,12 +7,35 @@ export interface PerfData {
   totalPosts: number;
 }
 
+export interface WeeklyBar {
+  /** 요일 라벨 (월~일) */
+  label: string;
+  count: number;
+  isToday: boolean;
+}
+
+export interface FeedItem {
+  when: string; // "방금" | "N분 전" 등
+  text: string;
+  color: string;
+}
+
 /**
  * 대시보드 성과 — 실데이터만. 없는 지표(도달·조회·전환)는 날조하지 않고 "집계 예정"으로 정직 표시.
  * (이전 DashboardPreview 하드코딩 목업 대체)
  */
-export function DashboardPerformance({ data }: { data: PerfData }) {
+export function DashboardPerformance({
+  data,
+  weekly = [],
+  feed = [],
+}: {
+  data: PerfData;
+  weekly?: WeeklyBar[];
+  feed?: FeedItem[];
+}) {
   const { totalReviews, positive, neutral, negative, pendingReplies, totalPosts } = data;
+  const weekMax = Math.max(1, ...weekly.map((w) => w.count));
+  const weekTotal = weekly.reduce((s, w) => s + w.count, 0);
   const posRate = totalReviews ? Math.round((positive / totalReviews) * 100) : 0;
   const pct = (n: number) => (totalReviews ? Math.round((n / totalReviews) * 100) : 0);
 
@@ -57,6 +80,51 @@ export function DashboardPerformance({ data }: { data: PerfData }) {
           </div>
         </div>
       )}
+
+      {/* 주간 생성 차트 + 활동 피드 (실데이터) */}
+      <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="eyebrow">최근 7일 초안 생성</span>
+            <span className="mono text-[10px] text-[var(--color-fg-3)]">{weekTotal}건</span>
+          </div>
+          <div className="flex h-20 items-end gap-1.5">
+            {weekly.map((w, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                <span className="mono text-[9px] tabular-nums text-[var(--color-fg-4)]">{w.count > 0 ? w.count : ''}</span>
+                <div
+                  className="w-full rounded-sm transition-all"
+                  style={{
+                    height: `${Math.max(3, Math.round((w.count / weekMax) * 52))}px`,
+                    background: w.isToday ? 'var(--color-amber)' : w.count > 0 ? 'var(--color-hair-strong)' : 'var(--color-panel-2)',
+                  }}
+                />
+                <span className={`text-[9.5px] ${w.isToday ? 'text-[var(--color-amber)]' : 'text-[var(--color-fg-4)]'}`}>{w.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="eyebrow">최근 활동</span>
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--color-good)] text-[var(--color-good)]" />
+          </div>
+          {feed.length === 0 ? (
+            <p className="text-[12px] text-[var(--color-fg-3)]">아직 활동이 없어요.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {feed.map((f, i) => (
+                <li key={i} className="flex items-baseline gap-2 text-[12px]">
+                  <span className="mono w-14 shrink-0 text-[10px] text-[var(--color-fg-4)]">{f.when}</span>
+                  <span className="h-1.5 w-1.5 shrink-0 translate-y-[1px] rounded-full" style={{ background: f.color }} />
+                  <span className="truncate text-[var(--color-fg-2)]">{f.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
 
       <div className="mt-4 flex items-center gap-1.5 border-t border-[var(--color-hair)] pt-3 text-[11px] text-[var(--color-fg-4)]">
         <span className="h-1 w-1 rounded-full bg-[var(--color-fg-4)]" />

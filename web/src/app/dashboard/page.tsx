@@ -9,6 +9,7 @@ import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-bri
 import { FirstDraftPending } from '@/components/first-draft-pending';
 import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, type PostChannel, type PostStatus } from '@/lib/posts';
 import { isReactivationTarget, daysSince } from '@shared/content-engine/reactivation';
+import { buildWeekly, buildFeed } from '@/lib/activity';
 
 export const metadata = { title: '대시보드' };
 
@@ -41,7 +42,7 @@ export default async function DashboardPage() {
   if (!store) redirect('/onboarding');
 
   // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
-  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes, regularsRes] = await Promise.all([
+  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
     supabase.from('posts').select('id, channel, title, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready)
@@ -54,6 +55,9 @@ export default async function DashboardPage() {
     supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
     // 재방문: 단골 방문일
     supabase.from('regulars').select('last_visit_at').eq('store_id', store.id).limit(1000),
+    // 활동피드·주간차트: 최근 14일 posts + 리뷰 이벤트
+    supabase.from('posts').select('created_at, published_at, channel, title, metadata').eq('store_id', store.id).gte('created_at', new Date(Date.now() - 14 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(100),
+    supabase.from('reviews').select('crawled_at, reply_sent_at, sentiment').eq('store_id', store.id).order('crawled_at', { ascending: false }).limit(60),
   ]);
 
   const conns = (connsRes.data ?? []) as { channel_id: string; status: string | null }[];
@@ -74,6 +78,11 @@ export default async function DashboardPage() {
     pendingReplies: allReviews.filter((r) => r.reply_draft && !r.reply_sent_at).length,
     totalPosts: postsCountRes.count ?? 0,
   };
+
+  // 주간 생성 차트 + 활동 피드 (실데이터)
+  const feedPosts = feedPostsRes.data ?? [];
+  const weekly = buildWeekly(feedPosts.map((p) => p.created_at as string), Date.now());
+  const feed = buildFeed(feedPosts, feedReviewsRes.data ?? [], Date.now());
 
   // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
   const justOnboarded =
@@ -231,7 +240,7 @@ export default async function DashboardPage() {
           <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
             성과 <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">실시간</span>
           </div>
-          <DashboardPerformance data={perfData} />
+          <DashboardPerformance data={perfData} weekly={weekly} feed={feed} />
         </section>
       </main>
     </div>
