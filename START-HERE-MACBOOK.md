@@ -5,7 +5,34 @@
 
 ---
 
-## 🚀 최신 상태 (2026-07-15, HEAD `983cf6c`)
+## 🦴 골격 작업 중 (2026-07-20, HEAD `147c2db`) — 내일 여기서 이어감
+
+> **방향(사용자 확정)**: 지금은 세부 마감이 아니라 **골격**을 맞추는 단계.
+> **원칙 ⓪(머리에 박음)**: 이 도구 하나로 **모든 업종·제품·서비스** 마케팅이
+> **각 사용자 맞춤**으로 돌아가야 함. 쿵더쿵=테스트 인스턴스 하나. 스코프 좁히기 금지.
+
+**오늘 세운 것 = 적응(adaptation) 엔진** (커밋 `fd3a4b9`→`147c2db`, 전부 배포됨):
+- `shared/business/taxonomy.ts` = 심장. 9그룹 43업종, 각 업종이
+  offering(menu/product/service/booking)·saleModes·preset·keywords를 가짐.
+  `recommendedChannelsFor()`가 판매형태에서 채널을 파생(배달→배민, 온라인→스마트스토어).
+  `resolveBusinessType()`가 미지 업종도 안전폴백 → **콘텐츠 생성 크래시 버그 해결**.
+- `prompts/generic.ts` = product/service/booking offering별 콘텐츠 프리셋.
+- 온보딩·채널센터·설정 3곳 모두 택소노미로 적응 배선(업종 선택→맞춤 채널 추천).
+- `industries` 테이블 43업종 DB 시드 완료(`npx tsx src/seed-industries.ts`, FK 충족).
+- **E2E 검증**: 왁싱살롱(skincare) 신규가입→서비스형 채널5→저장→서비스톤 콘텐츠 생성.
+
+**내일 이어갈 골격 후보** (마감 아님, 구조):
+1. **제품형 사업 데이터 모델** — 상품·재고(카페 place기반과 별개로, 소매/온라인셀러의 상품 목록).
+2. **콘텐츠 엔진이 offering 축을 더 깊이** — 제품형은 상품 소재, 서비스형은 비포애프터/후기 소재를 실제 주입.
+3. **대시보드가 업종별로** — 지금은 리뷰 중심. 판매형은 주문/매출, 예약형은 예약 지표로 적응.
+> 어느 것부터 갈지는 사용자에게 방향 확인 후 진행(오늘도 두 번 방향 정정받음 → 골격은 확인하고 짓기).
+
+**택소노미 확장법**: `shared/business/taxonomy.ts`의 `BUSINESS_TYPES`에 한 줄 추가
+→ `npx tsx backend/src/seed-industries.ts` 재실행하면 온보딩·채널·설정 자동 반영.
+
+---
+
+## 🚀 이전 상태 (2026-07-15, HEAD `983cf6c`)
 
 - **라이브 배포**: https://marketing-allinone.vercel.app (Vercel · Git 자동배포 — `git push`하면 자동 반영)
 - **Supabase 프로젝트**: `exmbpietyadkjnunrhka`
