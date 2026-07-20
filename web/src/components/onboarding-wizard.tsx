@@ -1,32 +1,55 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { completeOnboarding } from '@/app/onboarding/actions';
 import { CHANNELS, AUTOMATION_LABEL, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
-
-const INDUSTRIES = [
-  { id: 'cafe', label: '카페·베이커리', tone: '따뜻·감성' },
-  { id: 'restaurant', label: '음식점', tone: '식욕·신선' },
-  { id: 'vet', label: '동물병원', tone: '신뢰·전문' },
-  { id: 'beauty', label: '미용실·네일샵', tone: '세련·트렌디' },
-  { id: 'gym', label: '헬스·PT', tone: '동기·전문' },
-  { id: 'kids', label: '학원·키즈', tone: '신뢰·따뜻' },
-];
+import {
+  BIZ_GROUPS,
+  businessTypesByGroup,
+  resolveBusinessType,
+  recommendedChannelsFor,
+  marketingFocusFor,
+  type BizGroup,
+} from '@shared/business/taxonomy';
 
 const GROUP_ORDER: ChannelGroup[] = ['acquire', 'sell', 'retain'];
-const RECOMMENDED: ChannelId[] = ['naver_place', 'naver_blog', 'instagram', 'kakao_alimtalk'];
+const BIZ_GROUP_ORDER: BizGroup[] = [
+  'food', 'retail', 'beauty', 'health', 'medical', 'education', 'lifestyle', 'professional', 'hospitality',
+];
 
 export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [storeName, setStoreName] = useState('');
   const [industryId, setIndustryId] = useState('');
   const [placeUrl, setPlaceUrl] = useState('');
-  const [channels, setChannels] = useState<Set<ChannelId>>(() => new Set(RECOMMENDED));
+  const [channels, setChannels] = useState<Set<ChannelId>>(new Set());
+  const [channelsTouched, setChannelsTouched] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
 
+  const biz = industryId ? resolveBusinessType(industryId) : null;
+
+  // 선택된 사업에 맞는 추천 채널(연결 가능한 것만). 사용자가 직접 건드리기 전까진 이걸 프리필.
+  const recommended = useMemo<ChannelId[]>(() => {
+    if (!biz) return [];
+    const connectable = new Set(CHANNELS.filter((c) => c.status !== 'planned').map((c) => c.id));
+    return recommendedChannelsFor(biz).filter((id) => connectable.has(id));
+  }, [biz]);
+
+  const effectiveChannels = channelsTouched ? channels : new Set(recommended);
+
   const steps = ['매장', '업종', '플레이스', '채널'];
   const canNext = [storeName.trim().length > 0, industryId !== '', true, true][step];
+
+  function toggleChannel(id: ChannelId) {
+    setChannelsTouched(true);
+    setChannels((prev) => {
+      const base = channelsTouched ? prev : new Set(recommended);
+      const n = new Set(base);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  }
 
   function finish() {
     setError('');
@@ -35,7 +58,7 @@ export function OnboardingWizard() {
         storeName: storeName.trim(),
         industryId,
         naverPlaceUrl: placeUrl.trim() || undefined,
-        channels: [...channels],
+        channels: [...effectiveChannels],
       });
       if (!res.ok) setError(res.error ?? '문제가 발생했습니다');
     });
@@ -61,22 +84,30 @@ export function OnboardingWizard() {
       )}
 
       {step === 1 && (
-        <Step title="어떤 업종이세요?" desc="업종에 맞는 콘텐츠 톤을 자동으로 잡아드려요.">
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {INDUSTRIES.map((ind) => {
-              const on = industryId === ind.id;
-              return (
-                <button key={ind.id} onClick={() => setIndustryId(ind.id)}
-                  className={`rounded-xl border p-3.5 text-left transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)] hover:border-[var(--color-hair-strong)]'}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="text-[13px] font-medium">{ind.label}</div>
-                    {on && <span className="text-[11px] text-[var(--color-amber)]">✓</span>}
-                  </div>
-                  <div className="eyebrow mt-1.5">{ind.tone}</div>
-                </button>
-              );
-            })}
+        <Step title="어떤 사업이세요?" desc="업종에 맞춰 콘텐츠 톤과 채널을 자동으로 구성해드려요.">
+          <div className="max-h-[46vh] space-y-5 overflow-y-auto pr-1">
+            {BIZ_GROUP_ORDER.map((g) => (
+              <div key={g}>
+                <div className="eyebrow mb-2">{BIZ_GROUPS[g].label}</div>
+                <div className="flex flex-wrap gap-2">
+                  {businessTypesByGroup(g).map((b) => {
+                    const on = industryId === b.id;
+                    return (
+                      <button key={b.id} onClick={() => setIndustryId(b.id)}
+                        className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-semibold text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}>
+                        {b.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
+          {biz && (
+            <p className="mt-4 text-[13px] text-[var(--color-fg-3)]">
+              <span className="text-[var(--color-amber)]">{biz.label}</span> — {marketingFocusFor(biz)} 마케팅으로 맞춰드릴게요.
+            </p>
+          )}
         </Step>
       )}
 
@@ -89,29 +120,35 @@ export function OnboardingWizard() {
       )}
 
       {step === 3 && (
-        <Step title="어떤 채널을 켤까요?" desc="추천 채널을 골라뒀어요. 나중에 연결센터에서 바꿀 수 있어요.">
+        <Step title="이 채널로 시작할게요" desc={biz ? `${biz.label}에 맞는 채널을 골라뒀어요. 원하면 바꿀 수 있어요.` : '추천 채널을 골라뒀어요.'}>
           <div className="max-h-[46vh] space-y-4 overflow-y-auto pr-1">
-            {GROUP_ORDER.map((g) => (
-              <div key={g}>
-                <div className="mb-2 text-[12px] font-semibold text-[var(--color-fg-2)]">{GROUPS[g].label} · <span className="font-normal text-[var(--color-fg-3)]">{GROUPS[g].desc}</span></div>
-                <div className="grid grid-cols-2 gap-2">
-                  {CHANNELS.filter((c) => c.group === g && c.status !== 'planned').map((c) => {
-                    const on = channels.has(c.id);
-                    const au = AUTOMATION_LABEL[c.automation];
-                    return (
-                      <button key={c.id} onClick={() => setChannels((p) => { const n = new Set(p); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; })}
-                        className={`flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)]'}`}>
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
-                          <span className="text-[13px]">{c.name}</span>
-                        </span>
-                        <span className="mono text-[9px]" style={{ color: au.color }}>{on ? '✓' : au.label}</span>
-                      </button>
-                    );
-                  })}
+            {GROUP_ORDER.map((g) => {
+              const chans = CHANNELS.filter((c) => c.group === g && c.status !== 'planned');
+              if (!chans.length) return null;
+              return (
+                <div key={g}>
+                  <div className="mb-2 text-[12px] font-semibold text-[var(--color-fg-2)]">{GROUPS[g].label} · <span className="font-normal text-[var(--color-fg-3)]">{GROUPS[g].desc}</span></div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {chans.map((c) => {
+                      const on = effectiveChannels.has(c.id);
+                      const rec = recommended.includes(c.id);
+                      const au = AUTOMATION_LABEL[c.automation];
+                      return (
+                        <button key={c.id} onClick={() => toggleChannel(c.id)}
+                          className={`flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)]'}`}>
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
+                            <span className="text-[13px]">{c.name}</span>
+                            {rec && !on && <span className="mono text-[9px] text-[var(--color-amber)]">추천</span>}
+                          </span>
+                          <span className="mono text-[9px]" style={{ color: on ? 'var(--color-amber)' : au.color }}>{on ? '✓' : au.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Step>
       )}
@@ -126,7 +163,7 @@ export function OnboardingWizard() {
           <button onClick={() => setStep((s) => s + 1)} disabled={!canNext} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-semibold disabled:opacity-40">다음</button>
         ) : (
           <button onClick={finish} disabled={pending} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-semibold disabled:opacity-60">
-            {pending ? '설정 중…' : `${channels.size}개 채널로 시작하기`}
+            {pending ? '설정 중…' : `${effectiveChannels.size}개 채널로 시작하기`}
           </button>
         )}
       </div>
