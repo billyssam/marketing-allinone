@@ -1,5 +1,5 @@
 export { BASE_SYSTEM_PROMPT } from './prompts/base';
-export { getIndustryPrompt, AVAILABLE_INDUSTRIES } from './registry';
+export { getIndustryPrompt, AVAILABLE_PRESETS } from './registry';
 export { createGeminiClient } from './gemini-client';
 export type { GeminiClient, GeminiClientConfig } from './gemini-client';
 export { crawlNaverPlace, extractPlaceId } from './place-crawler';

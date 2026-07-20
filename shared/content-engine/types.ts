@@ -1,4 +1,6 @@
-export type IndustryId = 'cafe' | 'restaurant' | 'vet';
+// 업종 id — business/taxonomy.ts의 BusinessType.id (문자열).
+// (예전엔 'cafe'|'restaurant'|'vet' 리터럴로 좁혀 3업종밖에 못 받았음)
+export type IndustryId = string;
 
 export interface BrandTone {
   voice?: string;

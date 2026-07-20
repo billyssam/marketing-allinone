@@ -1,18 +1,29 @@
 import { cafePrompt } from './prompts/cafe';
 import { restaurantPrompt } from './prompts/restaurant';
 import { vetPrompt } from './prompts/vet';
-import type { IndustryId, IndustryPrompt } from './types';
+import { productPrompt, servicePrompt, bookingPrompt } from './prompts/generic';
+import { resolveBusinessType, type ContentPreset } from '../business/taxonomy';
+import type { IndustryPrompt } from './types';
 
-const PROMPTS: Record<IndustryId, IndustryPrompt> = {
+/** 콘텐츠 프리셋 키 → 실제 프롬프트 */
+const PROMPTS: Record<ContentPreset, IndustryPrompt> = {
   cafe: cafePrompt,
   restaurant: restaurantPrompt,
   vet: vetPrompt,
+  product: productPrompt,
+  service: servicePrompt,
+  booking: bookingPrompt,
 };
 
-export function getIndustryPrompt(id: IndustryId): IndustryPrompt {
-  const p = PROMPTS[id];
-  if (!p) throw new Error(`알 수 없는 업종 ID: ${id}`);
-  return p;
+/**
+ * 업종 id → 프롬프트. taxonomy를 거쳐 프리셋을 고른다.
+ * ⚠️ 알 수 없는 업종도 resolveBusinessType가 안전 폴백(service)을 주므로 절대 throw 안 함.
+ * (예전엔 cafe/restaurant/vet 외 업종에서 throw → 미용실 사장 가입 시 콘텐츠 생성 크래시)
+ */
+export function getIndustryPrompt(id: string): IndustryPrompt {
+  const preset = resolveBusinessType(id).preset;
+  return PROMPTS[preset] ?? servicePrompt;
 }
 
-export const AVAILABLE_INDUSTRIES: IndustryId[] = ['cafe', 'restaurant', 'vet'];
+/** 콘텐츠 프리셋이 존재하는 프리셋 키 목록 */
+export const AVAILABLE_PRESETS: ContentPreset[] = ['cafe', 'restaurant', 'vet', 'product', 'service', 'booking'];
