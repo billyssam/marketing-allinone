@@ -1,6 +1,39 @@
 import type { BrandTone, PlaceInfo } from './types';
 
 /**
+ * 네이버 플레이스 영업시간 문자열 정제.
+ * 크롤러가 상태 배지·라스트오더 중첩 span을 구분자 없이 이어붙여
+ *   "영업 중20:00에 라스트오더20시 0분에 라스트오더 - 동절기에는 저녁 8시까지 영업합니다. :)"
+ * 같은 깨진 문자열이 나오고, 이게 프롬프트에 그대로 박혀 블로그 본문을 망친다.
+ * 크롤 시점(신규)·읽기 시점(기존 저장분) 양쪽에서 부른다.
+ */
+export function normalizeHours(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  let s = raw.replace(/\s+/g, ' ').trim();
+  // 1) 세그먼트가 붙은 한글→숫자 경계에만 공백 ("중20:00"→"중 20:00", "라스트오더20시"→"라스트오더 20시").
+  //    숫자→한글 방향은 건드리지 않음 — "20:00에"·"8시"·"24시간" 같은 정상 표현이 깨짐.
+  s = s.replace(/([가-힣])(\d)/g, '$1 $2');
+  // 2) 크롤 시각에 따라 바뀌는 실시간 상태 접두사 제거(에버그린 콘텐츠엔 부적합)
+  s = s.replace(/^(영업\s*중|영업\s*종료|곧\s*영업\s*(종료|시작)|브레이크\s*타임|영업\s*전)\s*/g, '');
+  // 3) 같은 라스트오더 정보가 두 포맷으로 중복되는 네이버 패턴 → 첫 것만
+  //    "20:00에 라스트오더 20시 0분에 라스트오더 - X" → "20:00에 라스트오더 - X"
+  s = s.replace(/(\d{1,2}\s*:\s*\d{2}에\s*라스트오더)\s*\d{1,2}\s*시\s*\d{1,2}\s*분에\s*라스트오더/g, '$1');
+  // 4) 이모티콘·꼬리 정리
+  s = s.replace(/[:;]-?[)(]+/g, '').replace(/\s*-\s*$/, '').replace(/\s{2,}/g, ' ').trim();
+  return s || undefined;
+}
+
+/**
+ * 찾아가는길 정제 — 네이버 미리보기의 잘림 표시("...")를 떼어
+ * AI가 뒤 문장을 이어 붙여 "건물사계절…"처럼 깨지는 걸 막는다.
+ */
+export function cleanDirections(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  const s = raw.replace(/\s+/g, ' ').replace(/\s*(\.{2,}|…)\s*$/, '').trim();
+  return s || undefined;
+}
+
+/**
  * stores.brand_tone.place_facts(크롤 저장분) → DraftInput.place 변환.
  * placeFactSection이 이 값을 프롬프트에 박아 메뉴·가격·영업시간을 지어내지 않는 글을 만든다.
  * (crawl-place.ts가 저장, 여기는 순수 변환 — playwright 의존 없음이라 web에서도 안전)
@@ -22,9 +55,10 @@ export function placeFromBrandTone(tone: BrandTone | Record<string, unknown> | n
     name: pf.name,
     address: pf.address ?? '',
     phone: pf.phone ?? undefined,
-    hours: pf.hours ?? undefined,
+    // 읽기 시점 정제: 기존에 깨진 채 저장된 값도 여기서 걸러진다(재크롤 없이도 개선)
+    hours: normalizeHours(pf.hours),
     categories: pf.categories ?? [],
-    descriptionRaw: pf.descriptionRaw ?? undefined,
+    descriptionRaw: cleanDirections(pf.descriptionRaw),
     menu: pf.menu ?? [],
   };
 }
