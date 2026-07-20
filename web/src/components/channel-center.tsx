@@ -16,13 +16,19 @@ const ORDER: ChannelGroup[] = ['acquire', 'sell', 'retain', 'reputation', 'ads']
 export function ChannelCenter({
   storeName,
   initialConnected,
+  recommended = [],
+  bizLabel,
 }: {
   storeName: string;
   initialConnected: string[];
+  /** 이 사업 유형에 맞는 추천 채널 id (적응 엔진) */
+  recommended?: string[];
+  bizLabel?: string;
 }) {
   const [connected, setConnected] = useState<Set<ChannelId>>(() => new Set(initialConnected as ChannelId[]));
   const [busy, setBusy] = useState<ChannelId | null>(null);
   const [, startTransition] = useTransition();
+  const recSet = useMemo(() => new Set(recommended), [recommended]);
 
   const stats = useMemo(() => {
     const live = CHANNELS.filter((c) => c.status !== 'planned').length;
@@ -61,6 +67,9 @@ export function ChannelCenter({
         <div className="eyebrow">채널 연결 센터</div>
         <h1 className="h1 mt-3">내 장사에 맞는 채널만 켜세요.</h1>
         <p className="mt-3 max-w-lg text-[15px] text-[var(--color-fg-2)]">
+          {bizLabel ? (
+            <><span className="text-[var(--color-amber)]">{bizLabel}</span>에 맞는 채널을 <span className="text-[var(--color-fg)]">추천</span>으로 표시했어요. </>
+          ) : null}
           연결한 채널은 매일 아침 브리핑에 함께 준비됩니다. 필요 없는 건 꺼두세요.
         </p>
 
@@ -72,7 +81,12 @@ export function ChannelCenter({
 
         <div className="mt-12 space-y-10">
           {ORDER.map((g) => {
-            const chans = CHANNELS.filter((c) => c.group === g).sort((a, b) => a.priority - b.priority);
+            // 추천 채널을 그룹 안에서 우선 노출(적응) → 그 다음 원래 우선순위
+            const chans = CHANNELS.filter((c) => c.group === g).sort((a, b) => {
+              const ra = recSet.has(a.id) ? 0 : 1;
+              const rb = recSet.has(b.id) ? 0 : 1;
+              return ra !== rb ? ra - rb : a.priority - b.priority;
+            });
             if (!chans.length) return null;
             return (
               <section key={g}>
@@ -86,15 +100,19 @@ export function ChannelCenter({
                     const isOn = connected.has(c.id);
                     const canConnect = c.status !== 'planned';
                     const isBusy = busy === c.id;
+                    const isRec = recSet.has(c.id);
                     return (
-                      <div key={c.id} className={`panel spot rounded-[var(--radius-lg)] p-5 ${isOn ? 'ring-1 ring-[var(--color-amber)]/40' : ''}`}>
+                      <div key={c.id} className={`panel spot rounded-[var(--radius-lg)] p-5 ${isOn ? 'ring-1 ring-[var(--color-amber)]/40' : isRec ? 'ring-1 ring-[var(--color-amber)]/20' : ''}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2.5">
                             <span className="grid h-9 w-9 place-items-center rounded-lg text-[13px] font-bold" style={{ background: `${c.color}1e`, color: c.color }}>
                               {c.name.slice(0, 1)}
                             </span>
                             <div>
-                              <div className="text-[14px] font-semibold">{c.name}</div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[14px] font-semibold">{c.name}</span>
+                                {isRec && <span className="mono rounded-full bg-[var(--color-amber)]/15 px-1.5 text-[9px] text-[var(--color-amber)]">추천</span>}
+                              </div>
                               <div className="mono mt-0.5 text-[10px]" style={{ color: au.color }}>{au.label}</div>
                             </div>
                           </div>

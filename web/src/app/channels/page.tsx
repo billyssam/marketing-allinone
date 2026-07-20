@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { ChannelCenter } from '@/components/channel-center';
+import { resolveBusinessType, recommendedChannelsFor } from '@shared/business/taxonomy';
 
 export const metadata = { title: '채널 연결' };
 
@@ -21,7 +22,7 @@ export default async function ChannelsPage() {
   }
 
   const supabase = await createClient();
-  const { data: store } = await supabase.from('stores').select('id, name').eq('owner_id', user.id).maybeSingle();
+  const { data: store } = await supabase.from('stores').select('id, name, industry_id').eq('owner_id', user.id).maybeSingle();
   if (!store) redirect('/onboarding');
 
   const { data: conns } = await supabase
@@ -30,5 +31,9 @@ export default async function ChannelsPage() {
     .eq('store_id', store.id);
   const initialConnected = (conns ?? []).map((c) => c.channel_id as string);
 
-  return <ChannelCenter storeName={store.name} initialConnected={initialConnected} />;
+  // 이 사업에 맞는 추천 채널 → 센터에서 우선 노출/뱃지
+  const biz = resolveBusinessType(store.industry_id as string | null);
+  const recommended = recommendedChannelsFor(biz) as string[];
+
+  return <ChannelCenter storeName={store.name} initialConnected={initialConnected} recommended={recommended} bizLabel={biz.label} />;
 }
