@@ -2,14 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { updateStore } from '@/app/settings/actions';
+import { BIZ_GROUPS, businessTypesByGroup, resolveBusinessType, type BizGroup } from '@shared/business/taxonomy';
 
-const INDUSTRIES = [
-  { id: 'cafe', label: '카페·베이커리' },
-  { id: 'restaurant', label: '음식점' },
-  { id: 'vet', label: '동물병원' },
-  { id: 'beauty', label: '미용실·네일샵' },
-  { id: 'gym', label: '헬스·PT' },
-  { id: 'kids', label: '학원·키즈' },
+const BIZ_GROUP_ORDER: BizGroup[] = [
+  'food', 'retail', 'beauty', 'health', 'medical', 'education', 'lifestyle', 'professional', 'hospitality',
 ];
 
 export interface StoreForm {
@@ -55,18 +51,28 @@ export function SettingsForm({ store }: { store: StoreForm }) {
         <input value={f.name} onChange={set('name')} className={inputCls} placeholder="예: 쿵더쿵 카페" />
       </Field>
 
-      <Field label="업종" hint="콘텐츠 톤에 반영돼요">
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {INDUSTRIES.map((ind) => {
-            const on = f.industryId === ind.id;
-            return (
-              <button key={ind.id} type="button" onClick={() => { setF((p) => ({ ...p, industryId: ind.id })); setSaved(false); }}
-                className={`rounded-xl border px-3 py-2.5 text-[13px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)] hover:border-[var(--color-hair-strong)]'}`}>
-                {ind.label}
-              </button>
-            );
-          })}
+      <Field label="업종" hint="콘텐츠 톤·추천 채널에 반영돼요">
+        <div className="max-h-[40vh] space-y-4 overflow-y-auto rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] p-3">
+          {BIZ_GROUP_ORDER.map((g) => (
+            <div key={g}>
+              <div className="eyebrow mb-2">{BIZ_GROUPS[g].label}</div>
+              <div className="flex flex-wrap gap-2">
+                {businessTypesByGroup(g).map((b) => {
+                  const on = f.industryId === b.id;
+                  return (
+                    <button key={b.id} type="button" onClick={() => { setF((p) => ({ ...p, industryId: b.id })); setSaved(false); }}
+                      className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-semibold text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}>
+                      {b.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+        {f.industryId && (
+          <p className="mt-2 text-[12px] text-[var(--color-fg-3)]">선택: <span className="text-[var(--color-amber)]">{resolveBusinessType(f.industryId).label}</span></p>
+        )}
       </Field>
 
       <Field label="네이버 플레이스 주소" hint="리뷰 자동 수집·콘텐츠 학습에 사용돼요 (권장)">
