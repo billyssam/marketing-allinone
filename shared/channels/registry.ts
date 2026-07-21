@@ -127,6 +127,38 @@ export const REPUTATION_SOURCES: { id: string; name: string; color: string }[] =
   { id: 'kakao_map', name: '카카오맵', color: '#ffcd3c' },
 ];
 
+/** posts.channel enum — 콘텐츠를 영속화할 수 있는 발행 채널 */
+export type PostChannel = 'blog' | 'instagram' | 'facebook' | 'google_gbp' | 'threads';
+
+/**
+ * 콘텐츠 엔진 ChannelId → posts.channel enum 매핑.
+ * ⚠️ posts.channel이 enum이라 여기 있는 채널만 생성·영속 가능(단일 원천).
+ * 당근·밴드·카카오채널 등은 enum 확장 마이그레이션 후 추가(0005 참고).
+ */
+export const CHANNEL_TO_POST: Partial<Record<ChannelId, PostChannel>> = {
+  naver_blog: 'blog',
+  instagram: 'instagram',
+  facebook: 'facebook',
+  google_business: 'google_gbp',
+  threads: 'threads',
+};
+
+/** 콘텐츠 생성+영속 가능한(=enum 매핑 있는) 채널 id 목록 */
+export const CONTENT_CHANNELS = Object.keys(CHANNEL_TO_POST) as ChannelId[];
+
+/**
+ * 연결된 채널 중 콘텐츠를 생성할 채널을 고른다(적응).
+ * 네이버 블로그는 제품의 핵심 산출물이라 항상 포함(anchor).
+ * 그 외 연결된 콘텐츠 채널(인스타·페북·구글·스레드)을 추가 → "연결하면 그 채널 글도 나옴".
+ */
+export function contentChannelsFor(connectedIds: string[]): ChannelId[] {
+  const set = new Set<ChannelId>(['naver_blog']);
+  for (const id of connectedIds) {
+    if (id in CHANNEL_TO_POST) set.add(id as ChannelId);
+  }
+  return [...set];
+}
+
 export function channelsByGroup(group: ChannelGroup) {
   return CHANNELS.filter((c) => c.group === group).sort((a, b) => a.priority - b.priority);
 }

@@ -1,9 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChannelId } from '@shared/channels/registry';
 import type { ChannelDraftBundle } from '@shared/content-engine/orchestrator';
+import { type PostChannel, CHANNEL_TO_POST } from '@shared/channels/registry';
 
-/** posts.channel enum (0001_init.sql: post_channel) */
-export type PostChannel = 'blog' | 'instagram' | 'facebook' | 'google_gbp' | 'threads';
+// posts.channel enum·매핑은 shared/channels/registry가 단일 원천 → 재수출
+export type { PostChannel };
 
 /** posts.status enum (0001_init.sql: post_status) */
 export type PostStatus = 'draft' | 'ready' | 'sent_to_owner' | 'published' | 'failed' | 'archived';
@@ -48,16 +49,10 @@ export function postDisplayTitle(p: { title?: string | null; body_plain?: string
 }
 
 /**
- * 콘텐츠 엔진의 ChannelId → posts.channel enum 매핑.
+ * 콘텐츠 엔진의 ChannelId → posts.channel enum 매핑 (shared 재수출, 하위호환 별칭).
  * enum에 없는 채널(naver_place·danggeun 등)은 posts로 영속화하지 않는다(핸드오프 전용).
  */
-export const CHANNEL_TO_POST_CHANNEL: Partial<Record<ChannelId, PostChannel>> = {
-  naver_blog: 'blog',
-  instagram: 'instagram',
-  facebook: 'facebook',
-  google_business: 'google_gbp',
-  threads: 'threads',
-};
+export const CHANNEL_TO_POST_CHANNEL = CHANNEL_TO_POST;
 
 export interface PersistedPost {
   id: string;

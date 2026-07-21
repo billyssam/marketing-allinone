@@ -17,6 +17,7 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { generateChannelDrafts } from '../../shared/content-engine/orchestrator.js';
 import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
+import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -129,25 +130,24 @@ async function main() {
     };
 
     try {
-      // 연결 채널 존중: 인스타를 켠 매장은 블로그+인스타 세트로 (블로그는 항상 기본)
+      // 연결 채널 존중: 연결된 모든 콘텐츠 채널에 생성(블로그는 항상 anchor).
+      // 인스타·페북·구글·스레드를 켠 매장은 그 채널 글도 함께 나온다.
+      // 비용: 마스터 1회 + 단문 네이티브 1회 배치 — 채널 수만큼 배수 X.
       const { data: conns } = await supabase
         .from('channel_connections')
         .select('channel_id')
-        .eq('store_id', s.id)
-        .eq('channel_id', 'instagram');
-      const channels: ('naver_blog' | 'instagram')[] = conns?.length
-        ? ['naver_blog', 'instagram']
-        : ['naver_blog'];
+        .eq('store_id', s.id);
+      const channels = contentChannelsFor((conns ?? []).map((c) => c.channel_id as string));
 
       const bundle = await generateChannelDrafts(input, channels);
-      const CH_MAP = { naver_blog: 'blog', instagram: 'instagram' } as const;
       const rows = channels
         .map((ch) => {
           const draft = bundle.perChannel[ch];
-          if (!draft) return null;
+          const postChannel = CHANNEL_TO_POST[ch];
+          if (!draft || !postChannel) return null;
           return {
             store_id: s.id,
-            channel: CH_MAP[ch],
+            channel: postChannel,
             title: draft.title ?? (ch === 'naver_blog' ? bundle.master.title : null),
             body_html: draft.bodyHtml ?? null,
             body_plain: draft.bodyPlain ?? null,
