@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { persistDrafts, type PersistedPost } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
+import { dailyDirective } from '@shared/content-engine/angles';
+import { resolveBusinessType } from '@shared/business/taxonomy';
 import type { ChannelId } from '@shared/channels/registry';
 import type { DraftInput, IndustryId, BrandTone } from '@shared/content-engine/types';
 
@@ -45,7 +47,10 @@ export async function generateForStore(
     place: placeFromBrandTone(store.brand_tone),
     photos: opts.photos ?? [],
     targetLength: opts.targetLength,
-    angle: opts.angle,
+    // 각도 미지정 시 오늘의 각도+시점을 기본 적용(수동 생성도 신선·시의성 있게)
+    angle:
+      opts.angle ??
+      dailyDirective(resolveBusinessType(store.industry_id).offering, store.id, Date.now()).directive,
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];
 

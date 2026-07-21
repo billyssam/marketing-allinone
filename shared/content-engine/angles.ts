@@ -1,4 +1,5 @@
 import type { OfferingKind } from '../business/taxonomy';
+import { seasonalContext } from './seasonal';
 
 /**
  * 콘텐츠 각도(angle) 로테이션 — 데일리 자동 콘텐츠가 매일 비슷해지는 걸 막는다.
@@ -78,4 +79,18 @@ export function kstDayNumber(nowMs: number): number {
 /** 업종 offering의 전체 각도(컴포저 수동 선택용) */
 export function anglesForOffering(offering: OfferingKind): ContentAngle[] {
   return ANGLES[offering];
+}
+
+/**
+ * 오늘의 콘텐츠 방향 = 각도 로테이션 + 시점(계절·시의성) 결합.
+ * 데일리 크론·수동 생성(각도 미지정 시) 공용 → 언제 만들어도 신선하고 시의성 있게.
+ */
+export function dailyDirective(
+  offering: OfferingKind,
+  storeId: string,
+  nowMs: number,
+): { directive: string; angle: ContentAngle } {
+  const angle = angleFor(offering, storeId, kstDayNumber(nowMs));
+  const season = seasonalContext(nowMs);
+  return { directive: `${angle.directive} ${season.hint}`, angle };
 }
