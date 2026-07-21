@@ -26,8 +26,8 @@ export default function LandingPage() {
           </h1>
 
           <p className="rise r3 mt-6 max-w-md text-[16px] leading-relaxed text-[var(--color-fg-2)] sm:text-[17px]">
-            인스타·블로그·알림톡·리뷰까지 AI가 준비해 카카오톡으로 브리핑합니다.
-            사장님은 확인하고 발행만. <span className="text-[var(--color-fg)]">하루 5분이면 끝나요.</span>
+            인스타·블로그·리뷰 답글까지 AI가 매일 아침 준비해둡니다.
+            사장님은 확인하고 붙여넣기만. <span className="text-[var(--color-fg)]">하루 5분이면 끝나요.</span>
           </p>
 
           <div className="rise r4 mt-8 flex flex-wrap items-center gap-3">
@@ -70,7 +70,7 @@ export default function LandingPage() {
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
           <div className="reveal lg:sticky lg:top-28 lg:self-start">
             <div className="eyebrow">기능</div>
-            <h2 className="h1 mt-4">채널마다<br />필요한 도구,<br /><span className="text-[var(--color-fg-3)]">손엔 카톡 하나.</span></h2>
+            <h2 className="h1 mt-4">채널마다<br />필요한 도구,<br /><span className="text-[var(--color-fg-3)]">한 화면에서.</span></h2>
             <p className="mt-5 max-w-xs text-[15px] leading-relaxed text-[var(--color-fg-2)]">
               흩어진 마케팅 채널을 하나의 리듬으로. 자동은 자동으로, 손이 필요한 건 30초로.
             </p>
@@ -135,7 +135,7 @@ export default function LandingPage() {
       {/* ===== CTA ===== */}
       <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-6">
         <div className="reveal panel overflow-hidden rounded-[var(--radius-lg)] px-6 py-16 text-center sm:py-24">
-          <h3 className="h1 mx-auto max-w-xl">매장 정보 한 번 등록하고,<br /><span className="amber-text">내일 아침 카톡</span>을 기다리세요.</h3>
+          <h3 className="h1 mx-auto max-w-xl">매장 정보 한 번 등록하고,<br /><span className="amber-text">내일 아침 초안</span>을 확인하세요.</h3>
           <div className="mt-9 flex justify-center">
             <Link href="/signup" className="btn-primary rounded-full px-6 py-3.5 text-[14px] font-semibold">
               무료로 시작하기
