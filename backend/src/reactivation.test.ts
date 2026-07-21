@@ -56,3 +56,19 @@ test('메시지: 이름 없으면 고객님', () => {
   const m = draftReactivation({ name: null, storeName: '쿵더쿵', daysSince: 90 });
   assert.match(m, /고객님/);
 });
+
+test('시점(occasion) 있으면 메시지에 반영', () => {
+  const xmas = draftReactivation({ name: '김단골', storeName: '쿵더쿵', daysSince: 90, nowMs: Date.parse('2026-12-24T10:00:00+09:00') });
+  assert.ok(xmas.includes('크리스마스'), '근접 이벤트 언급');
+});
+
+test('시점 없으면(nowMs 미전달) 기존 톤 유지·occasion 미언급', () => {
+  const m = draftReactivation({ name: '김단골', storeName: '쿵더쿵', daysSince: 90 });
+  assert.ok(!/크리스마스|발렌타인|어린이날/.test(m));
+  assert.ok(m.includes('쿵더쿵'));
+});
+
+test('혜택이 있으면 혜택 우선(occasion 있어도)', () => {
+  const m = draftReactivation({ name: '김단골', storeName: '쿵더쿵', daysSince: 90, benefit: '아메리카노 1잔 무료', nowMs: Date.parse('2026-12-24T10:00:00+09:00') });
+  assert.ok(m.includes('아메리카노 1잔 무료'));
+});

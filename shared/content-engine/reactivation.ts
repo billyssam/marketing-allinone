@@ -2,6 +2,7 @@
  * 재방문 유도 — 끊긴 단골 판별 + 알림톡 메시지 초안.
  * 룰베이스·결정적·이모지 없음(사장님 톤). 발송은 알림톡 credential 연결 후.
  */
+import { seasonalContext } from './seasonal';
 
 export type RegularTier = 'active' | 'fading' | 'inactive' | 'unknown';
 
@@ -38,6 +39,8 @@ export interface ReactivationInput {
   daysSince?: number | null;
   /** 사장님이 넣는 혜택 문구 (예: "아메리카노 1잔 무료") */
   benefit?: string;
+  /** 있으면 계절·근접 이벤트를 메시지에 반영(시의성) */
+  nowMs?: number;
 }
 
 /** 재방문 유도 알림톡 초안 (사장님이 확인/수정 후 발송) */
@@ -45,22 +48,35 @@ export function draftReactivation(input: ReactivationInput): string {
   const who = input.name ? `${input.name}님` : '고객님';
   const store = input.storeName;
   const benefit = input.benefit?.trim();
+  const occasion = input.nowMs != null ? seasonalContext(input.nowMs).occasion : undefined;
   const seed = (input.name ?? '') + String(input.daysSince ?? 0);
 
-  const openers = [
-    `${who}, 오랜만이에요. ${store}입니다.`,
-    `${who}, 한동안 뜸하셨네요. ${store}에서 인사드려요.`,
-    `${who}, 잘 지내셨어요? 문득 생각나 ${store}가 연락드려요.`,
-  ];
+  const openers = occasion
+    ? [
+        `${who}, 오랜만이에요. 곧 ${occasion}이라 문득 생각났어요. ${store}입니다.`,
+        `${who}, ${occasion} 앞두고 안부 전해요. ${store}예요.`,
+      ]
+    : [
+        `${who}, 오랜만이에요. ${store}입니다.`,
+        `${who}, 한동안 뜸하셨네요. ${store}에서 인사드려요.`,
+        `${who}, 잘 지내셨어요? 문득 생각나 ${store}가 연락드려요.`,
+      ];
+
   const bodies = benefit
     ? [
         `오랜만에 오시는 김에 ${benefit} 준비해뒀어요.`,
         `다시 뵙고 싶어 ${benefit} 챙겨뒀습니다.`,
       ]
-    : [
-        `가까운 날 편하게 한번 들러주세요.`,
-        `지나는 길에 잠깐 들러주시면 반갑게 맞이할게요.`,
-      ];
+    : occasion
+      ? [
+          `${occasion} 맞이 겸 가까운 날 한번 들러주세요.`,
+          `이맘때 생각나실 때 편하게 얼굴 비춰주세요.`,
+        ]
+      : [
+          `가까운 날 편하게 한번 들러주세요.`,
+          `지나는 길에 잠깐 들러주시면 반갑게 맞이할게요.`,
+        ];
+
   const closers = [`기다리고 있을게요. — ${store}`, `언제든 편하게 오세요. — ${store}`];
 
   return `${pick(openers, seed)} ${pick(bodies, seed + 'b')} ${pick(closers, seed + 'c')}`;

@@ -143,7 +143,7 @@ function RegularCard({ r, storeName, benefit, onDelete, disabled }: { r: Regular
   const tier = tierByDays(r.daysSince);
   const t = TIER[tier];
   const isTarget = isReactivationTarget(r.daysSince);
-  const draft = isTarget ? draftReactivation({ name: r.name, storeName, daysSince: r.daysSince, benefit }) : '';
+  const draft = isTarget ? draftReactivation({ name: r.name, storeName, daysSince: r.daysSince, benefit, nowMs: Date.now() }) : '';
 
   async function copy() {
     try { await navigator.clipboard.writeText(draft); } catch { /* noop */ }
