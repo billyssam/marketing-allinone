@@ -50,6 +50,18 @@ const ANGLES: Record<OfferingKind, ContentAngle[]> = {
   ],
 };
 
+export type TargetLength = 'short' | 'medium' | 'long';
+// 심층 소개·스토리형 각도는 길게, 빠른 팁·짧은 답형은 짧게, 나머지 보통.
+const LONG_ANGLES = new Set(['signature', 'behind', 'spotlight', 'result', 'expertise', 'program']);
+const SHORT_ANGLES = new Set(['pairing', 'who', 'tip', 'faq']);
+
+/** 각도 성격에 맞는 글 길이 — 내용 유형별 자연스러운 포맷 변주 */
+export function lengthForAngle(key: string): TargetLength {
+  if (LONG_ANGLES.has(key)) return 'long';
+  if (SHORT_ANGLES.has(key)) return 'short';
+  return 'medium';
+}
+
 /** FNV-1a 해시 — 매장별 안정 시드(같은 매장은 늘 같은 시작점) */
 function seedOf(s: string): number {
   let h = 0x811c9dc5;
@@ -93,7 +105,7 @@ export function dailyDirective(
   storeId: string,
   nowMs: number,
   offeringNames: string[] = [],
-): { directive: string; angle: ContentAngle; featured?: string } {
+): { directive: string; angle: ContentAngle; featured?: string; length: TargetLength } {
   const day = kstDayNumber(nowMs);
   const angle = angleFor(offering, storeId, day);
   const season = seasonalContext(nowMs);
@@ -105,5 +117,5 @@ export function dailyDirective(
   }
   const featuredHint = featured ? ` 오늘은 특히 '${featured}'을(를) 중심 소재로 자연스럽게 살려주세요(없는 내용 지어내기 X).` : '';
 
-  return { directive: `${angle.directive} ${season.hint}${featuredHint}`, angle, featured };
+  return { directive: `${angle.directive} ${season.hint}${featuredHint}`, angle, featured, length: lengthForAngle(angle.key) };
 }

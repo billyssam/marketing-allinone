@@ -119,7 +119,7 @@ async function main() {
     // 오늘의 방향 = 각도 로테이션 + 시점 + 중심 소재 로테이션(모두 반복 방지)
     const offering = resolveBusinessType(s.industry_id).offering;
     const offeringNames = resolveOfferings(s.brand_tone, placeFromBrandTone(s.brand_tone)).map((o) => o.name);
-    const { directive: angleDirective, angle } = dailyDirective(offering, s.id, Date.now(), offeringNames);
+    const { directive: angleDirective, angle, length: angleLength } = dailyDirective(offering, s.id, Date.now(), offeringNames);
 
     const input: DraftInput = {
       store: {
@@ -134,7 +134,7 @@ async function main() {
       // 크롤된 매장 실사실(메뉴·가격·영업시간) → 프롬프트 placeFactSection
       place: placeFromBrandTone(s.brand_tone),
       photos: [],
-      targetLength: 'medium',
+      targetLength: angleLength, // 각도 성격에 맞는 길이(심층=길게, 팁=짧게)
       angle: angleDirective,
     };
 

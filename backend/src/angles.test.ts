@@ -71,3 +71,11 @@ test('kstDayNumber는 하루 지나면 +1', () => {
   const base = Date.parse('2026-07-21T05:00:00+09:00');
   assert.equal(kstDayNumber(base + 86_400_000) - kstDayNumber(base), 1);
 });
+
+test('lengthForAngle: 각도 성격별 길이', () => {
+  const base = Date.parse('2026-07-01T08:00:00+09:00'); const DAY=86_400_000;
+  // 여러 날 돌려 long/short/medium 모두 등장하는지
+  const lens = new Set();
+  for (let i=0;i<10;i++) lens.add(dailyDirective('menu','store-len',base+i*DAY,[]).length);
+  assert.ok(lens.has('long') && lens.has('short'), `길이 변주: ${[...lens].join(',')}`);
+});
