@@ -10,6 +10,10 @@ import { FirstDraftPending } from '@/components/first-draft-pending';
 import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, postDisplayTitle, type PostChannel, type PostStatus } from '@/lib/posts';
 import { isReactivationTarget, daysSince } from '@shared/content-engine/reactivation';
 import { buildWeekly, buildFeed } from '@/lib/activity';
+import { DashboardStats, type StatStripData } from '@/components/dashboard-stats';
+import { resolveBusinessType, marketingFocusFor } from '@shared/business/taxonomy';
+import { resolveOfferings, offeringNoun } from '@shared/content-engine/offerings';
+import { placeFromBrandTone } from '@shared/content-engine/place-facts';
 
 export const metadata = { title: '대시보드' };
 
@@ -84,6 +88,11 @@ export default async function DashboardPage() {
   const feedPosts = feedPostsRes.data ?? [];
   const weekly = buildWeekly(feedPosts.map((p) => p.created_at as string), Date.now());
   const feed = buildFeed(feedPosts, feedReviewsRes.data ?? [], Date.now());
+  const weekPosts = weekly.reduce((s, w) => s + w.count, 0);
+
+  // 업종 적응: 사업 유형 + 판매 항목(offerings) → 히어로 KPI·헤더 프레이밍
+  const business = resolveBusinessType(store.industry_id);
+  const offerings = resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone));
 
   // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
   const justOnboarded =
@@ -118,6 +127,16 @@ export default async function DashboardPage() {
     })),
   ];
 
+  const statData: StatStripData = {
+    offeringNoun: offeringNoun(business.offering),
+    offeringCount: offerings.length,
+    totalPosts: perfData.totalPosts,
+    weekPosts,
+    totalReviews: perfData.totalReviews,
+    posRate: perfData.totalReviews ? Math.round((perfData.positive / perfData.totalReviews) * 100) : 0,
+    todo: briefingItems.length,
+  };
+
   return (
     <div className="min-h-screen">
       <AppHeader storeName={store.name} current="/dashboard" />
@@ -125,8 +144,9 @@ export default async function DashboardPage() {
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="eyebrow">오늘의 브리핑</div>
+            <div className="eyebrow">{business.label} · 오늘</div>
             <h1 className="h1 mt-2">{store.name} 사장님, 좋은 아침이에요.</h1>
+            <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">{marketingFocusFor(business)} 마케팅을 오늘도 준비했어요.</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/channels" className="rounded-full border border-[var(--color-hair-strong)] px-4 py-2 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]">
@@ -136,8 +156,13 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* 오늘의 브리핑 (실데이터: 발행 대기 초안 + 답글 대기 리뷰) */}
+        {/* 히어로 KPI 스트립 (업종 적응) */}
         <section className="mt-6">
+          <DashboardStats data={statData} />
+        </section>
+
+        {/* 오늘의 브리핑 (실데이터: 발행 대기 초안 + 답글 대기 리뷰) */}
+        <section className="mt-8">
           {briefingItems.length === 0 && perfData.totalPosts === 0 && justOnboarded ? (
             <FirstDraftPending />
           ) : (

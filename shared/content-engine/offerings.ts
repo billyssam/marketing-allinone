@@ -21,6 +21,20 @@ export function resolveOfferings(
   return [];
 }
 
+/** offering 종류별 짧은 명사 — UI 라벨용(메뉴/상품/시술/프로그램) */
+export function offeringNoun(kind: OfferingKind): string {
+  switch (kind) {
+    case 'menu':
+      return '메뉴';
+    case 'product':
+      return '상품';
+    case 'service':
+      return '시술';
+    case 'booking':
+      return '프로그램';
+  }
+}
+
 /** offering 종류별 프롬프트 라벨 — 메뉴/상품/시술/프로그램 */
 export function offeringLabel(kind: OfferingKind): string {
   switch (kind) {
