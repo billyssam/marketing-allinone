@@ -20,6 +20,7 @@ import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
 import { angleFor, kstDayNumber } from '../../shared/content-engine/angles.js';
+import { seasonalContext } from '../../shared/content-engine/seasonal.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -115,9 +116,11 @@ async function main() {
       }
     }
 
-    // 오늘의 각도 — 매일 다른 방향으로 변주(자동 콘텐츠 반복 방지)
+    // 오늘의 각도(반복 방지) + 시점 컨텍스트(계절·시의성)를 방향으로 결합
     const offering = resolveBusinessType(s.industry_id).offering;
     const angle = angleFor(offering, s.id, kstDayNumber(Date.now()));
+    const season = seasonalContext(Date.now());
+    const angleDirective = `${angle.directive} ${season.hint}`;
 
     const input: DraftInput = {
       store: {
@@ -133,7 +136,7 @@ async function main() {
       place: placeFromBrandTone(s.brand_tone),
       photos: [],
       targetLength: 'medium',
-      angle: angle.directive,
+      angle: angleDirective,
     };
 
     try {
