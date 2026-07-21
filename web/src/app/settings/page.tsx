@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { SettingsForm, type StoreForm } from '@/components/settings-form';
+import type { StoreOffering } from '@shared/content-engine/types';
 
 export const metadata = { title: '매장 설정' };
 
@@ -23,10 +24,16 @@ export default async function SettingsPage() {
   const supabase = await createClient();
   const { data: store } = await supabase
     .from('stores')
-    .select('name, industry_id, naver_place_url, naver_blog_url, address')
+    .select('name, industry_id, naver_place_url, naver_blog_url, address, brand_tone')
     .eq('owner_id', user.id)
     .maybeSingle();
   if (!store) redirect('/onboarding');
+
+  // offerings: 사장님 관리분 우선, 없으면 크롤된 메뉴로 프리필(카페 등 시작점 제공)
+  const bt = (store.brand_tone as Record<string, unknown> | null) ?? {};
+  const owned = Array.isArray(bt.offerings) ? (bt.offerings as StoreOffering[]) : [];
+  const crawledMenu = ((bt.place_facts as { menu?: StoreOffering[] } | undefined)?.menu ?? []) as StoreOffering[];
+  const offerings = owned.length ? owned : crawledMenu.map((m) => ({ name: m.name, price: m.price }));
 
   const form: StoreForm = {
     name: store.name ?? '',
@@ -34,6 +41,7 @@ export default async function SettingsPage() {
     naverPlaceUrl: store.naver_place_url ?? '',
     naverBlogUrl: store.naver_blog_url ?? '',
     address: store.address ?? '',
+    offerings,
   };
 
   return (

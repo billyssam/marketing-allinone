@@ -2,6 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 import { BASE_SYSTEM_PROMPT } from './prompts/base';
 import { getIndustryPrompt } from './registry';
+import { resolveOfferings, offeringLabel, formatOffering } from './offerings';
+import { resolveBusinessType } from '../business/taxonomy';
 import type { DraftInput, DraftOutput } from './types';
 
 const draftOutputSchema = z.object({
@@ -128,16 +130,17 @@ function placeFactSection(input: DraftInput): string {
   if (p?.phone) facts.push(`- 정확한 전화번호: ${p.phone}`);
   if (p?.hours) facts.push(`- 정확한 영업시간: ${p.hours}`);
   if (p?.descriptionRaw) facts.push(`- 찾아가는길: ${p.descriptionRaw}`);
-  if (p?.menu?.length) {
-    facts.push(`- 실제 메뉴·가격:`);
-    for (const m of p.menu) {
-      facts.push(`  · ${m.name}${m.price ? ` (${m.price.toLocaleString()}원)` : ''}`);
-    }
+  // 판매 항목 — 업종 무관(메뉴/상품/시술/프로그램). 사장님 관리분 우선, 없으면 크롤 메뉴.
+  const offerings = resolveOfferings(store.brandTone, p);
+  if (offerings.length) {
+    const kind = resolveBusinessType(store.industryId).offering;
+    facts.push(`- ${offeringLabel(kind)}:`);
+    for (const o of offerings) facts.push(`  · ${formatOffering(o)}`);
   }
   facts.push('');
   facts.push(`## 절대 규칙`);
   facts.push(
-    `1. **주소·영업시간·전화번호·메뉴 가격은 위 값을 정확히 사용**. 절대 지어내거나 어림잡지 말 것.`,
+    `1. **주소·영업시간·전화번호·판매 항목 가격은 위 값을 정확히 사용**. 절대 지어내거나 어림잡지 말 것.`,
   );
   facts.push(
     `2. 위 값이 비어 있으면 그 항목은 **본문에서 아예 언급하지 않음**. "확인 필요" 같은 자리표시자 금지.`,
@@ -146,7 +149,7 @@ function placeFactSection(input: DraftInput): string {
     `3. 본문 마지막 "찾아오시는 길" 문단에는 위 정확한 주소·영업시간·전화번호를 **원문 그대로** 삽입.`,
   );
   facts.push(
-    `4. 메뉴는 위 목록에 없는 것을 소개하지 말 것. 있는 것만 활용.`,
+    `4. 판매 항목(메뉴·상품·시술 등)은 위 목록에 없는 것을 지어내지 말 것. 있는 것만 활용.`,
   );
   return facts.join('\n');
 }

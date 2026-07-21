@@ -3,10 +3,19 @@
 import { useState, useTransition } from 'react';
 import { updateStore } from '@/app/settings/actions';
 import { BIZ_GROUPS, businessTypesByGroup, resolveBusinessType, type BizGroup } from '@shared/business/taxonomy';
+import type { StoreOffering } from '@shared/content-engine/types';
 
 const BIZ_GROUP_ORDER: BizGroup[] = [
   'food', 'retail', 'beauty', 'health', 'medical', 'education', 'lifestyle', 'professional', 'hospitality',
 ];
+
+// offering 종류별 UI 문구 — 사장님 업종에 맞게 "메뉴/상품/시술/프로그램"
+const OFFERING_UI: Record<string, { label: string; hint: string; ph: string }> = {
+  menu: { label: '메뉴', hint: '글에 실제 메뉴·가격이 그대로 들어가요', ph: '예: 수제대추차' },
+  product: { label: '상품', hint: '글에 실제 상품·가격이 그대로 들어가요', ph: '예: 린넨 셔츠' },
+  service: { label: '서비스·시술', hint: '글에 실제 서비스·가격이 그대로 들어가요', ph: '예: 전신 왁싱' },
+  booking: { label: '프로그램·서비스', hint: '글에 실제 프로그램·가격이 그대로 들어가요', ph: '예: 1:1 PT 10회' },
+};
 
 export interface StoreForm {
   name: string;
@@ -14,6 +23,7 @@ export interface StoreForm {
   naverPlaceUrl: string;
   naverBlogUrl: string;
   address: string;
+  offerings: StoreOffering[];
 }
 
 export function SettingsForm({ store }: { store: StoreForm }) {
@@ -27,6 +37,21 @@ export function SettingsForm({ store }: { store: StoreForm }) {
     setSaved(false);
   };
 
+  const offeringUi = OFFERING_UI[resolveBusinessType(f.industryId).offering];
+
+  function setOffering(i: number, patch: Partial<StoreOffering>) {
+    setF((p) => ({ ...p, offerings: p.offerings.map((o, j) => (j === i ? { ...o, ...patch } : o)) }));
+    setSaved(false);
+  }
+  function addOffering() {
+    setF((p) => ({ ...p, offerings: [...p.offerings, { name: '' }] }));
+    setSaved(false);
+  }
+  function removeOffering(i: number) {
+    setF((p) => ({ ...p, offerings: p.offerings.filter((_, j) => j !== i) }));
+    setSaved(false);
+  }
+
   function save() {
     setErr('');
     start(async () => {
@@ -36,6 +61,7 @@ export function SettingsForm({ store }: { store: StoreForm }) {
         naverPlaceUrl: f.naverPlaceUrl || undefined,
         naverBlogUrl: f.naverBlogUrl || undefined,
         address: f.address || undefined,
+        offerings: f.offerings,
       });
       if (res.error) setErr(res.error);
       else setSaved(true);
@@ -85,6 +111,31 @@ export function SettingsForm({ store }: { store: StoreForm }) {
 
       <Field label="주소" hint="글에 정확한 위치로 삽입돼요 (선택)">
         <input value={f.address} onChange={set('address')} className={inputCls} placeholder="예: 충북 옥천군 안내면 …" />
+      </Field>
+
+      {/* 판매 항목 — 업종별 라벨(메뉴/상품/시술/프로그램). 콘텐츠 엔진이 이 실제 값으로 글을 씀 */}
+      <Field label={offeringUi.label} hint={offeringUi.hint}>
+        <div className="space-y-2">
+          {f.offerings.length === 0 && (
+            <p className="rounded-xl border border-dashed border-[var(--color-hair-strong)] px-4 py-3 text-[13px] text-[var(--color-fg-3)]">
+              아직 등록된 {offeringUi.label}이 없어요. 추가하면 글에 실제 이름·가격이 들어갑니다.
+            </p>
+          )}
+          {f.offerings.map((o, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input value={o.name} onChange={(e) => setOffering(i, { name: e.target.value })} placeholder={offeringUi.ph}
+                className="min-w-0 flex-1 rounded-lg border border-[var(--color-hair)] bg-[var(--color-panel)] px-3 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]" />
+              <input value={o.price ?? ''} inputMode="numeric" onChange={(e) => { const n = e.target.value.replace(/[^0-9]/g, ''); setOffering(i, { price: n ? Number(n) : undefined }); }} placeholder="가격"
+                className="w-20 shrink-0 rounded-lg border border-[var(--color-hair)] bg-[var(--color-panel)] px-2.5 py-2.5 text-right text-[13.5px] tabular-nums outline-none focus:border-[var(--color-amber)]" />
+              <button type="button" onClick={() => removeOffering(i)} aria-label="삭제"
+                className="shrink-0 rounded-lg border border-[var(--color-hair)] px-2.5 py-2.5 text-[13px] text-[var(--color-fg-4)] transition hover:text-[var(--color-bad)]">✕</button>
+            </div>
+          ))}
+          <button type="button" onClick={addOffering}
+            className="mono w-full rounded-lg border border-dashed border-[var(--color-hair-strong)] py-2.5 text-[12px] text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">
+            + {offeringUi.label} 추가
+          </button>
+        </div>
       </Field>
 
       {err && <p className="text-[13px] text-[var(--color-bad)]">{err}</p>}
