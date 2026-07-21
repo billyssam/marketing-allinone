@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 type Step = 'title' | 'body' | 'tags' | 'done';
@@ -20,11 +21,11 @@ function flowFor(channel?: string): Step[] {
   return channel === 'instagram' ? ['body'] : FLOW;
 }
 
-const STEP_INFO: Record<Step, { idx: number; label: string; hint: string; cta: string }> = {
-  title: { idx: 1, label: '제목', hint: '블로그 앱에서 제목 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 본문' },
-  body: { idx: 2, label: '본문', hint: '본문 첫 문단을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 태그' },
-  tags: { idx: 3, label: '태그', hint: '태그 입력칸에 붙여넣기 하세요.', cta: '완료' },
-  done: { idx: 4, label: '완료', hint: '이제 블로그 앱에서 발행 버튼만 누르면 끝이에요.', cta: '닫기' },
+const STEP_INFO: Record<Step, { label: string; hint: string; cta: string }> = {
+  title: { label: '제목', hint: '블로그 앱에서 제목 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 본문' },
+  body: { label: '본문', hint: '본문 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 태그' },
+  tags: { label: '태그', hint: '태그 입력칸에 붙여넣기 하세요.', cta: '완료' },
+  done: { label: '완료', hint: '이제 앱에서 발행 버튼만 누르면 끝이에요.', cta: '닫기' },
 };
 
 function PrepareInner() {
@@ -32,10 +33,28 @@ function PrepareInner() {
   const postId = params.get('post');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState<Step>('title');
+  const [copied, setCopied] = useState(false);
   const [status, setStatus] = useState<{ tone: 'ok' | 'wait' | 'err'; msg: string }>({
     tone: 'wait',
     msg: '초안을 불러오는 중…',
   });
+
+  // 현재 단계에서 붙여넣을 전체 텍스트
+  function contentFor(s: Step, d: Draft | null): string {
+    if (!d) return '';
+    if (s === 'title') return d.title ?? '';
+    if (s === 'body') return d.bodyPlain ?? '';
+    if (s === 'tags') return d.tags.map((t) => `#${t}`).join(' ');
+    return '';
+  }
+
+  async function copyCurrent(s: Step, d: Draft | null) {
+    const text = contentFor(s, d);
+    if (!text) return;
+    await copyToClipboard(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
 
   useEffect(() => {
     if (!postId) {
@@ -46,31 +65,28 @@ function PrepareInner() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(async (d: Draft) => {
         setDraft(d);
-        // 인스타(캡션 단일)는 body부터 시작 — null 제목 복사 방지
-        if (flowFor(d.channel)[0] === 'body') {
-          setStep('body');
-          await copyToClipboard(d.bodyPlain);
-          setStatus({ tone: 'ok', msg: '캡션이 복사됐어요. 인스타에 붙여넣기 하세요.' });
-        } else {
-          await copyToClipboard(d.title);
-          setStatus({ tone: 'ok', msg: '제목이 복사됐어요. 붙여넣기 하세요.' });
-        }
+        const first = flowFor(d.channel)[0];
+        setStep(first);
+        await copyCurrent(first, d);
+        setStatus({ tone: 'ok', msg: '' });
       })
       .catch((err) => setStatus({ tone: 'err', msg: `초안을 불러오지 못했어요 (${err.message ?? err})` }));
   }, [postId]);
 
   const flow = flowFor(draft?.channel);
+  const isDone = step === 'done';
+  const isInsta = draft?.channel === 'instagram';
+  const stepIdx = flow.indexOf(step);
+  const isLastStep = stepIdx === flow.length - 1;
 
   async function advance() {
     if (!draft) return;
-    if (step === 'done') {
-      window.close();
+    if (isDone) {
+      window.close(); // 팝업으로 열렸으면 닫힘. 아니면 아래 '대시보드로'가 폴백.
       return;
     }
-    const i = flow.indexOf(step);
-    if (i === -1 || i >= flow.length - 1) {
+    if (stepIdx === -1 || isLastStep) {
       setStep('done');
-      setStatus({ tone: 'ok', msg: '' });
       // 발행 완료 마킹 → 브리핑에서 이 초안이 빠짐(멱등, 실패해도 UX 막지 않음)
       if (postId && postId !== 'MOCK') {
         fetch('/api/prepare', {
@@ -81,97 +97,83 @@ function PrepareInner() {
       }
       return;
     }
-    const next = flow[i + 1];
-    if (next === 'body') {
-      await copyToClipboard(draft.bodyPlain);
-      setStatus({ tone: 'ok', msg: '본문이 복사됐어요.' });
-    } else if (next === 'tags') {
-      await copyToClipboard(draft.tags.map((t) => `#${t}`).join(' '));
-      setStatus({ tone: 'ok', msg: '태그가 복사됐어요.' });
-    }
+    const next = flow[stepIdx + 1];
     setStep(next);
+    await copyCurrent(next, draft);
   }
 
   const info = STEP_INFO[step];
-  const isDone = step === 'done';
-  const isLastStep = flow.indexOf(step) === flow.length - 1;
-  const ctaLabel = isDone ? STEP_INFO.done.cta : isLastStep ? '완료' : info.cta;
-  const preview =
-    step === 'title'
-      ? draft?.title
-      : step === 'body'
-        ? (draft?.bodyPlain ?? '').slice(0, 420) + ((draft?.bodyPlain?.length ?? 0) > 420 ? '…' : '')
-        : step === 'tags'
-          ? draft?.tags.map((t) => `#${t}`).join(' ')
-          : '';
+  const stepLabel = isInsta && step === 'body' ? '캡션' : info.label;
+  const hint = isInsta
+    ? isDone
+      ? '이제 인스타그램 앱에서 게시 버튼만 누르면 끝이에요.'
+      : '인스타그램 새 게시물 캡션 칸에 길게 눌러 붙여넣기 하세요.'
+    : info.hint;
+  const ctaLabel = isDone ? '닫기' : isLastStep ? '완료' : info.cta;
 
-  const toneColor =
-    status.tone === 'ok' ? 'var(--color-good)' : status.tone === 'err' ? 'var(--color-bad)' : 'var(--color-fg-3)';
+  const previewText = contentFor(step, draft);
+  const previewClamped = previewText.length > 500 ? previewText.slice(0, 500) + '…' : previewText;
 
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-8 pt-10">
-      {/* 헤더: 매장명 + 단계 */}
+      {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <span className="eyebrow">{draft?.storeName ?? '블로그 발행'}</span>
-        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {flow.indexOf(step) + 1} / {flow.length}</span>}
+        <span className="eyebrow">{draft?.storeName ?? '붙여넣기 도우미'}</span>
+        {!isDone && <span className="mono text-[11px] text-[var(--color-fg-3)]">STEP {stepIdx + 1} / {flow.length}</span>}
       </div>
 
       {/* 진행 세그먼트 */}
       <div className="mt-3 flex gap-1.5">
         {flow.map((s) => {
-          const active = isDone || flow.indexOf(s) <= flow.indexOf(step);
+          const active = isDone || flow.indexOf(s) <= stepIdx;
           return (
-            <span
-              key={s}
-              className="h-1 flex-1 rounded-full transition-colors duration-500"
-              style={{ background: active ? 'var(--color-amber)' : 'var(--color-hair-strong)' }}
-            />
+            <span key={s} className="h-1 flex-1 rounded-full transition-colors duration-500"
+              style={{ background: active ? 'var(--color-amber)' : 'var(--color-hair-strong)' }} />
           );
         })}
       </div>
 
-      {/* 본문 */}
-      <div className="mt-9 flex-1">
-        {isDone ? (
-          <div className="grid h-9 w-9 place-items-center rounded-full border border-[var(--color-good)] text-[16px] text-[var(--color-good)]">
-            ✓
-          </div>
-        ) : null}
-        <h1 className="mt-4 text-[26px] font-bold tracking-tight">
-          {draft?.channel === 'instagram' && step === 'body' ? '캡션' : info.label}
-        </h1>
-        <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">
-          {draft?.channel === 'instagram'
-            ? isDone
-              ? '이제 인스타그램 앱에서 게시 버튼만 누르면 끝이에요.'
-              : '인스타그램 새 게시물 캡션 칸에 길게 눌러 붙여넣기 하세요.'
-            : info.hint}
-        </p>
+      {isDone ? (
+        /* ── 완료 화면 ── */
+        <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--color-good)]/12 text-[26px] text-[var(--color-good)]">✓</div>
+          <h1 className="mt-5 text-[22px] font-bold tracking-tight">다 붙여넣었어요</h1>
+          <p className="mt-2 max-w-[16rem] text-[14px] leading-relaxed text-[var(--color-fg-2)]">{hint}</p>
+        </div>
+      ) : (
+        /* ── 단계 화면 ── */
+        <div className="mt-8 flex-1">
+          <h1 className="text-[26px] font-bold tracking-tight">{stepLabel}</h1>
+          <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{hint}</p>
 
-        {/* 상태 */}
-        {status.msg && (
-          <div className="panel mt-6 flex items-center gap-2.5 rounded-[var(--radius)] p-3.5">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: toneColor }} />
-            <span className="text-[13px]" style={{ color: toneColor }}>
-              {status.msg}
-            </span>
-          </div>
-        )}
-
-        {/* 붙여넣을 내용 미리보기 */}
-        {draft && !isDone && (
-          <div className="panel mt-3 rounded-[var(--radius-lg)] p-4">
-            <div className="mb-2 flex items-center gap-2.5">
-              <span className="eyebrow" style={{ color: 'var(--color-amber)' }}>클립보드</span>
-              <span className="h-px flex-1 bg-[var(--color-hair)]" />
-              <span className="text-[10px] text-[var(--color-fg-4)]">길게 눌러 붙여넣기</span>
+          {status.msg && (
+            <div className="panel mt-6 flex items-center gap-2.5 rounded-[var(--radius)] p-3.5">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: status.tone === 'err' ? 'var(--color-bad)' : 'var(--color-fg-3)' }} />
+              <span className="text-[13px]" style={{ color: status.tone === 'err' ? 'var(--color-bad)' : 'var(--color-fg-3)' }}>{status.msg}</span>
             </div>
-            <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-fg-2)]">
-              {preview}
-            </p>
-          </div>
-        )}
-      </div>
+          )}
+
+          {/* 붙여넣을 내용 — 탭하면 다시 복사 (클립보드 유실 대비 핵심 안전장치) */}
+          {draft && (
+            <button
+              type="button"
+              onClick={() => copyCurrent(step, draft)}
+              className="panel mt-4 block w-full rounded-[var(--radius-lg)] p-4 text-left transition hover:border-[var(--color-hair-strong)]"
+            >
+              <div className="mb-2 flex items-center gap-2.5">
+                <span className="eyebrow" style={{ color: copied ? 'var(--color-good)' : 'var(--color-amber)' }}>
+                  {copied ? '복사됨 ✓' : `${stepLabel} 복사됨`}
+                </span>
+                <span className="h-px flex-1 bg-[var(--color-hair)]" />
+                <span className="mono text-[10px] text-[var(--color-fg-4)]">탭하여 다시 복사</span>
+              </div>
+              <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-fg-2)]">
+                {previewClamped}
+              </p>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 하단 CTA */}
       <div className="mt-8 space-y-2.5">
@@ -183,12 +185,16 @@ function PrepareInner() {
         >
           {ctaLabel}
         </button>
-        {!isDone && (
+        {isDone ? (
+          <Link href="/dashboard" className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">
+            대시보드로 돌아가기
+          </Link>
+        ) : (
           <a
-            href={draft?.channel === 'instagram' ? 'instagram://app' : 'naverblog://write'}
+            href={isInsta ? 'instagram://app' : 'naverblog://write'}
             className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
           >
-            {draft?.channel === 'instagram' ? '인스타그램 앱 열기' : '네이버 블로그 앱 열기'}
+            {isInsta ? '인스타그램 앱 열기' : '네이버 블로그 앱 열기'}
           </a>
         )}
       </div>
