@@ -71,10 +71,11 @@ export function RegularsManager({ storeName, regulars }: { storeName: string; re
           한동안 안 오신 단골에게 재방문 메시지를 준비해요. 알림톡 연동 후 한 번에 보낼 수 있어요.
         </p>
 
-        {/* 요약 */}
-        <div className="mt-6 grid grid-cols-3 gap-2.5">
+        {/* 요약 — 대시보드/리뷰와 동일한 헤어라인 KPI 타일 */}
+        <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <Metric label="전체 단골" value={list.length} />
-          <Metric label="재방문 대상" value={targets.length} accent="var(--color-amber)" />
+          <Metric label="활성" value={list.filter((r) => tierByDays(r.daysSince) === 'active').length} accent="var(--color-good)" />
+          <Metric label="재방문 대상" value={targets.length} accent={targets.length > 0 ? 'var(--color-amber)' : undefined} />
           <Metric label="끊긴 단골" value={list.filter((r) => tierByDays(r.daysSince) === 'inactive').length} accent="var(--color-bad)" />
         </div>
 
@@ -127,9 +128,12 @@ export function RegularsManager({ storeName, regulars }: { storeName: string; re
 
 function Metric({ label, value, accent }: { label: string; value: number; accent?: string }) {
   return (
-    <div className="rounded-[var(--radius)] bg-[var(--color-panel-2)] p-3.5">
+    <div className="panel min-w-0 rounded-[var(--radius)] p-4">
       <div className="eyebrow">{label}</div>
-      <div className="mt-1.5 text-[24px] font-bold tabular-nums" style={{ color: accent ?? 'var(--color-fg)' }}>{value}</div>
+      <div className="mt-2 flex items-baseline gap-1">
+        <span className="text-[24px] font-bold leading-none tabular-nums" style={{ color: accent ?? 'var(--color-fg)' }}>{value.toLocaleString()}</span>
+        <span className="text-[12px] text-[var(--color-fg-3)]">명</span>
+      </div>
     </div>
   );
 }
