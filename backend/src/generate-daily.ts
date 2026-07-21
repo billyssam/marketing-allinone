@@ -18,6 +18,8 @@ import { createClient } from '@supabase/supabase-js';
 import { generateChannelDrafts } from '../../shared/content-engine/orchestrator.js';
 import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
+import { resolveBusinessType } from '../../shared/business/taxonomy.js';
+import { angleFor, kstDayNumber } from '../../shared/content-engine/angles.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -113,6 +115,10 @@ async function main() {
       }
     }
 
+    // 오늘의 각도 — 매일 다른 방향으로 변주(자동 콘텐츠 반복 방지)
+    const offering = resolveBusinessType(s.industry_id).offering;
+    const angle = angleFor(offering, s.id, kstDayNumber(Date.now()));
+
     const input: DraftInput = {
       store: {
         id: s.id,
@@ -127,6 +133,7 @@ async function main() {
       place: placeFromBrandTone(s.brand_tone),
       photos: [],
       targetLength: 'medium',
+      angle: angle.directive,
     };
 
     try {
@@ -153,7 +160,7 @@ async function main() {
             body_plain: draft.bodyPlain ?? null,
             tags: draft.tags ?? [],
             status: 'draft' as const,
-            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true },
+            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key },
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -167,7 +174,7 @@ async function main() {
 
       made++;
       const blogPost = inserted?.find((p) => p.channel === 'blog') ?? inserted?.[0];
-      console.log(`[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')}): ${bundle.master.title}`);
+      console.log(`[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')}) · 각도:${angle.label}: ${bundle.master.title}`);
       await sendTelegram(
         `☀️ <b>${s.name}</b> 오늘의 초안 ${inserted?.length}건이 준비됐어요 (${inserted?.map((p) => p.channel).join('·')})\n${bundle.master.title}\n${APP_URL}/prepare?post=${blogPost?.id}`,
       );
