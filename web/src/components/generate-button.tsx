@@ -14,11 +14,18 @@ const TARGETS: { v: 'blog' | 'blog_insta'; l: string }[] = [
   { v: 'blog_insta', l: '블로그 + 인스타' },
 ];
 
-/** 오늘 글 컴포저 — 주제·길이·채널 선택 → /api/generate → posts 저장 → 새로고침 */
-export function GenerateButton() {
+export interface ComposerAngle {
+  key: string;
+  label: string;
+  directive: string;
+}
+
+/** 오늘 글 컴포저 — 각도·주제·길이·채널 선택 → /api/generate → posts 저장 → 새로고침 */
+export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [angle, setAngle] = useState('');
+  const [pickedAngle, setPickedAngle] = useState<string>(''); // 선택된 각도 key
   const [length, setLength] = useState<'short' | 'medium' | 'long'>('medium');
   const [target, setTarget] = useState<'blog' | 'blog_insta'>('blog');
   const [loading, setLoading] = useState(false);
@@ -28,11 +35,14 @@ export function GenerateButton() {
     setLoading(true);
     setError(null);
     try {
+      // 직접 입력한 주제 우선 → 없으면 선택한 각도 지시문 → 없으면 자동(매장 정보 기반)
+      const picked = angles.find((a) => a.key === pickedAngle);
+      const angleValue = angle.trim() || picked?.directive || undefined;
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          angle: angle.trim() || undefined,
+          angle: angleValue,
           targetLength: length,
           channels: target === 'blog_insta' ? ['naver_blog', 'instagram'] : ['naver_blog'],
         }),
@@ -55,6 +65,7 @@ export function GenerateButton() {
       }
       setOpen(false);
       setAngle('');
+      setPickedAngle('');
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -78,15 +89,37 @@ export function GenerateButton() {
           <div className="fixed inset-0 z-40" onClick={() => !loading && setOpen(false)} />
           <div className="panel absolute right-0 z-50 mt-2 w-[288px] rounded-[var(--radius-lg)] p-4 shadow-2xl">
             <div className="eyebrow">오늘 뭘 알릴까요?</div>
+
+            {/* 각도 칩 — 업종별 오늘의 방향을 탭 한 번으로(직접 입력도 가능) */}
+            {angles.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {angles.map((a) => {
+                  const on = pickedAngle === a.key;
+                  return (
+                    <button
+                      key={a.key}
+                      type="button"
+                      title={a.directive}
+                      onClick={() => setPickedAngle(on ? '' : a.key)}
+                      className={`rounded-full border px-2.5 py-1 text-[11.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-semibold text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}
+                    >
+                      {a.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <input
-              autoFocus
               value={angle}
               onChange={(e) => setAngle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !loading) generate(); }}
-              placeholder="예: 신메뉴 대추라떼 출시"
+              placeholder="직접 주제 쓰기 (예: 신메뉴 대추라떼 출시)"
               className="mt-2 w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]"
             />
-            <p className="mt-1.5 text-[11px] text-[var(--color-fg-3)]">비우면 매장 정보로 알아서 써드려요.</p>
+            <p className="mt-1.5 text-[11px] text-[var(--color-fg-3)]">
+              {angle.trim() ? '직접 쓴 주제로 만들어요.' : pickedAngle ? '선택한 각도로 만들어요.' : '비우면 매장 정보로 알아서 써드려요.'}
+            </p>
 
             <div className="mt-3 flex gap-1.5">
               {LENGTHS.map((o) => (

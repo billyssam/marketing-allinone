@@ -14,6 +14,7 @@ import { DashboardStats, type StatStripData } from '@/components/dashboard-stats
 import { resolveBusinessType, marketingFocusFor } from '@shared/business/taxonomy';
 import { resolveOfferings, offeringNoun } from '@shared/content-engine/offerings';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
+import { anglesForOffering } from '@shared/content-engine/angles';
 
 export const metadata = { title: '대시보드' };
 
@@ -152,7 +153,7 @@ export default async function DashboardPage() {
             <Link href="/channels" className="rounded-full border border-[var(--color-hair-strong)] px-4 py-2 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]">
               + 채널 추가
             </Link>
-            <GenerateButton />
+            <GenerateButton angles={anglesForOffering(business.offering)} />
           </div>
         </div>
 
