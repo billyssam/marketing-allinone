@@ -17,6 +17,7 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { generateChannelDrafts } from '../../shared/content-engine/orchestrator.js';
 import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
+import { resolveOfferings } from '../../shared/content-engine/offerings.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
 import { dailyDirective } from '../../shared/content-engine/angles.js';
@@ -115,9 +116,10 @@ async function main() {
       }
     }
 
-    // 오늘의 방향 = 각도 로테이션(반복 방지) + 시점(계절·시의성)
+    // 오늘의 방향 = 각도 로테이션 + 시점 + 중심 소재 로테이션(모두 반복 방지)
     const offering = resolveBusinessType(s.industry_id).offering;
-    const { directive: angleDirective, angle } = dailyDirective(offering, s.id, Date.now());
+    const offeringNames = resolveOfferings(s.brand_tone, placeFromBrandTone(s.brand_tone)).map((o) => o.name);
+    const { directive: angleDirective, angle } = dailyDirective(offering, s.id, Date.now(), offeringNames);
 
     const input: DraftInput = {
       store: {

@@ -82,15 +82,28 @@ export function anglesForOffering(offering: OfferingKind): ContentAngle[] {
 }
 
 /**
- * 오늘의 콘텐츠 방향 = 각도 로테이션 + 시점(계절·시의성) 결합.
+ * 오늘의 콘텐츠 방향 = 각도 로테이션 + 시점(계절·시의성) + 중심 소재 로테이션.
  * 데일리 크론·수동 생성(각도 미지정 시) 공용 → 언제 만들어도 신선하고 시의성 있게.
+ *
+ * offeringNames를 주면 매일 다른 항목을 중심 소재로 제안 → 소재까지 변주(같은 메뉴 반복 방지).
+ * (각도 시드와 오프셋을 달리해 각도·소재가 독립적으로 돌게)
  */
 export function dailyDirective(
   offering: OfferingKind,
   storeId: string,
   nowMs: number,
-): { directive: string; angle: ContentAngle } {
-  const angle = angleFor(offering, storeId, kstDayNumber(nowMs));
+  offeringNames: string[] = [],
+): { directive: string; angle: ContentAngle; featured?: string } {
+  const day = kstDayNumber(nowMs);
+  const angle = angleFor(offering, storeId, day);
   const season = seasonalContext(nowMs);
-  return { directive: `${angle.directive} ${season.hint}`, angle };
+
+  let featured: string | undefined;
+  const names = offeringNames.filter((n) => n && n.trim());
+  if (names.length) {
+    featured = names[(((day + 7) % names.length) + names.length) % names.length];
+  }
+  const featuredHint = featured ? ` 오늘은 특히 '${featured}'을(를) 중심 소재로 자연스럽게 살려주세요(없는 내용 지어내기 X).` : '';
+
+  return { directive: `${angle.directive} ${season.hint}${featuredHint}`, angle, featured };
 }

@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { angleFor, kstDayNumber, anglesForOffering } from '../../shared/content-engine/angles.js';
+import { angleFor, kstDayNumber, anglesForOffering, dailyDirective } from '../../shared/content-engine/angles.js';
 import { getIndustryPrompt } from '../../shared/content-engine/registry.js';
 import type { DraftInput } from '../../shared/content-engine/types.js';
 
@@ -45,6 +45,26 @@ test('선택된 각도가 실제 planning 프롬프트에 들어간다(Gemini �
   };
   const prompt = getIndustryPrompt('cafe').planningTemplate(input);
   assert.ok(prompt.includes(angle.directive), '각도 directive가 프롬프트에 포함');
+});
+
+test('dailyDirective: 중심 소재가 매일 로테이션(같은 메뉴 반복 방지)', () => {
+  const menu = ['수제대추차', '눈꽃빙수', '쿵더쿵초콜릿', '플레인크로플'];
+  const store = 'store-z';
+  const base = Date.parse('2026-07-01T08:00:00+09:00');
+  const DAY = 86_400_000;
+  const feats = [0, 1, 2, 3].map((i) => dailyDirective('menu', store, base + i * DAY, menu).featured);
+  // 연속 4일에 4개 메뉴가 겹치지 않고 다 나옴
+  assert.equal(new Set(feats).size, 4, `소재 변주: ${feats.join(',')}`);
+  // featured가 실제 메뉴 중 하나 + 지시문에 포함
+  const one = dailyDirective('menu', store, base, menu);
+  assert.ok(menu.includes(one.featured!));
+  assert.ok(one.directive.includes(one.featured!));
+});
+
+test('dailyDirective: 소재 없으면 featured 없음(방어)', () => {
+  const d = dailyDirective('service', 's', Date.parse('2026-07-01T08:00:00+09:00'), []);
+  assert.equal(d.featured, undefined);
+  assert.ok(d.directive.length > 0);
 });
 
 test('kstDayNumber는 하루 지나면 +1', () => {
