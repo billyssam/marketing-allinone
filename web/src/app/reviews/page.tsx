@@ -58,8 +58,22 @@ export default async function ReviewsPage() {
   const pos = reviews.filter((r) => r.sentiment === 'positive').length;
   const neu = reviews.filter((r) => r.sentiment === 'neutral').length;
   const neg = reviews.filter((r) => r.sentiment === 'negative').length;
+  const pending = reviews.filter((r) => !r.replySentAt && r.replyDraft).length;
+  const negOpen = reviews.filter((r) => r.sentiment === 'negative' && !r.replySentAt).length;
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
   const placeId = placeIdFromUrl(store.naver_place_url);
+
+  const sentiments = [
+    { key: 'pos', label: '긍정', n: pos, color: 'var(--color-good)' },
+    { key: 'neu', label: '중립', n: neu, color: 'var(--color-fg-4)' },
+    { key: 'neg', label: '부정', n: neg, color: 'var(--color-bad)' },
+  ];
+  const kpis = [
+    { label: '수집 리뷰', value: String(total), unit: '건' },
+    { label: '긍정률', value: total ? String(pct(pos)) : '—', unit: total ? '%' : '', accent: total && pct(pos) >= 80 ? 'var(--color-good)' : undefined },
+    { label: '답글 대기', value: String(pending), unit: '건', accent: pending > 0 ? 'var(--color-amber)' : undefined },
+    { label: '부정 미답', value: String(negOpen), unit: '건', accent: negOpen > 0 ? 'var(--color-bad)' : undefined },
+  ];
 
   return (
     <div className="min-h-screen">
@@ -72,22 +86,52 @@ export default async function ReviewsPage() {
           네이버 플레이스 리뷰를 매일 자동 수집하고 감정을 분석해요. 부정 리뷰는 즉시 알려드립니다.
         </p>
 
-        {/* 감정 분포 요약 */}
+        {/* 플레이스 미연결 안내 — 연결 안 하면 리뷰가 영영 안 들어오니 정직하게 */}
+        {!placeId && (
+          <Link href="/settings" className="mt-6 flex items-center justify-between rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 transition hover:border-[var(--color-hair-strong)]">
+            <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-amber)]" />
+              <span>네이버 플레이스 주소를 연결하면 리뷰가 매일 자동으로 수집돼요.</span>
+            </span>
+            <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">연결하기 →</span>
+          </Link>
+        )}
+
+        {/* 요약 — KPI + 감정 분포(diverging, 세그먼트 2px 갭, 스와치 범례) */}
         {total > 0 && (
-          <div className="panel mt-6 rounded-[var(--radius-lg)] p-4">
-            <div className="mb-2 flex items-center justify-between text-[12.5px]">
-              <span className="font-semibold">감정 분포</span>
-              <span className="mono text-[var(--color-fg-3)]">총 {total}건</span>
+          <div className="panel mt-6 rounded-[var(--radius-lg)] p-4 sm:p-5">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              {kpis.map((k) => (
+                <div key={k.label} className="min-w-0">
+                  <div className="eyebrow">{k.label}</div>
+                  <div className="mt-1.5 flex items-baseline gap-1">
+                    <span className="text-[24px] font-bold leading-none tabular-nums" style={{ color: k.accent ?? 'var(--color-fg)' }}>{k.value}</span>
+                    {k.unit && <span className="text-[12px] text-[var(--color-fg-3)]">{k.unit}</span>}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex h-2.5 overflow-hidden rounded-full bg-[var(--color-panel-2)]">
-              <div style={{ width: `${pct(pos)}%`, background: 'var(--color-good)' }} />
-              <div style={{ width: `${pct(neu)}%`, background: 'var(--color-fg-4)' }} />
-              <div style={{ width: `${pct(neg)}%`, background: 'var(--color-bad)' }} />
-            </div>
-            <div className="mt-2.5 flex gap-4 text-[11.5px]">
-              <span className="text-[var(--color-good)]">긍정 {pos} · {pct(pos)}%</span>
-              <span className="text-[var(--color-fg-3)]">중립 {neu} · {pct(neu)}%</span>
-              <span className="text-[var(--color-bad)]">부정 {neg} · {pct(neg)}%</span>
+            <div className="mt-5 border-t border-[var(--color-hair)] pt-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="eyebrow">감정 분포</span>
+                <span className="mono text-[10px] text-[var(--color-fg-3)]">총 {total.toLocaleString()}건</span>
+              </div>
+              <div className="flex h-2.5 gap-0.5">
+                {sentiments.map((s) =>
+                  s.n > 0 ? (
+                    <div key={s.key} className="h-full rounded-[2px] first:rounded-l-full last:rounded-r-full"
+                      style={{ width: `${pct(s.n)}%`, background: s.color }} title={`${s.label} ${s.n}건 · ${pct(s.n)}%`} />
+                  ) : null,
+                )}
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-[var(--color-fg-2)]">
+                {sentiments.map((s) => (
+                  <span key={s.key} className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-[3px]" style={{ background: s.color }} />
+                    {s.label} <span className="tabular-nums text-[var(--color-fg-3)]">{s.n} · {pct(s.n)}%</span>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         )}
