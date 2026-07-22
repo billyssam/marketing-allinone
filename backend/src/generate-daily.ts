@@ -119,7 +119,23 @@ async function main() {
     // 오늘의 방향 = 각도 로테이션 + 시점 + 중심 소재 로테이션(모두 반복 방지)
     const offering = resolveBusinessType(s.industry_id).offering;
     const offeringNames = resolveOfferings(s.brand_tone, placeFromBrandTone(s.brand_tone)).map((o) => o.name);
-    const { directive: angleDirective, angle, length: angleLength } = dailyDirective(offering, s.id, Date.now(), offeringNames);
+    const daily = dailyDirective(offering, s.id, Date.now(), offeringNames);
+    const { angle, length: angleLength } = daily;
+
+    // 최근 쓴 제목을 피하도록 지시(장기 반복 방지) — 최근 블로그 5건 제목
+    const { data: recent } = await supabase
+      .from('posts')
+      .select('title')
+      .eq('store_id', s.id)
+      .eq('channel', 'blog')
+      .not('title', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    const recentTitles = (recent ?? []).map((r) => r.title).filter(Boolean) as string[];
+    const avoidHint = recentTitles.length
+      ? ` 최근 이런 제목으로 썼으니 소재·표현·구성이 겹치지 않게 새롭게: ${recentTitles.map((t) => `"${t}"`).join(', ')}.`
+      : '';
+    const angleDirective = daily.directive + avoidHint;
 
     const input: DraftInput = {
       store: {
