@@ -20,8 +20,8 @@ const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: str
   blog: { caption: false, hasTags: true, appHref: 'naverblog://write', appLabel: '네이버 블로그 앱 열기', targetName: '블로그' },
   instagram: { caption: true, hasTags: false, appHref: 'instagram://app', appLabel: '인스타그램 앱 열기', targetName: '인스타그램' },
   threads: { caption: true, hasTags: false, appHref: 'https://www.threads.net', appLabel: '스레드 열기', targetName: '스레드' },
-  facebook: { caption: false, hasTags: false, appHref: 'https://www.facebook.com', appLabel: '페이스북 열기', targetName: '페이스북' },
-  google_gbp: { caption: false, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
+  facebook: { caption: true, hasTags: false, appHref: 'https://www.facebook.com', appLabel: '페이스북 열기', targetName: '페이스북' },
+  google_gbp: { caption: true, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
 };
 function metaFor(channel?: string) {
   return CH_META[channel ?? 'blog'] ?? CH_META.blog;
@@ -55,7 +55,12 @@ function PrepareInner() {
   function contentFor(s: Step, d: Draft | null): string {
     if (!d) return '';
     if (s === 'title') return d.title ?? '';
-    if (s === 'body') return d.bodyPlain ?? '';
+    if (s === 'body') {
+      // 단일 필드 채널(페북·구글)이고 제목이 따로 있으면 제목+본문 한 번에 붙이기
+      const m = metaFor(d.channel);
+      if (m.caption && d.title) return `${d.title}\n\n${d.bodyPlain ?? ''}`;
+      return d.bodyPlain ?? '';
+    }
     if (s === 'tags') return d.tags.map((t) => `#${t}`).join(' ');
     return '';
   }
