@@ -45,17 +45,32 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
   const writingModelName = config.writingModel ?? 'gemini-2.5-flash';
   const temperature = config.temperature ?? 0.75;
 
+  // 무료 flash 일일한도(실측: 프로젝트당 20/일) 소진 시 flash-lite로 폴백.
+  // 모델별 쿼터 버킷이 분리라 lite(한도 훨씬 큼)가 살아있음 → 품질 우선 + 용량 확보.
+  const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+  const isRateLimited = (e: unknown) => /429|quota|rate/i.test(e instanceof Error ? e.message : String(e));
+  async function callWithFallback(
+    modelName: string,
+    systemInstruction: string,
+    generationConfig: Record<string, unknown>,
+    prompt: string,
+  ): Promise<string> {
+    try {
+      const m = genAI.getGenerativeModel({ model: modelName, systemInstruction, generationConfig });
+      return (await m.generateContent(prompt)).response.text();
+    } catch (e) {
+      if (!isRateLimited(e) || modelName === FALLBACK_MODEL) throw e;
+      console.warn(`[gemini] ${modelName} 한도 → ${FALLBACK_MODEL} 폴백`);
+      const m = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction, generationConfig });
+      return (await m.generateContent(prompt)).response.text();
+    }
+  }
+
   return {
     async planOnly(input) {
       const industry = getIndustryPrompt(input.store.industryId);
       const systemInstruction = `${BASE_SYSTEM_PROMPT}\n\n${industry.systemPrompt}\n\n${brandToneSection(input)}\n\n${placeFactSection(input)}`;
-      const model = genAI.getGenerativeModel({
-        model: planningModelName,
-        systemInstruction,
-        generationConfig: { temperature },
-      });
-      const res = await model.generateContent(industry.planningTemplate(input));
-      return res.response.text();
+      return callWithFallback(planningModelName, systemInstruction, { temperature }, industry.planningTemplate(input));
     },
 
     async generate(input) {
@@ -63,25 +78,16 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
       const systemInstruction = `${BASE_SYSTEM_PROMPT}\n\n${industry.systemPrompt}\n\n${brandToneSection(input)}\n\n${placeFactSection(input)}`;
 
       // 1단계: 기획
-      const planning = genAI.getGenerativeModel({
-        model: planningModelName,
-        systemInstruction,
-        generationConfig: { temperature },
-      });
-      const planRes = await planning.generateContent(industry.planningTemplate(input));
-      const plan = planRes.response.text();
+      const plan = await callWithFallback(
+        planningModelName, systemInstruction, { temperature }, industry.planningTemplate(input),
+      );
 
       // 2단계: 본문 (JSON 강제)
-      const writing = genAI.getGenerativeModel({
-        model: writingModelName,
-        systemInstruction,
-        generationConfig: {
-          temperature,
-          responseMimeType: 'application/json',
-        },
-      });
-      const writeRes = await writing.generateContent(industry.writingTemplate(plan, input));
-      const raw = writeRes.response.text();
+      const raw = await callWithFallback(
+        writingModelName, systemInstruction,
+        { temperature, responseMimeType: 'application/json' },
+        industry.writingTemplate(plan, input),
+      );
 
       let parsed: unknown;
       try {

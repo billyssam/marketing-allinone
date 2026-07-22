@@ -33,6 +33,26 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.startsWith('https')
   ? process.env.NEXT_PUBLIC_APP_URL
   : 'https://marketing-allinone.vercel.app';
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const isRateLimited = (e: unknown) => /429|quota|rate/i.test(e instanceof Error ? e.message : String(e));
+
+/**
+ * 429는 대부분 분당(RPM) 제한(무료 flash ~10RPM) — 65초 쉬고 재시도.
+ * 재시도까지 소진돼야 진짜 일일(RPD) 한도로 판단. (예전엔 429 한 번에 남은 매장
+ * 전부 포기 → 매장 몇 곳만 돼도 크론이 중도 포기하는 버그)
+ */
+async function withRateLimitRetry<T>(fn: () => Promise<T>, label: string, retries = 2): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!isRateLimited(e) || i >= retries) throw e;
+      console.log(`[${label}] 429(분당 제한 추정) → 65초 대기 후 재시도 ${i + 1}/${retries}`);
+      await sleep(65_000);
+    }
+  }
+}
+
 function kstTodayStartISO(): string {
   // KST(UTC+9) 자정 → UTC ISO
   const now = new Date();
@@ -164,7 +184,7 @@ async function main() {
         .eq('store_id', s.id);
       const channels = contentChannelsFor((conns ?? []).map((c) => c.channel_id as string));
 
-      const bundle = await generateChannelDrafts(input, channels);
+      const bundle = await withRateLimitRetry(() => generateChannelDrafts(input, channels), s.name);
       const rows = channels
         .map((ch) => {
           const draft = bundle.perChannel[ch];
@@ -200,12 +220,15 @@ async function main() {
       failed++;
       const msg = e instanceof Error ? e.message : String(e);
       console.log(`[${s.name}] ⚠️ 실패: ${msg.slice(0, 140)}`);
-      // 429(무료한도)면 이후 매장도 같은 결과 → 조기 종료
+      // 재시도까지 뚫린 429 = 진짜 일일(RPD) 한도 → 남은 매장 중단
       if (/429|quota|rate/i.test(msg)) {
-        console.log('Gemini 한도 도달 → 남은 매장 중단(내일 재시도)');
+        console.log('Gemini 일일 한도 도달(재시도 후에도 429) → 남은 매장 중단(내일 재시도)');
         break;
       }
     }
+
+    // RPM 페이싱: 다음 매장 전 잠깐 대기(매장당 flash 2콜, 무료 ~10RPM 준수)
+    if (stores.length > 1 && s !== stores[stores.length - 1]) await sleep(15_000);
   }
 
   console.log(`\n완료 — 생성 ${made} · 스킵 ${skipped} · 실패 ${failed}`);

@@ -52,7 +52,9 @@ export async function nativizeShortForm(
 
   const genAI = new GoogleGenerativeAI(key);
   const model = genAI.getGenerativeModel({
-    model: config?.model ?? 'gemini-2.5-flash',
+    // 단문 재작성은 가벼운 작업 → flash-lite(무료 한도 더 큼: ~15RPM/1000RPD, 모델별 별도 버킷)
+    // 마스터(기획·본문)는 flash 유지. 쿼터 분산 + RPM 압력 감소.
+    model: config?.model ?? 'gemini-2.5-flash-lite',
     generationConfig: { temperature: 0.9, responseMimeType: 'application/json' },
   });
 

@@ -14,7 +14,8 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 매장 수 증가 + RPM 페이싱(매장당 15s) + 429 재시도(65s) 헤드룸
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
