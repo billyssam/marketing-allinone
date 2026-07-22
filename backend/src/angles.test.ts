@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { angleFor, kstDayNumber, anglesForOffering, dailyDirective } from '../../shared/content-engine/angles.js';
+import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan } from '../../shared/content-engine/angles.js';
 import { getIndustryPrompt } from '../../shared/content-engine/registry.js';
 import type { DraftInput } from '../../shared/content-engine/types.js';
 
@@ -78,4 +78,15 @@ test('lengthForAngle: 각도 성격별 길이', () => {
   const lens = new Set();
   for (let i=0;i<10;i++) lens.add(dailyDirective('menu','store-len',base+i*DAY,[]).length);
   assert.ok(lens.has('long') && lens.has('short'), `길이 변주: ${[...lens].join(',')}`);
+});
+
+test('weekPlan: N일 계획이 매일 다른 각도(대부분)', () => {
+  const base=Date.parse('2026-07-22T08:00:00+09:00');
+  const plan=weekPlan('menu','store-wp',['A','B','C','D','E'],base,5);
+  assert.equal(plan.length,5);
+  assert.equal(plan[0].dayOffset,0);
+  // 5일 각도가 최소 4종(사실상 매일 다름)
+  assert.ok(new Set(plan.map(p=>p.angleLabel)).size>=4);
+  // 중심소재도 변주
+  assert.ok(new Set(plan.map(p=>p.featured)).size>=4);
 });

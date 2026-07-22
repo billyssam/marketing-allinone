@@ -14,7 +14,8 @@ import { DashboardStats, type StatStripData } from '@/components/dashboard-stats
 import { resolveBusinessType, marketingFocusFor } from '@shared/business/taxonomy';
 import { resolveOfferings, offeringNoun } from '@shared/content-engine/offerings';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
-import { anglesForOffering } from '@shared/content-engine/angles';
+import { anglesForOffering, weekPlan } from '@shared/content-engine/angles';
+import { WeekPlan } from '@/components/week-plan';
 
 export const metadata = { title: '대시보드' };
 
@@ -94,6 +95,8 @@ export default async function DashboardPage() {
   // 업종 적응: 사업 유형 + 판매 항목(offerings) → 히어로 KPI·헤더 프레이밍
   const business = resolveBusinessType(store.industry_id);
   const offerings = resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone));
+  // 이번 주 콘텐츠 계획(각도 로테이션이 결정적 → 미리보기)
+  const plan = weekPlan(business.offering, store.id, offerings.map((o) => o.name), Date.now(), 5);
 
   // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
   const justOnboarded =
@@ -259,6 +262,11 @@ export default async function DashboardPage() {
             성과 <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">실시간</span>
           </div>
           <DashboardPerformance data={perfData} weekly={weekly} feed={feed} />
+        </section>
+
+        {/* 이번 주 콘텐츠 계획 (각도 로테이션 미리보기) */}
+        <section className="mt-10">
+          <WeekPlan plan={plan} />
         </section>
       </main>
     </div>

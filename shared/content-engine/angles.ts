@@ -93,6 +93,34 @@ export function anglesForOffering(offering: OfferingKind): ContentAngle[] {
   return ANGLES[offering];
 }
 
+export interface PlannedDay {
+  dayOffset: number; // 0=오늘
+  angleLabel: string;
+  featured?: string;
+  occasion?: string;
+}
+
+/**
+ * 앞으로 N일 콘텐츠 계획(각도·중심소재·이벤트) 미리보기.
+ * 로테이션이 결정적이라 미래 계획을 정확히 보여줄 수 있다 → 사장님에게 "다양한 글이
+ * 예정돼 있다"는 투명성 제공. (dashboard '이번 주 콘텐츠 계획')
+ */
+export function weekPlan(
+  offering: OfferingKind,
+  storeId: string,
+  offeringNames: string[],
+  fromMs: number,
+  days = 7,
+): PlannedDay[] {
+  const out: PlannedDay[] = [];
+  for (let i = 0; i < days; i++) {
+    const ms = fromMs + i * 86_400_000;
+    const d = dailyDirective(offering, storeId, ms, offeringNames);
+    out.push({ dayOffset: i, angleLabel: d.angle.label, featured: d.featured, occasion: seasonalContext(ms).occasion });
+  }
+  return out;
+}
+
 /**
  * 오늘의 콘텐츠 방향 = 각도 로테이션 + 시점(계절·시의성) + 중심 소재 로테이션.
  * 데일리 크론·수동 생성(각도 미지정 시) 공용 → 언제 만들어도 신선하고 시의성 있게.
