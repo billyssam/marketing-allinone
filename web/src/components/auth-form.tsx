@@ -78,6 +78,13 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         <button type="submit" disabled={pending} className="btn-primary w-full rounded-xl py-3 text-[14px] font-medium disabled:opacity-60">
           {pending ? '처리 중…' : mode === 'login' ? '로그인' : '무료로 시작하기'}
         </button>
+
+        {mode === 'signup' && (
+          <p className="text-center text-[12px] leading-relaxed text-[var(--color-fg-4)]">
+            가입하면 <Link href="/legal/terms" className="text-[var(--color-fg-3)] underline underline-offset-2 hover:text-[var(--color-fg-2)]">이용약관</Link>과{' '}
+            <Link href="/legal/privacy" className="text-[var(--color-fg-3)] underline underline-offset-2 hover:text-[var(--color-fg-2)]">개인정보처리방침</Link>에 동의하게 됩니다.
+          </p>
+        )}
       </form>
 
       <p className="mt-6 text-center text-[13px] text-[var(--color-fg-3)]">

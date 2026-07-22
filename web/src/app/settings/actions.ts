@@ -1,7 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getBusinessType } from '@shared/business/taxonomy';
 import type { StoreOffering } from '@shared/content-engine/types';
 
@@ -64,4 +65,30 @@ export async function updateStore(input: {
   revalidatePath('/settings');
   revalidatePath('/dashboard');
   return { ok: true };
+}
+
+/**
+ * 회원 탈퇴 — 매장(FK cascade로 글·리뷰·단골·채널연결 전부)과 auth 계정을 즉시 삭제.
+ * 개인정보처리방침 제4조("탈퇴 시 즉시 삭제") 이행. 되돌릴 수 없음.
+ */
+export async function deleteAccount(input: { confirm: string }): Promise<{ error?: string }> {
+  if (input.confirm !== '삭제') return { error: "확인 문구 '삭제'를 정확히 입력해주세요." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: '로그인이 필요합니다.' };
+
+  const admin = createServiceClient();
+  // 1) 매장 삭제 — posts·reviews·regulars·channel_connections는 on delete cascade
+  const { error: storeErr } = await admin.from('stores').delete().eq('owner_id', user.id);
+  if (storeErr) return { error: `매장 데이터 삭제 실패: ${storeErr.message}` };
+
+  // 2) 세션 쿠키 정리 후 auth 계정 삭제
+  await supabase.auth.signOut();
+  const { error: userErr } = await admin.auth.admin.deleteUser(user.id);
+  if (userErr) return { error: `계정 삭제 실패: ${userErr.message}` };
+
+  redirect('/');
 }

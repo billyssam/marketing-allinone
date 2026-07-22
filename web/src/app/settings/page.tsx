@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { SettingsForm, type StoreForm } from '@/components/settings-form';
+import { DangerZone } from '@/components/danger-zone';
 import type { StoreOffering } from '@shared/content-engine/types';
 
 export const metadata = { title: '매장 설정' };
@@ -55,6 +56,7 @@ export default async function SettingsPage() {
           언제든 바꿀 수 있어요. 플레이스 주소를 넣으면 리뷰가 매일 자동으로 수집됩니다.
         </p>
         <SettingsForm store={form} />
+        <DangerZone />
       </main>
     </div>
   );
