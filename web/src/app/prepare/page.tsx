@@ -46,6 +46,8 @@ function PrepareInner() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState<Step>('title');
   const [copied, setCopied] = useState(false);
+  /** 마지막 (자동)복사가 실제로 성공했는지 — 실패면 "탭하여 복사"로 정직하게 안내 */
+  const [copyOk, setCopyOk] = useState(false);
   const [status, setStatus] = useState<{ tone: 'ok' | 'wait' | 'err'; msg: string }>({
     tone: 'wait',
     msg: '초안을 불러오는 중…',
@@ -68,9 +70,12 @@ function PrepareInner() {
   async function copyCurrent(s: Step, d: Draft | null) {
     const text = contentFor(s, d);
     if (!text) return;
-    await copyToClipboard(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    const ok = await copyToClipboard(text);
+    setCopyOk(ok);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }
   }
 
   useEffect(() => {
@@ -80,12 +85,14 @@ function PrepareInner() {
     }
     fetch(`/api/prepare?post=${encodeURIComponent(postId)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(async (d: Draft) => {
+      .then((d: Draft) => {
         setDraft(d);
         const first = flowFor(d.channel)[0];
         setStep(first);
-        await copyCurrent(first, d);
+        // 로드 완료 = 즉시 상태 클리어. 자동복사는 베스트에포트(제스처 없으면
+        // 브라우저가 거부/무한대기할 수 있어 status를 여기에 묶으면 로딩 필이 잔존)
         setStatus({ tone: 'ok', msg: '' });
+        void copyCurrent(first, d);
       })
       .catch((err) => setStatus({ tone: 'err', msg: `초안을 불러오지 못했어요 (${err.message ?? err})` }));
   }, [postId]);
@@ -179,10 +186,11 @@ function PrepareInner() {
             >
               <div className="mb-2 flex items-center gap-2.5">
                 <span className="eyebrow" style={{ color: copied ? 'var(--color-good)' : 'var(--color-amber)' }}>
-                  {copied ? '복사됨 ✓' : `${stepLabel} 복사됨`}
+                  {copied ? '복사됨 ✓' : copyOk ? `${stepLabel} 복사됨` : `${stepLabel} · 탭하여 복사`}
                 </span>
                 <span className="h-px flex-1 bg-[var(--color-hair)]" />
-                <span className="mono text-[10px] text-[var(--color-fg-4)]">탭하여 다시 복사</span>
+                {/* 미복사 상태에선 좌측 라벨이 이미 '탭하여 복사'라 중복 문구 숨김 */}
+                {copyOk && <span className="mono text-[10px] text-[var(--color-fg-4)]">탭하여 다시 복사</span>}
               </div>
               <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-fg-2)]">
                 {previewClamped}
@@ -227,17 +235,24 @@ export default function PreparePage() {
   );
 }
 
-async function copyToClipboard(text: string) {
+/** 성공 여부를 돌려준다 — 제스처 없는 자동복사는 모바일에서 흔히 거부되므로 UI가 정직해야 함 */
+async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
+    return true;
   } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
   }
 }
