@@ -5,6 +5,7 @@ import { after } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { generateForStore } from '@/lib/generate';
 import type { ChannelId } from '@shared/channels/registry';
+import type { StoreOffering } from '@shared/content-engine/types';
 
 export interface OnboardingPayload {
   storeName: string;
@@ -12,12 +13,24 @@ export interface OnboardingPayload {
   naverPlaceUrl?: string;
   address?: string;
   channels: ChannelId[];
+  /** 판매 항목(메뉴·상품·시술) — 첫 글부터 실제 소재로 */
+  offerings?: StoreOffering[];
 }
 
 export async function completeOnboarding(payload: OnboardingPayload): Promise<{ ok: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: '로그인이 필요합니다' };
+
+  // 판매 항목 정제 → brand_tone.offerings (첫 글부터 실제 소재로)
+  const offerings: StoreOffering[] = (payload.offerings ?? [])
+    .map((o) => ({
+      name: (o.name ?? '').trim(),
+      price: typeof o.price === 'number' && !Number.isNaN(o.price) ? o.price : undefined,
+    }))
+    .filter((o) => o.name)
+    .slice(0, 40);
+  const brandTone = offerings.length ? { offerings } : {};
 
   const { data: store, error } = await supabase
     .from('stores')
@@ -27,6 +40,7 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
       industry_id: payload.industryId,
       naver_place_url: payload.naverPlaceUrl ?? null,
       address: payload.address ?? null,
+      brand_tone: brandTone,
       onboarded_at: new Date().toISOString(),
     })
     .select('id')
@@ -54,7 +68,7 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
             industry_id: payload.industryId,
             naver_place_url: payload.naverPlaceUrl ?? null,
             address: payload.address ?? null,
-            brand_tone: {},
+            brand_tone: brandTone,
           },
           {
             angle: '우리 매장을 처음 소개하는 따뜻한 첫 인사 글',
