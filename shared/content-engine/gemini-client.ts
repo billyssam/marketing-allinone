@@ -168,5 +168,10 @@ function placeFactSection(input: DraftInput): string {
   facts.push(
     `4. 판매 항목(메뉴·상품·시술 등)은 위 목록에 없는 것을 지어내지 말 것. 있는 것만 활용.`,
   );
+  if (!address) {
+    facts.push(
+      `5. **주소가 없으므로 오프라인 공간 묘사 절대 금지** — "골목길에 자리한", "매장에 들어서면", 인테리어·향기·방문 장면 등을 지어내지 말 것(온라인 판매자일 수 있음). 경험담은 상품·서비스 자체의 사용 경험으로만 쓸 것.`,
+    );
+  }
   return facts.join('\n');
 }
