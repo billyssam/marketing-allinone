@@ -117,5 +117,12 @@ export function dailyDirective(
   }
   const featuredHint = featured ? ` 오늘은 특히 '${featured}'을(를) 본문에서 중심 소재로 자연스럽게 다뤄주세요(제목엔 억지로 넣지 말 것, 없는 내용 지어내기 X).` : '';
 
-  return { directive: `${angle.directive} ${season.hint}${featuredHint}`, angle, featured, length: lengthForAngle(angle.key) };
+  // 각도를 "글의 중심 콘셉트"로 강하게 프레이밍 — 안 그러면 AI가 각도를 무시하고
+  // 메뉴/상품 백과사전식 나열로 흐름(실측 확인). 각도가 글 구조를 이끌게 한다.
+  const directive =
+    `★ 이번 글의 중심 콘셉트(글 전체를 반드시 이 방향으로 이끌 것): ${angle.directive}` +
+    ` ${season.hint}${featuredHint}` +
+    ` 판매 항목을 백과사전처럼 전부 나열하지 말고, 위 콘셉트와 중심 소재를 깊이 있게 풀어낼 것(다른 항목은 필요할 때만 가볍게).`;
+
+  return { directive, angle, featured, length: lengthForAngle(angle.key) };
 }
