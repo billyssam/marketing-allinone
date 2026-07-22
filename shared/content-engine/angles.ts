@@ -115,7 +115,7 @@ export function dailyDirective(
   if (names.length) {
     featured = names[(((day + 7) % names.length) + names.length) % names.length];
   }
-  const featuredHint = featured ? ` 오늘은 특히 '${featured}'을(를) 중심 소재로 자연스럽게 살려주세요(없는 내용 지어내기 X).` : '';
+  const featuredHint = featured ? ` 오늘은 특히 '${featured}'을(를) 본문에서 중심 소재로 자연스럽게 다뤄주세요(제목엔 억지로 넣지 말 것, 없는 내용 지어내기 X).` : '';
 
   return { directive: `${angle.directive} ${season.hint}${featuredHint}`, angle, featured, length: lengthForAngle(angle.key) };
 }
