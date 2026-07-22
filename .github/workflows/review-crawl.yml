@@ -61,11 +61,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="🔴 리뷰 수집 크론 실패 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY=$(printf '자동 알림: 리뷰 크롤이 실패했습니다. 다음 회차(하루 3회)가 자동 재시도합니다. 연속 실패 시 네이버 마크업 변경 가능성을 확인하세요.\n\n로그: %s' "$RUN_URL")
           COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
           if [ "$COUNT" = "0" ]; then
-            gh issue create -R "${{ github.repository }}" \
-              --title "$TITLE" \
-              --body "자동 알림: 리뷰 크롤이 실패했습니다. 다음 회차(하루 3회)가 자동 재시도합니다. 연속 실패 시 네이버 마크업 변경 가능성을 확인하세요.
-
-로그: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
           fi

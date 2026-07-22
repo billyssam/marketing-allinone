@@ -52,11 +52,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="🔴 데일리 콘텐츠 크론 실패 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY=$(printf '자동 알림: 데일리 초안 생성이 실패했습니다. 재시도 크론(08:30 KST)이 자가치유를 시도하지만, 그것까지 실패하면 사장님들 아침 초안이 비어 있을 수 있습니다.\n\n로그: %s' "$RUN_URL")
           COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
           if [ "$COUNT" = "0" ]; then
-            gh issue create -R "${{ github.repository }}" \
-              --title "$TITLE" \
-              --body "자동 알림: 데일리 초안 생성이 실패했습니다. 재시도 크론(08:30 KST)이 자가치유를 시도하지만, 그것까지 실패하면 사장님들 아침 초안이 비어 있을 수 있습니다.
-
-로그: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
           fi
