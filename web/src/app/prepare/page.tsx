@@ -15,10 +15,22 @@ interface Draft {
   channel?: string;
 }
 
-const FLOW: Step[] = ['title', 'body', 'tags'];
-// 인스타는 제목이 없고(캡션 단일) 해시태그도 캡션에 포함 → 캡션 한 단계만
+// 채널별 붙여넣기 특성 — 캡션형(제목·태그 없음), 태그 필드 유무, 열 앱
+const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: string; appLabel: string; targetName: string }> = {
+  blog: { caption: false, hasTags: true, appHref: 'naverblog://write', appLabel: '네이버 블로그 앱 열기', targetName: '블로그' },
+  instagram: { caption: true, hasTags: false, appHref: 'instagram://app', appLabel: '인스타그램 앱 열기', targetName: '인스타그램' },
+  threads: { caption: true, hasTags: false, appHref: 'https://www.threads.net', appLabel: '스레드 열기', targetName: '스레드' },
+  facebook: { caption: false, hasTags: false, appHref: 'https://www.facebook.com', appLabel: '페이스북 열기', targetName: '페이스북' },
+  google_gbp: { caption: false, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
+};
+function metaFor(channel?: string) {
+  return CH_META[channel ?? 'blog'] ?? CH_META.blog;
+}
+// 캡션형(인스타·스레드)=단일 붙여넣기, 태그필드 없으면 태그 스텝 제외
 function flowFor(channel?: string): Step[] {
-  return channel === 'instagram' ? ['body'] : FLOW;
+  const m = metaFor(channel);
+  if (m.caption) return ['body'];
+  return m.hasTags ? ['title', 'body', 'tags'] : ['title', 'body'];
 }
 
 const STEP_INFO: Record<Step, { label: string; hint: string; cta: string }> = {
@@ -75,7 +87,6 @@ function PrepareInner() {
 
   const flow = flowFor(draft?.channel);
   const isDone = step === 'done';
-  const isInsta = draft?.channel === 'instagram';
   const stepIdx = flow.indexOf(step);
   const isLastStep = stepIdx === flow.length - 1;
 
@@ -103,11 +114,12 @@ function PrepareInner() {
   }
 
   const info = STEP_INFO[step];
-  const stepLabel = isInsta && step === 'body' ? '캡션' : info.label;
-  const hint = isInsta
+  const meta = metaFor(draft?.channel);
+  const stepLabel = meta.caption && step === 'body' ? '캡션' : info.label;
+  const hint = meta.caption
     ? isDone
-      ? '이제 인스타그램 앱에서 게시 버튼만 누르면 끝이에요.'
-      : '인스타그램 새 게시물 캡션 칸에 길게 눌러 붙여넣기 하세요.'
+      ? `이제 ${meta.targetName} 앱에서 게시 버튼만 누르면 끝이에요.`
+      : `${meta.targetName} 새 게시물 캡션 칸에 길게 눌러 붙여넣기 하세요.`
     : info.hint;
   const ctaLabel = isDone ? '닫기' : isLastStep ? '완료' : info.cta;
 
@@ -191,10 +203,10 @@ function PrepareInner() {
           </Link>
         ) : (
           <a
-            href={isInsta ? 'instagram://app' : 'naverblog://write'}
+            href={meta.appHref}
             className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
           >
-            {isInsta ? '인스타그램 앱 열기' : '네이버 블로그 앱 열기'}
+            {meta.appLabel}
           </a>
         )}
       </div>
