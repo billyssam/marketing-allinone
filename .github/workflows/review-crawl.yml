@@ -15,6 +15,11 @@ concurrency:
   group: review-crawl
   cancel-in-progress: false
 
+# 실패 알림(이슈 생성 → 소유자 이메일)용 최소 권한
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   crawl:
     runs-on: ubuntu-latest
@@ -47,3 +52,20 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx src/crawl-place.ts
+
+      # 24/7 무인 운영: 실패하면 GitHub 이슈 생성 → 소유자에게 이메일 알림.
+      # 하루 3회 도는 크론이라 같은 날 중복 이슈는 만들지 않는다.
+      - name: 실패 알림 — 이슈 생성
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="🔴 리뷰 수집 크론 실패 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$COUNT" = "0" ]; then
+            gh issue create -R "${{ github.repository }}" \
+              --title "$TITLE" \
+              --body "자동 알림: 리뷰 크롤이 실패했습니다. 다음 회차(하루 3회)가 자동 재시도합니다. 연속 실패 시 네이버 마크업 변경 가능성을 확인하세요.
+
+로그: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

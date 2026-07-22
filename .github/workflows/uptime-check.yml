@@ -1,0 +1,47 @@
+name: 서비스 생존 확인
+
+# 매일 06:00 KST(21:00 UTC 전날) — 콘텐츠 크론(07:30 KST)보다 먼저 돌아
+# "오늘 서비스가 살아있는가"를 사장님들 아침 전에 확인한다.
+# 단순 200이 아니라 /api/health가 DB까지 실제 확인한 결과를 본다.
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 프로덕션 헬스체크 (DB 연결 포함)
+        run: |
+          code=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 20 --retry 2 --retry-delay 5 \
+            https://marketing-allinone.vercel.app/api/health)
+          echo "HTTP $code"; cat /tmp/health.json; echo
+          [ "$code" = "200" ] && grep -q '"ok":true' /tmp/health.json
+
+      - name: 랜딩 페이지 확인
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --retry 2 --retry-delay 5 \
+            https://marketing-allinone.vercel.app/)
+          echo "HTTP $code"
+          [ "$code" = "200" ]
+
+      - name: 실패 알림 — 이슈 생성
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="🔴 서비스 다운 감지 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$COUNT" = "0" ]; then
+            gh issue create -R "${{ github.repository }}" \
+              --title "$TITLE" \
+              --body "자동 알림: 프로덕션 헬스체크 실패 — Vercel 배포 상태와 Supabase 프로젝트 상태(무료 티어 일시정지 여부)를 확인하세요.
+
+로그: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi

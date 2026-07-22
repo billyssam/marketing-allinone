@@ -1,0 +1,35 @@
+name: 운영 keepalive
+
+# GitHub는 60일간 저장소 활동(커밋)이 없으면 스케줄 워크플로를 자동 비활성화한다.
+# → 개발이 멈춘 뒤에도 크론(콘텐츠·리뷰·생존확인)이 영원히 돌도록,
+#   매월 1회 점검해서 마지막 커밋이 40일 이상 오래됐을 때만 빈 커밋을 남긴다.
+on:
+  schedule:
+    - cron: '0 18 1 * *' # 매월 1일 03:00 KST
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 40일 이상 커밋 없으면 빈 커밋
+        run: |
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          DAYS=$(( (NOW - LAST) / 86400 ))
+          echo "마지막 커밋으로부터 ${DAYS}일"
+          if [ "$DAYS" -ge 40 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keepalive — 스케줄 크론 60일 자동비활성 방지"
+            git push
+            echo "keepalive 커밋 푸시됨"
+          else
+            echo "활동 충분 — 노옵"
+          fi

@@ -232,7 +232,9 @@ async function main() {
   }
 
   console.log(`\n완료 — 생성 ${made} · 스킵 ${skipped} · 실패 ${failed}`);
-  if (failed > 0 && made === 0 && skipped === 0) process.exit(1);
+  // 24/7 운영: 부분 실패도 실패로 보고해야 알림이 울리고 재시도 크론이 자가치유한다.
+  // (성공 매장은 멱등 스킵이라 재실행 무해 · 실패 매장만 다시 시도됨)
+  if (failed > 0) process.exit(1);
 }
 
 main().catch((e) => {
