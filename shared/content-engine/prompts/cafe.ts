@@ -47,7 +47,7 @@ ${input.angle ?? '(자유)'}
 ${planning}
 
 ## 조건
-- 목표 길이: ${input.targetLength ?? 'medium'} (short=800자, medium=1500자, long=2500자)
+- 목표 길이: ${input.targetLength ?? 'medium'} (short=800자, medium=1800자, long=2400자)
 - 사진 ${input.photos.length}장을 <img data-photo-index="N"> 태그로 문단 사이 삽입
 - 문단은 <p>, 소제목은 <h2>
 - 마지막 문단에 매장 이용 정보 (주소·영업시간)

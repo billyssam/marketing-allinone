@@ -41,7 +41,7 @@ JSON:
 ${planning}
 
 ## 조건
-- 목표 길이: ${input.targetLength ?? 'medium'}
+- 목표 길이: ${input.targetLength ?? 'medium'} (short=800자, medium=1800자, long=2400자)
 - 정보성 톤: 60%, 병원 소개: 30%, CTA: 10% 비중
 - 규제 표현 자체 검열 (완치·100%·최고 등 금지)
 - 사진 <img data-photo-index="N">로 삽입
