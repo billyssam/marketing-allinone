@@ -1,0 +1,47 @@
+name: 아침 준비 검증
+
+# 매일 09:30 KST(00:30 UTC) — 크론 성공/실패가 아니라 "사장님 아침에 초안이
+# 실제로 DB에 있는가"(비즈니스 SLA)를 직접 확인하는 최종 방어선.
+# 07:30 본생성 + 08:30 재시도가 다 지나간 뒤에 돈다.
+on:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: 의존성 설치 (워크스페이스)
+        run: npm install
+
+      - name: 오늘 초안 존재 검증 (연결 매장 전수)
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx src/check-morning-ready.ts
+
+      - name: 실패 알림 — 이슈 생성
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="🔴 아침 초안 미준비 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY=$(printf '자동 알림: 연결 매장 중 오늘 자동 초안이 없는 곳이 있습니다. 크론이 성공으로 보여도 실제 DB가 비어 있으면 이 검증이 잡습니다. generate-daily를 수동 dispatch 하세요.\n\n로그: %s' "$RUN_URL")
+          COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$COUNT" = "0" ]; then
+            gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
+          fi
