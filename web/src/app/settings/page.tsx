@@ -15,7 +15,7 @@ export default async function SettingsPage() {
       <main className="mx-auto max-w-6xl px-6 py-20">
         <div className="panel rounded-[var(--radius-lg)] p-10 text-center">
           <h1 className="h2">로그인이 필요합니다</h1>
-          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-semibold">로그인</Link>
+          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">로그인</Link>
         </div>
       </main>
     );

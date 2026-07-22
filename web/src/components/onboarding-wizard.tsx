@@ -85,7 +85,7 @@ export function OnboardingWizard() {
       <div className="mb-8 flex items-center gap-2">
         {steps.map((s, i) => (
           <div key={s} className="flex flex-1 items-center gap-2">
-            <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${i <= step ? 'bg-[var(--color-amber)] text-[var(--color-amber-ink)]' : 'bg-[var(--color-panel-2)] text-[var(--color-fg-4)]'}`}>{i + 1}</div>
+            <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${i <= step ? 'bg-[var(--color-amber)] text-[var(--color-amber-ink)]' : 'bg-[var(--color-panel-2)] text-[var(--color-fg-4)]'}`}>{i + 1}</div>
             {i < steps.length - 1 && <div className={`h-px flex-1 ${i < step ? 'bg-[var(--color-amber)]' : 'bg-[var(--color-hair)]'}`} />}
           </div>
         ))}
@@ -109,7 +109,7 @@ export function OnboardingWizard() {
                     const on = industryId === b.id;
                     return (
                       <button key={b.id} onClick={() => setIndustryId(b.id)}
-                        className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-semibold text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}>
+                        className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-medium text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}>
                         {b.label}
                       </button>
                     );
@@ -163,7 +163,7 @@ export function OnboardingWizard() {
               if (!chans.length) return null;
               return (
                 <div key={g}>
-                  <div className="mb-2 text-[12px] font-semibold text-[var(--color-fg-2)]">{GROUPS[g].label} · <span className="font-normal text-[var(--color-fg-3)]">{GROUPS[g].desc}</span></div>
+                  <div className="mb-2 text-[12px] font-medium text-[var(--color-fg-2)]">{GROUPS[g].label} · <span className="font-normal text-[var(--color-fg-3)]">{GROUPS[g].desc}</span></div>
                   <div className="grid grid-cols-2 gap-2">
                     {chans.map((c) => {
                       const on = effectiveChannels.has(c.id);
@@ -196,9 +196,9 @@ export function OnboardingWizard() {
           <button onClick={() => setStep((s) => s - 1)} className="rounded-full border border-[var(--color-hair-strong)] px-5 py-2.5 text-[14px] text-[var(--color-fg-2)]">이전</button>
         )}
         {step < lastStep ? (
-          <button onClick={() => setStep((s) => s + 1)} disabled={!canNext} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-semibold disabled:opacity-40">다음</button>
+          <button onClick={() => setStep((s) => s + 1)} disabled={!canNext} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40">다음</button>
         ) : (
-          <button onClick={finish} disabled={pending} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-semibold disabled:opacity-60">
+          <button onClick={finish} disabled={pending} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-60">
             {pending ? '설정 중…' : `${effectiveChannels.size}개 채널로 시작하기`}
           </button>
         )}

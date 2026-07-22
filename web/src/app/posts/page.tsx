@@ -54,7 +54,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
         <div className="panel rounded-[var(--radius-lg)] p-10 text-center">
           <h1 className="h2">로그인이 필요합니다</h1>
           <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">사장님 계정으로 로그인하면 글 보관함이 열립니다.</p>
-          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-semibold">로그인</Link>
+          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">로그인</Link>
         </div>
       </main>
     );
@@ -110,7 +110,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
                 href={f.key === 'all' ? '/posts' : `/posts?status=${f.key}`}
                 className={`mono rounded-full px-3.5 py-1.5 text-[12px] transition ${
                   active
-                    ? 'bg-[var(--color-fg)] font-semibold text-[var(--color-bg)]'
+                    ? 'bg-[var(--color-fg)] font-medium text-[var(--color-bg)]'
                     : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'
                 }`}
               >
@@ -126,7 +126,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
               {filter === 'all' ? '아직 만들어진 글이 없어요. 매일 아침 자동으로 채워집니다.' : '이 상태의 글이 없어요.'}
             </p>
             {filter === 'all' && (
-              <Link href="/dashboard" className="btn-primary mt-5 inline-block rounded-full px-5 py-2.5 text-[13px] font-semibold">
+              <Link href="/dashboard" className="btn-primary mt-5 inline-block rounded-full px-5 py-2.5 text-[13px] font-medium">
                 대시보드에서 첫 글 만들기
               </Link>
             )}
@@ -140,7 +140,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
               return (
                 <div key={p.id as string} className="flex items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5">
                   <span
-                    className="mono shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                    className="mono shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
                     style={{ background: `color-mix(in srgb, ${ch.color} 14%, transparent)`, color: ch.color }}
                   >
                     {ch.label}
@@ -163,7 +163,7 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
                   {group === 'draft' && (
                     <Link
                       href={`/prepare?post=${p.id}`}
-                      className="btn-primary shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold"
+                      className="btn-primary shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-medium"
                     >
                       붙여넣기 →
                     </Link>

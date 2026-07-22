@@ -91,7 +91,7 @@ export function ChannelCenter({
             return (
               <section key={g}>
                 <div className="mb-4 flex items-baseline gap-3">
-                  <h2 className="text-[17px] font-semibold">{GROUPS[g].label}</h2>
+                  <h2 className="text-[17px] font-medium">{GROUPS[g].label}</h2>
                   <span className="mono text-[11px] text-[var(--color-fg-3)]">{GROUPS[g].desc}</span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -105,12 +105,12 @@ export function ChannelCenter({
                       <div key={c.id} className={`panel spot rounded-[var(--radius-lg)] p-5 ${isOn ? 'ring-1 ring-[var(--color-amber)]/40' : isRec ? 'ring-1 ring-[var(--color-amber)]/20' : ''}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2.5">
-                            <span className="grid h-9 w-9 place-items-center rounded-lg text-[13px] font-bold" style={{ background: `${c.color}1e`, color: c.color }}>
+                            <span className="grid h-9 w-9 place-items-center rounded-lg text-[13px] font-semibold" style={{ background: `${c.color}1e`, color: c.color }}>
                               {c.name.slice(0, 1)}
                             </span>
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[14px] font-semibold">{c.name}</span>
+                                <span className="text-[14px] font-medium">{c.name}</span>
                                 {isRec && <span className="mono rounded-full bg-[var(--color-amber)]/15 px-1.5 text-[9px] text-[var(--color-amber)]">추천</span>}
                               </div>
                               <div className="mono mt-0.5 text-[10px]" style={{ color: au.color }}>{au.label}</div>
@@ -133,7 +133,7 @@ export function ChannelCenter({
                           type="button"
                           disabled={!canConnect || isBusy}
                           onClick={() => toggle(c.id, canConnect)}
-                          className={`mt-4 w-full rounded-full py-2 text-[12px] font-semibold transition disabled:opacity-60 ${
+                          className={`mt-4 w-full rounded-full py-2 text-[12px] font-medium transition disabled:opacity-60 ${
                             !canConnect
                               ? 'cursor-not-allowed border border-[var(--color-hair)] text-[var(--color-fg-4)]'
                               : isOn
@@ -159,7 +159,7 @@ export function ChannelCenter({
 function Stat({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
   return (
     <div className="bg-[var(--color-bg)] px-5 py-5">
-      <div className={`text-3xl font-bold tnum ${accent ? 'amber-text' : ''}`}>{value}</div>
+      <div className={`text-3xl font-semibold tnum ${accent ? 'amber-text' : ''}`}>{value}</div>
       <div className="mt-1 text-[11px] text-[var(--color-fg-3)]">{label}</div>
     </div>
   );

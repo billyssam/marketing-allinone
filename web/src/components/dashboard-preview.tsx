@@ -56,7 +56,7 @@ export function DashboardPreview() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <div className="eyebrow">주간 도달 · 채널별</div>
-                <div className="mt-1 text-lg font-semibold tnum">1,890</div>
+                <div className="mt-1 text-lg font-medium tnum">1,890</div>
               </div>
               <div className="flex gap-3 text-[10px] text-[var(--color-fg-2)]">
                 <Legend c={IG} t="인스타" />
@@ -86,7 +86,7 @@ export function DashboardPreview() {
           {/* donut sentiment */}
           <div className="rounded-[10px] border border-[var(--color-hair)] p-4">
             <div className="eyebrow">리뷰 감정</div>
-            <div className="mt-1 text-lg font-semibold tnum">34건</div>
+            <div className="mt-1 text-lg font-medium tnum">34건</div>
             <div className="mt-3 flex justify-center">
               <Donut />
             </div>
@@ -131,7 +131,7 @@ function Kpi({ label, value, delta, tone }: { label: string; value: string; delt
   return (
     <div className="rounded-[10px] border border-[var(--color-hair)] p-3">
       <div className="text-[10px] text-[var(--color-fg-3)]">{label}</div>
-      <div className="mt-1 text-xl font-semibold tnum">{value}</div>
+      <div className="mt-1 text-xl font-medium tnum">{value}</div>
       <div className="mono mt-0.5 text-[10px]" style={{ color }}>{delta}</div>
     </div>
   );

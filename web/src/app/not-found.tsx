@@ -11,7 +11,7 @@ export default function NotFound() {
         주소가 바뀌었거나 삭제된 페이지일 수 있어요.
       </p>
       <div className="mt-8 flex gap-2.5">
-        <Link href="/dashboard" className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-semibold">대시보드로</Link>
+        <Link href="/dashboard" className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-medium">대시보드로</Link>
         <Link href="/" className="rounded-full border border-[var(--color-hair-strong)] px-5 py-2.5 text-[13px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">홈으로</Link>
       </div>
     </main>

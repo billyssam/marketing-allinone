@@ -20,7 +20,7 @@ export function WeekPlan({ plan }: { plan: PlannedDay[] }) {
       <ul className="divide-y divide-[var(--color-hair)]">
         {plan.map((d) => (
           <li key={d.dayOffset} className="flex items-center gap-3 py-2.5">
-            <span className={`mono w-12 shrink-0 text-[11px] ${d.dayOffset === 0 ? 'font-semibold text-[var(--color-amber)]' : 'text-[var(--color-fg-3)]'}`}>
+            <span className={`mono w-12 shrink-0 text-[11px] ${d.dayOffset === 0 ? 'font-medium text-[var(--color-amber)]' : 'text-[var(--color-fg-3)]'}`}>
               {dayLabel(d.dayOffset)}
             </span>
             <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--color-fg-2)]">

@@ -22,7 +22,7 @@ export default async function ReviewsPage() {
         <div className="panel rounded-[var(--radius-lg)] p-10 text-center">
           <h1 className="h2">로그인이 필요합니다</h1>
           <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">사장님 계정으로 로그인하면 리뷰 관리 화면이 열립니다.</p>
-          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-semibold">로그인</Link>
+          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">로그인</Link>
         </div>
       </main>
     );
@@ -105,7 +105,7 @@ export default async function ReviewsPage() {
                 <div key={k.label} className="min-w-0">
                   <div className="eyebrow">{k.label}</div>
                   <div className="mt-1.5 flex items-baseline gap-1">
-                    <span className="text-[24px] font-bold leading-none tabular-nums" style={{ color: k.accent ?? 'var(--color-fg)' }}>{k.value}</span>
+                    <span className="text-[24px] font-semibold leading-none tabular-nums" style={{ color: k.accent ?? 'var(--color-fg)' }}>{k.value}</span>
                     {k.unit && <span className="text-[12px] text-[var(--color-fg-3)]">{k.unit}</span>}
                   </div>
                 </div>

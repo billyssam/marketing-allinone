@@ -12,7 +12,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <p className="mono mt-3 text-[10px] text-[var(--color-fg-4)]">ref: {error.digest}</p>
       )}
       <div className="mt-8 flex gap-2.5">
-        <button onClick={reset} className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-semibold">다시 시도</button>
+        <button onClick={reset} className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-medium">다시 시도</button>
         <a href="/dashboard" className="rounded-full border border-[var(--color-hair-strong)] px-5 py-2.5 text-[13px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">대시보드로</a>
       </div>
     </main>

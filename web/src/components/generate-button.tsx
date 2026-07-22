@@ -79,7 +79,7 @@ export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
       <button
         type="button"
         onClick={() => { setOpen((o) => !o); setError(null); }}
-        className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-semibold"
+        className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-medium"
       >
         오늘 글 생성
       </button>
@@ -101,7 +101,7 @@ export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
                       type="button"
                       title={a.directive}
                       onClick={() => setPickedAngle(on ? '' : a.key)}
-                      className={`rounded-full border px-2.5 py-1 text-[11.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-semibold text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}
+                      className={`rounded-full border px-2.5 py-1 text-[11.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-medium text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}
                     >
                       {a.label}
                     </button>
@@ -154,7 +154,7 @@ export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
               type="button"
               onClick={generate}
               disabled={loading}
-              className="btn-primary mt-3 w-full rounded-full py-2.5 text-[13px] font-semibold disabled:opacity-60"
+              className="btn-primary mt-3 w-full rounded-full py-2.5 text-[13px] font-medium disabled:opacity-60"
             >
               {loading ? '생성 중… (10~20초)' : '생성하기'}
             </button>

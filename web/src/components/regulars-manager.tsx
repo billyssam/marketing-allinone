@@ -131,7 +131,7 @@ function Metric({ label, value, accent }: { label: string; value: number; accent
     <div className="panel min-w-0 rounded-[var(--radius)] p-4">
       <div className="eyebrow">{label}</div>
       <div className="mt-2 flex items-baseline gap-1">
-        <span className="text-[24px] font-bold leading-none tabular-nums" style={{ color: accent ?? 'var(--color-fg)' }}>{value.toLocaleString()}</span>
+        <span className="text-[24px] font-semibold leading-none tabular-nums" style={{ color: accent ?? 'var(--color-fg)' }}>{value.toLocaleString()}</span>
         <span className="text-[12px] text-[var(--color-fg-3)]">명</span>
       </div>
     </div>
@@ -155,7 +155,7 @@ function RegularCard({ r, storeName, benefit, onDelete, disabled }: { r: Regular
     <div className="panel rounded-[var(--radius-lg)] p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <span className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${t.color}1c`, color: t.color }}>
+          <span className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: `${t.color}1c`, color: t.color }}>
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />{t.label}
           </span>
           <span className="text-[13.5px] font-medium">{r.name || '이름 미상'}</span>
@@ -174,7 +174,7 @@ function RegularCard({ r, storeName, benefit, onDelete, disabled }: { r: Regular
           </div>
           <p className="text-[13px] leading-relaxed text-[var(--color-fg-2)]">{draft}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={copy} className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-semibold text-[var(--color-amber-ink)] transition hover:opacity-90">
+            <button type="button" onClick={copy} className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-amber-ink)] transition hover:opacity-90">
               {copied ? '복사됨' : '메시지 복사'}
             </button>
             <button type="button" disabled title="알림톡 연동 후 사용" className="cursor-not-allowed rounded-lg border border-[var(--color-hair)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-fg-4)]">
@@ -216,7 +216,7 @@ function AddForm({ onAdded }: { onAdded: (r: RegularRow) => void }) {
         <input value={lastVisit} onChange={(e) => setLastVisit(e.target.value)} type="date"
           className="rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] text-[var(--color-fg-2)] outline-none focus:border-[var(--color-amber)]" />
         <button type="button" onClick={submit} disabled={pending || phone.trim().length === 0}
-          className="btn-primary rounded-xl px-5 py-2.5 text-[13.5px] font-semibold disabled:opacity-40">
+          className="btn-primary rounded-xl px-5 py-2.5 text-[13.5px] font-medium disabled:opacity-40">
           {pending ? '추가 중…' : '추가'}
         </button>
       </div>

@@ -19,8 +19,8 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   return (
     <div className="w-full max-w-sm">
       <Link href="/" className="mb-8 flex items-center gap-2.5">
-        <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
-        <span className="text-[15px] font-semibold tracking-tight">마케팅올인원</span>
+        <span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--color-amber)] font-mono text-[13px] font-semibold text-[var(--color-amber-ink)]">ㅁ</span>
+        <span className="text-[15px] font-medium tracking-tight">마케팅올인원</span>
       </Link>
 
       <h1 className="h2">{mode === 'login' ? '다시 오셨네요.' : '5분이면 시작해요.'}</h1>
@@ -44,19 +44,19 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       <div className="mt-8 space-y-2.5">
         <form action={signInWithProvider}>
           <input type="hidden" name="provider" value="kakao" />
-          <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fee500] py-3 text-[14px] font-semibold text-[#3c1e1e] transition hover:brightness-95">
+          <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fee500] py-3 text-[14px] font-medium text-[#3c1e1e] transition hover:brightness-95">
             <span className="font-black">K</span> 카카오로 {mode === 'login' ? '로그인' : '시작하기'}
           </button>
         </form>
         <div className="grid grid-cols-2 gap-2.5">
           <form action={signInWithNaver}>
-            <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#03c75a] py-3 text-[13px] font-semibold text-white transition hover:brightness-95">
+            <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#03c75a] py-3 text-[13px] font-medium text-white transition hover:brightness-95">
               <span className="font-black">N</span> 네이버
             </button>
           </form>
           <form action={signInWithProvider}>
             <input type="hidden" name="provider" value="google" />
-            <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-hair-strong)] bg-white py-3 text-[13px] font-semibold text-[#1f1f1f] transition hover:brightness-95">
+            <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-hair-strong)] bg-white py-3 text-[13px] font-medium text-[#1f1f1f] transition hover:brightness-95">
               <span className="font-black text-[#4285f4]">G</span> 구글
             </button>
           </form>
@@ -75,7 +75,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
 
         {state.error && <p className="text-[13px] text-[var(--color-bad)]">{state.error}</p>}
 
-        <button type="submit" disabled={pending} className="btn-primary w-full rounded-xl py-3 text-[14px] font-semibold disabled:opacity-60">
+        <button type="submit" disabled={pending} className="btn-primary w-full rounded-xl py-3 text-[14px] font-medium disabled:opacity-60">
           {pending ? '처리 중…' : mode === 'login' ? '로그인' : '무료로 시작하기'}
         </button>
       </form>

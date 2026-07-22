@@ -138,7 +138,7 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span
-            className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
             style={{ background: `${s.color}1c`, color: s.color }}
           >
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: s.dot }} />
@@ -174,7 +174,7 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
           <button
             type="button"
             onClick={copyReply}
-            className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-semibold text-[var(--color-amber-ink)] transition hover:opacity-90"
+            className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-amber-ink)] transition hover:opacity-90"
           >
             {copied ? '✓ 복사됨' : '답글 복사'}
           </button>

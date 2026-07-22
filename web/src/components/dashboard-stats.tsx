@@ -63,7 +63,7 @@ export function DashboardStats({ data }: { data: StatStripData }) {
             {t.dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: t.dot }} />}
           </div>
           <div className="mt-2.5 flex items-baseline gap-1">
-            <span className="text-[28px] font-bold leading-none tracking-tight tabular-nums" style={{ color: t.accent ?? 'var(--color-fg)' }}>
+            <span className="text-[28px] font-semibold leading-none tracking-tight tabular-nums" style={{ color: t.accent ?? 'var(--color-fg)' }}>
               {t.value}
             </span>
             {t.unit && <span className="text-[13px] text-[var(--color-fg-3)]">{t.unit}</span>}

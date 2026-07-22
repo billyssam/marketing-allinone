@@ -154,13 +154,13 @@ function PrepareInner() {
         /* ── 완료 화면 ── */
         <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
           <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--color-good)]/12 text-[26px] text-[var(--color-good)]">✓</div>
-          <h1 className="mt-5 text-[22px] font-bold tracking-tight">다 붙여넣었어요</h1>
+          <h1 className="mt-5 text-[22px] font-semibold tracking-tight">다 붙여넣었어요</h1>
           <p className="mt-2 max-w-[16rem] text-[14px] leading-relaxed text-[var(--color-fg-2)]">{hint}</p>
         </div>
       ) : (
         /* ── 단계 화면 ── */
         <div className="mt-8 flex-1">
-          <h1 className="text-[26px] font-bold tracking-tight">{stepLabel}</h1>
+          <h1 className="text-[26px] font-semibold tracking-tight">{stepLabel}</h1>
           <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{hint}</p>
 
           {status.msg && (
@@ -198,7 +198,7 @@ function PrepareInner() {
           type="button"
           onClick={advance}
           disabled={!draft && !isDone}
-          className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-semibold text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
+          className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {ctaLabel}
         </button>

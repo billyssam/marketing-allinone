@@ -87,7 +87,7 @@ export function SettingsForm({ store }: { store: StoreForm }) {
                   const on = f.industryId === b.id;
                   return (
                     <button key={b.id} type="button" onClick={() => { setF((p) => ({ ...p, industryId: b.id })); setSaved(false); }}
-                      className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-semibold text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}>
+                      className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-amber)] font-medium text-[var(--color-amber-ink)]' : 'border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'}`}>
                       {b.label}
                     </button>
                   );
@@ -141,7 +141,7 @@ export function SettingsForm({ store }: { store: StoreForm }) {
       {err && <p className="text-[13px] text-[var(--color-bad)]">{err}</p>}
 
       <div className="flex items-center gap-3 pt-2">
-        <button type="button" onClick={save} disabled={pending} className="btn-primary rounded-full px-6 py-3 text-[14px] font-semibold disabled:opacity-60">
+        <button type="button" onClick={save} disabled={pending} className="btn-primary rounded-full px-6 py-3 text-[14px] font-medium disabled:opacity-60">
           {pending ? '저장 중…' : '저장'}
         </button>
         {saved && !pending && <span className="text-[13px] text-[var(--color-good)]">저장됐어요.</span>}
@@ -154,7 +154,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return (
     <div>
       <div className="flex items-baseline gap-2">
-        <label className="text-[13px] font-semibold">{label}</label>
+        <label className="text-[13px] font-medium">{label}</label>
         {hint && <span className="text-[11px] text-[var(--color-fg-3)]">{hint}</span>}
       </div>
       <div className="mt-2">{children}</div>

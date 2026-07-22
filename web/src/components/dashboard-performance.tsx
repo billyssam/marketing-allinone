@@ -98,7 +98,7 @@ export function DashboardPerformance({
                     background: w.isToday ? 'var(--color-amber)' : w.count > 0 ? 'var(--color-hair-strong)' : 'var(--color-panel-2)',
                   }}
                 />
-                <span className={`text-[9.5px] ${w.isToday ? 'font-semibold text-[var(--color-amber)]' : 'text-[var(--color-fg-4)]'}`}>{w.label}</span>
+                <span className={`text-[9.5px] ${w.isToday ? 'font-medium text-[var(--color-amber)]' : 'text-[var(--color-fg-4)]'}`}>{w.label}</span>
               </div>
             ))}
           </div>

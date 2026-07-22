@@ -19,10 +19,10 @@ export default function LandingPage() {
             <span className="mono text-[11px] text-[var(--color-fg-2)]">2026 · 파일럿 신청 접수 중</span>
           </div>
 
+          {/* 한글 조판: 어절 중간 절단 금지(keep-all) — "끝나/있어요" 분리는 결함 */}
           <h1 className="display rise r2 mt-6">
             매일 아침 9시,<br />
-            마케팅이 <span className="amber-text">끝나</span>
-            <br className="hidden sm:block" />있어요.
+            마케팅이 <span className="amber-text">끝나있어요</span>.
           </h1>
 
           <p className="rise r3 mt-6 max-w-md text-[16px] leading-relaxed text-[var(--color-fg-2)] sm:text-[17px]">
@@ -31,7 +31,7 @@ export default function LandingPage() {
           </p>
 
           <div className="rise r4 mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/signup" className="btn-primary rounded-full px-5 py-3 text-[14px] font-semibold">
+            <Link href="/signup" className="btn-primary rounded-full px-5 py-3 text-[14px] font-medium">
               무료로 시작하기
             </Link>
             <Link href="#dashboard" className="rounded-full border border-[var(--color-hair-strong)] px-5 py-3 text-[14px] font-medium text-[var(--color-fg)] transition hover:bg-[var(--color-panel)]">
@@ -95,7 +95,7 @@ export default function LandingPage() {
                     <span className="mono text-[10px]" style={{ color: f.color }}>{f.tag}</span>
                   )}
                 </div>
-                <h3 className="mt-4 text-[17px] font-semibold">{f.title}</h3>
+                <h3 className="mt-4 text-[17px] font-medium">{f.title}</h3>
                 <p className="mt-1.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">{f.body}</p>
               </div>
             ))}
@@ -137,7 +137,7 @@ export default function LandingPage() {
         <div className="reveal panel overflow-hidden rounded-[var(--radius-lg)] px-6 py-16 text-center sm:py-24">
           <h3 className="h1 mx-auto max-w-xl">매장 정보 한 번 등록하고,<br /><span className="amber-text">내일 아침 초안</span>을 확인하세요.</h3>
           <div className="mt-9 flex justify-center">
-            <Link href="/signup" className="btn-primary rounded-full px-6 py-3.5 text-[14px] font-semibold">
+            <Link href="/signup" className="btn-primary rounded-full px-6 py-3.5 text-[14px] font-medium">
               무료로 시작하기
             </Link>
           </div>
@@ -180,7 +180,7 @@ const FEATURES: { title: string; tag?: string; color: string; icon: string; soon
 function Stat({ n, suffix, label }: { n: number; suffix: string; label: string }) {
   return (
     <div className="bg-[var(--color-bg)] px-4 py-5 sm:px-5">
-      <div className="text-2xl font-bold tnum sm:text-3xl">
+      <div className="text-2xl font-semibold tnum sm:text-3xl">
         <span data-count={n} data-suffix={suffix}>0{suffix}</span>
       </div>
       <div className="mt-1 text-[11px] text-[var(--color-fg-3)] sm:text-xs">{label}</div>
@@ -191,10 +191,10 @@ function Stat({ n, suffix, label }: { n: number; suffix: string; label: string }
 function Price({ name, price, period, feats, cta, href, highlight, delay }: { name: string; price: string; period: string; feats: string[]; cta: string; href?: string; highlight?: boolean; delay: number }) {
   return (
     <div className={`spot reveal rounded-[var(--radius-lg)] p-7 ${highlight ? 'border-2 border-[var(--color-amber)] bg-[var(--color-panel)]' : 'panel'}`} style={{ transitionDelay: `${delay}ms` }}>
-      {highlight && <div className="mono mb-4 inline-block rounded-full bg-[var(--color-amber)] px-2.5 py-0.5 text-[10px] font-bold text-[var(--color-amber-ink)]">지금 파일럿</div>}
+      {highlight && <div className="mono mb-4 inline-block rounded-full bg-[var(--color-amber)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--color-amber-ink)]">지금 파일럿</div>}
       <div className="text-[14px] text-[var(--color-fg-2)]">{name}</div>
       <div className="mt-2 flex items-baseline gap-1.5">
-        <span className="text-4xl font-bold tnum tracking-tight">{price}</span>
+        <span className="text-4xl font-semibold tnum tracking-tight">{price}</span>
         <span className="text-[13px] text-[var(--color-fg-3)]">/ {period}</span>
       </div>
       <ul className="mt-7 space-y-2.5 text-[14px] text-[var(--color-fg-2)]">
@@ -203,10 +203,10 @@ function Price({ name, price, period, feats, cta, href, highlight, delay }: { na
         ))}
       </ul>
       {href ? (
-        <Link href={href} className={`mono mt-8 block w-full rounded-full py-2.5 text-center text-[13px] font-semibold ${highlight ? 'btn-primary' : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)]'}`}>{cta}</Link>
+        <Link href={href} className={`mono mt-8 block w-full rounded-full py-2.5 text-center text-[13px] font-medium ${highlight ? 'btn-primary' : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)]'}`}>{cta}</Link>
       ) : (
         // 출시 전 플랜 — 눌러도 갈 곳이 없으니 정직하게 비활성
-        <button type="button" disabled className="mono mt-8 w-full cursor-not-allowed rounded-full border border-[var(--color-hair)] py-2.5 text-[13px] font-semibold text-[var(--color-fg-4)]">{cta}</button>
+        <button type="button" disabled className="mono mt-8 w-full cursor-not-allowed rounded-full border border-[var(--color-hair)] py-2.5 text-[13px] font-medium text-[var(--color-fg-4)]">{cta}</button>
       )}
     </div>
   );

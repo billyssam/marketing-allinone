@@ -32,7 +32,7 @@ export function ChannelMarketplace() {
           return (
             <div key={g} className="reveal">
               <div className="mb-3 flex items-baseline gap-3">
-                <span className="text-[15px] font-semibold">{GROUPS[g].label}</span>
+                <span className="text-[15px] font-medium">{GROUPS[g].label}</span>
                 <span className="mono text-[11px] text-[var(--color-fg-3)]">{GROUPS[g].desc}</span>
               </div>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">

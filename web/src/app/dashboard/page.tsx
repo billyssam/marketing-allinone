@@ -35,7 +35,7 @@ export default async function DashboardPage() {
         <div className="panel rounded-[var(--radius-lg)] p-10 text-center">
           <h1 className="h2">로그인이 필요합니다</h1>
           <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">Supabase 연결 후 사장님 계정으로 로그인하면 실데이터 대시보드가 열립니다.</p>
-          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-semibold">로그인</Link>
+          <Link href="/login" className="btn-primary mt-6 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">로그인</Link>
         </div>
       </main>
     );
@@ -187,11 +187,11 @@ export default async function DashboardPage() {
 
         {/* 연결된 채널 상태 */}
         <section className="mt-8">
-          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">연결된 채널 <span className="mono text-[var(--color-fg-3)]">{connected.length}</span></div>
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-medium">연결된 채널 <span className="mono text-[var(--color-fg-3)]">{connected.length}</span></div>
           {connected.length === 0 ? (
             <div className="panel rounded-[var(--radius-lg)] p-8 text-center">
               <p className="text-[14px] text-[var(--color-fg-2)]">아직 연결된 채널이 없어요.</p>
-              <Link href="/channels" className="btn-primary mt-4 inline-block rounded-full px-5 py-2.5 text-[13px] font-semibold">채널 연결하러 가기</Link>
+              <Link href="/channels" className="btn-primary mt-4 inline-block rounded-full px-5 py-2.5 text-[13px] font-medium">채널 연결하러 가기</Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
@@ -221,7 +221,7 @@ export default async function DashboardPage() {
         {/* 최근 초안 (posts 영속화 결과) */}
         <section className="mt-10">
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-[13px] font-semibold">
+            <div className="flex items-center gap-2 text-[13px] font-medium">
               최근 초안 <span className="mono text-[var(--color-fg-3)]">{drafts.length}</span>
             </div>
             <Link href="/posts" className="mono text-[12px] text-[var(--color-fg-3)] transition hover:text-[var(--color-fg)]">
@@ -258,7 +258,7 @@ export default async function DashboardPage() {
 
         {/* 성과 (실데이터: 리뷰 감정·초안. 도달·조회는 채널 연동 후) */}
         <section className="mt-10">
-          <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold">
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-medium">
             성과 <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">실시간</span>
           </div>
           <DashboardPerformance data={perfData} weekly={weekly} feed={feed} />

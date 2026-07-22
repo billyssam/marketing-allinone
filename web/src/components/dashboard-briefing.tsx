@@ -48,7 +48,7 @@ export function DashboardBriefing({ items }: { items: BriefingItem[] }) {
             </div>
             <div className="mt-1.5 line-clamp-2 text-[12.5px] leading-snug text-[var(--color-fg)]">{it.title}</div>
             <div
-              className="mt-2.5 w-full rounded-lg py-1.5 text-center text-[12px] font-semibold"
+              className="mt-2.5 w-full rounded-lg py-1.5 text-center text-[12px] font-medium"
               style={{ background: `${it.color}1c`, color: it.color }}
             >
               {it.actionLabel}

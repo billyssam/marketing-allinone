@@ -7,10 +7,12 @@
   --color-hair: rgba(255, 255, 255, 0.07);
   --color-hair-strong: rgba(255, 255, 255, 0.14);
 
-  --color-fg: #f6f4f0;
-  --color-fg-2: #bdbab2;
-  --color-fg-3: #86847d;
-  --color-fg-4: #55554f;
+  /* fg 4단계 — Linear 실측(#f7f8f8/#d0d6e0/#8a8f98/#62666d)의 웜 등가.
+     fg-2가 어두우면 본문 대비가 죽는다(Linear secondary는 상당히 밝음). */
+  --color-fg: #f7f6f3;
+  --color-fg-2: #d3d0c9;
+  --color-fg-3: #8a8880;
+  --color-fg-4: #605f58;
 
   --color-amber: #ffb534;
   --color-amber-2: #ffcd6b;
@@ -28,6 +30,13 @@
 
   --radius: 12px;
   --radius-lg: 18px;
+  --radius-sm: 8px;
+
+  /* 그림자 3단계 — Linear 실측 그대로. 패널은 플랫+헤어라인(그림자 없음),
+     그림자는 팝오버·호버 등 '떠 있는 것'에만 쓴다. */
+  --shadow-low: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0px 4px 24px rgba(0, 0, 0, 0.2);
+  --shadow-high: 0px 7px 32px rgba(0, 0, 0, 0.35);
 }
 
 /* 베이스 리셋 — 반드시 @layer base 안에 둘 것.
@@ -41,10 +50,21 @@ body {
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+  /* Linear 본문 실측: 15px / lh 1.6 / ls -0.011em */
+  letter-spacing: -0.011em;
+  /* 한글 조판 표준: 어절 단위 줄바꿈(토스·당근 동일). 긴 URL은 break-word 폴백 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
   font-feature-settings: 'ss01', 'cv01', 'cv11', 'tnum';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+/* 포커스 링 — Linear는 전역 focus-ring 토큰을 둔다. 키보드 사용자에게만. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-amber) 70%, transparent);
+  outline-offset: 2px;
 }
 
 /* single tasteful radial glow from top — dawn, not rainbow */
@@ -55,27 +75,27 @@ body::before {
     radial-gradient(60% 50% at 78% -8%, rgba(255, 181, 52, 0.14), transparent 62%),
     radial-gradient(45% 40% at 20% -5%, rgba(255, 77, 141, 0.06), transparent 60%);
 }
-body::after {
-  content: ''; position: fixed; inset: 0; z-index: 100; pointer-events: none;
-  opacity: 0.02;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+/* (노이즈 오버레이 제거 — Linear/Vercel 실물엔 없음. 플랫한 순수 다크가 정답) */
 } /* @layer base */
 
 /* 디자인 시스템 컴포넌트 — utilities보다 앞 레이어라 유틸로 덮어쓸 수 있다.
    (.panel의 테두리를 hover:border-* 로 밝히는 식) */
 @layer components {
 
-/* ---- type ---- */
+/* ---- type ----
+   Linear 실측: h1 weight 510 / ls -0.022em / lh 1.1 — 헤비(700~800)가 아니라
+   '큰 사이즈 × 미디엄 웨이트 × 타이트 자간'이 고급짐의 정체.
+   한글은 라틴보다 획밀도가 높아 510 등가 ≈ 600~620. */
 .display {
-  font-size: clamp(3.2rem, 8vw, 6.8rem);
-  line-height: 0.94;
-  letter-spacing: -0.05em;
-  font-weight: 800;
+  font-size: clamp(2.8rem, 6vw, 4.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.032em;
+  font-weight: 620;
   text-wrap: balance;
+  word-break: keep-all;
 }
-.h1 { font-size: clamp(2rem, 4vw, 3.4rem); line-height: 1.02; letter-spacing: -0.035em; font-weight: 750; text-wrap: balance; }
-.h2 { font-size: clamp(1.5rem, 2.6vw, 2.1rem); line-height: 1.1; letter-spacing: -0.025em; font-weight: 700; }
+.h1 { font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.08; letter-spacing: -0.025em; font-weight: 620; text-wrap: balance; word-break: keep-all; }
+.h2 { font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.18; letter-spacing: -0.015em; font-weight: 600; word-break: keep-all; }
 .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--color-fg-3); }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .tnum { font-variant-numeric: tabular-nums; }
@@ -106,13 +126,14 @@ body::after {
 }
 .spot:hover::after { opacity: 1; }
 
-/* primary button with sheen */
+/* primary button — Linear invert 버튼 실측(#e5e5e6 → hover #fff).
+   글로우·리프트 없음: 밝기 전이만. 절제가 프리미엄. */
 .btn-primary {
-  position: relative; overflow: hidden;
-  background: var(--color-fg); color: var(--color-bg);
-  transition: transform 0.2s, box-shadow 0.3s;
+  background: #e9e7e2; color: var(--color-bg);
+  font-weight: 560;
+  transition: background 0.15s ease;
 }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 12px 30px -10px rgba(255,255,255,0.35); }
+.btn-primary:hover { background: #ffffff; }
 
 /* scroll reveal */
 .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.7s cubic-bezier(.22,1,.36,1), transform 0.7s cubic-bezier(.22,1,.36,1); }
@@ -143,3 +164,4 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   .rise, .marq, .reveal, .pulse-dot::before { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
 }
+

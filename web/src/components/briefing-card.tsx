@@ -9,16 +9,16 @@ export function BriefingCard() {
     <div className="panel w-full max-w-[380px] rounded-[18px] p-1.5 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.8)]">
       {/* kakao-style header */}
       <div className="flex items-center gap-2.5 rounded-t-[13px] bg-[var(--color-panel-2)] px-4 py-3">
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--color-amber)] text-[15px] font-bold text-[var(--color-amber-ink)]">ㅁ</span>
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--color-amber)] text-[15px] font-semibold text-[var(--color-amber-ink)]">ㅁ</span>
         <div className="leading-tight">
-          <div className="text-[13px] font-semibold">마케팅올인원</div>
+          <div className="text-[13px] font-medium">마케팅올인원</div>
           <div className="mono text-[10px] text-[var(--color-fg-3)]">오늘 오전 9:00 · 화요일 브리핑</div>
         </div>
       </div>
 
       <div className="px-3 pb-3 pt-3">
         <div className="mb-2.5 px-1 text-[13px] text-[var(--color-fg-2)]">
-          사장님, 오늘 준비된 <span className="font-semibold text-[var(--color-fg)]">3건</span>이에요.
+          사장님, 오늘 준비된 <span className="font-medium text-[var(--color-fg)]">3건</span>이에요.
         </div>
         <div className="space-y-2">
           {items.map((it) => (
@@ -33,7 +33,7 @@ export function BriefingCard() {
               <div className="mt-1.5 line-clamp-2 text-[12.5px] leading-snug text-[var(--color-fg)]">{it.title}</div>
               <button
                 type="button"
-                className="mt-2.5 w-full rounded-lg py-1.5 text-[12px] font-semibold"
+                className="mt-2.5 w-full rounded-lg py-1.5 text-[12px] font-medium"
                 style={{ background: `${it.color}1c`, color: it.color }}
               >
                 {it.action}
