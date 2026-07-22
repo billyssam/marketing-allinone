@@ -92,10 +92,21 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw);
-      } catch (err) {
-        throw new Error(
-          `Gemini 응답 JSON 파싱 실패: ${(err as Error).message}\n원문 앞 300자:\n${raw.slice(0, 300)}`,
+      } catch {
+        // 간헐적 출력 절단(특히 flash-lite) → 본문 1회 재생성으로 흡수
+        console.warn('[gemini] JSON 절단/파싱 실패 → 본문 재생성 1회');
+        const retry = await callWithFallback(
+          writingModelName, systemInstruction,
+          { temperature, responseMimeType: 'application/json' },
+          industry.writingTemplate(plan, input),
         );
+        try {
+          parsed = JSON.parse(retry);
+        } catch (err2) {
+          throw new Error(
+            `Gemini 응답 JSON 파싱 실패(재시도 포함): ${(err2 as Error).message}\n원문 앞 300자:\n${retry.slice(0, 300)}`,
+          );
+        }
       }
 
       return draftOutputSchema.parse(parsed);
