@@ -6,6 +6,9 @@ name: 아침 준비 검증
 on:
   schedule:
     - cron: '30 0 * * *'
+    # GitHub 크론은 피크 시간대 드롭이 잦다(실측: 첫날 00:30분 미발화).
+    # 검증은 읽기전용·멱등이라 2차 스케줄로 드롭 내성 확보.
+    - cron: '30 1 * * *'
   workflow_dispatch: {}
 
 permissions:
