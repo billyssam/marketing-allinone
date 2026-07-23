@@ -138,6 +138,17 @@ function Metric({ label, value, accent }: { label: string; value: number; accent
   );
 }
 
+/**
+ * 문자 앱 딥링크 — 번호·내용까지 채워서 연다(알림톡 연동 전에도 1탭 발송).
+ * body 구분자가 iOS는 '&', 그 외(Android)는 '?' — 문자앱이 body를 무시하는 기기 대비로
+ * 클릭 시 클립보드 복사도 병행한다.
+ */
+function smsHref(phone: string, body: string): string {
+  const p = phone.replace(/[^0-9+]/g, '');
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  return `sms:${p}${isIOS ? '&' : '?'}body=${encodeURIComponent(body)}`;
+}
+
 function RegularCard({ r, storeName, benefit, onDelete, disabled }: { r: RegularRow; storeName: string; benefit: string; onDelete: () => void; disabled: boolean }) {
   const [copied, setCopied] = useState(false);
   const tier = tierByDays(r.daysSince);
@@ -174,8 +185,16 @@ function RegularCard({ r, storeName, benefit, onDelete, disabled }: { r: Regular
           </div>
           <p className="text-[13px] leading-relaxed text-[var(--color-fg-2)]">{draft}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={copy} className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-amber-ink)] transition hover:opacity-90">
-              {copied ? '복사됨' : '메시지 복사'}
+            {/* 주 동선: 문자 앱을 번호·내용까지 채워 열기 (복사 병행 — body 미지원 기기 폴백) */}
+            <a
+              href={smsHref(r.phone, draft)}
+              onClick={() => void copy()}
+              className="rounded-lg bg-[var(--color-amber)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-amber-ink)] transition hover:opacity-90"
+            >
+              문자로 보내기
+            </a>
+            <button type="button" onClick={copy} className="rounded-lg border border-[var(--color-hair-strong)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">
+              {copied ? '✓ 복사됨' : '복사만'}
             </button>
             <button type="button" disabled title="알림톡 연동 후 사용" className="cursor-not-allowed rounded-lg border border-[var(--color-hair)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-fg-4)]">
               알림톡 발송 (연동 후)
