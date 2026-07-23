@@ -3,6 +3,7 @@ import type { ChannelId } from '../channels/registry';
 import type { DraftInput, DraftOutput } from './types';
 import { htmlToPlain } from './channel-formatter';
 import { STANDARD_LANGUAGE_RULE } from './prompts/base';
+import { clampForChannel } from './caption';
 
 /**
  * 채널 네이티브 재작성 — 마스터(블로그)를 각 단문 채널의 "고유 톤"으로 1회 호출 재작성.
@@ -25,7 +26,7 @@ const CHANNEL_BRIEF: Record<string, string> = {
   danggeun:
     '당근마켓 동네 홍보. 옆집 이웃에게 말하듯 친근하고 담백하게. 과장·광고티 배제. "우리 동네" 정서. 400자 이내.',
   threads:
-    '스레드 글. 짧고 후킹, 대화체. 공감 유발 첫 문장. 350자 이내.',
+    '스레드 글. 짧고 후킹, 대화체. 공감 유발 첫 문장. 350자 이내(절대 500자 넘기지 말 것 — 플랫폼 제한).',
 };
 
 function resolveKey(config?: { apiKey?: string }): string | null {
@@ -91,7 +92,14 @@ tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머
     const out: Partial<Record<ChannelId, NativeVersion>> = {};
     for (const c of targets) {
       if (parsed[c]?.bodyPlain) {
-        out[c] = { bodyPlain: String(parsed[c].bodyPlain), tags: Array.isArray(parsed[c].tags) ? parsed[c].tags : undefined };
+        // 플랫폼 하드 리밋으로 안전 트림 — flash-lite가 권장 길이를 넘겨도 발행이 깨지지 않게
+        const bodyPlain = clampForChannel(c, String(parsed[c].bodyPlain));
+        // 인스타 해시태그: 과다는 스팸 신호 → 최대 20개로 하드 캡(중복·빈 값 제거)
+        const rawTags: unknown[] | undefined = Array.isArray(parsed[c].tags) ? parsed[c].tags : undefined;
+        const tags: string[] | undefined = rawTags
+          ? [...new Set(rawTags.map((t) => String(t).replace(/^#/, '').trim()).filter((t): t is string => t.length > 0))].slice(0, 20)
+          : undefined;
+        out[c] = { bodyPlain, tags };
       }
     }
     return out;
