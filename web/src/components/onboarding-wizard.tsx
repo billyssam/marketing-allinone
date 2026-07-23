@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { completeOnboarding } from '@/app/onboarding/actions';
 import { CHANNELS, AUTOMATION_LABEL, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
 import {
@@ -19,6 +19,19 @@ const BIZ_GROUP_ORDER: BizGroup[] = [
   'food', 'retail', 'beauty', 'health', 'medical', 'education', 'lifestyle', 'professional', 'hospitality',
 ];
 
+// 온보딩 중간 이탈·새로고침 방어 — 입력을 localStorage에 자동 저장/복원.
+// (업종·메뉴까지 채우다 새로고침하면 처음부터 = 명백한 이탈 리스크)
+const DRAFT_KEY = 'maio_onboarding_draft_v1';
+interface OnboardingDraft {
+  step: number;
+  storeName: string;
+  industryId: string;
+  offerings: StoreOffering[];
+  placeUrl: string;
+  channels: ChannelId[];
+  channelsTouched: boolean;
+}
+
 export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [storeName, setStoreName] = useState('');
@@ -29,6 +42,55 @@ export function OnboardingWizard() {
   const [channelsTouched, setChannelsTouched] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
+  const [restored, setRestored] = useState(false);
+
+  // 마운트 시 저장된 초안 복원 (SSR hydration 안전 — useEffect에서만 접근)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as Partial<OnboardingDraft>;
+        if (d.storeName) setStoreName(d.storeName);
+        if (d.industryId) setIndustryId(d.industryId);
+        if (Array.isArray(d.offerings) && d.offerings.length) setOfferings(d.offerings);
+        if (d.placeUrl) setPlaceUrl(d.placeUrl);
+        if (d.channelsTouched && Array.isArray(d.channels)) {
+          setChannels(new Set(d.channels));
+          setChannelsTouched(true);
+        }
+        if (typeof d.step === 'number') setStep(Math.min(Math.max(d.step, 0), 4));
+        setRestored(Boolean(d.storeName || d.industryId));
+      }
+    } catch {
+      /* 손상된 초안은 무시 */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 입력 변경 시 자동 저장 (첫 렌더 복원 전에는 저장하지 않음 — 빈 값으로 덮어쓰기 방지)
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    if (!loadedRef.current) {
+      loadedRef.current = true;
+      return;
+    }
+    try {
+      // 실질 입력이 하나도 없으면 저장 대신 삭제(리셋 후 빈 초안 잔존 방지)
+      const isEmpty =
+        !storeName && !industryId && !placeUrl && offerings.every((o) => !o.name) && !channelsTouched;
+      if (isEmpty) {
+        localStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      const draft: OnboardingDraft = {
+        step, storeName, industryId, offerings, placeUrl,
+        channels: [...channels], channelsTouched,
+      };
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      /* 용량 초과 등 무시 */
+    }
+  }, [step, storeName, industryId, offerings, placeUrl, channels, channelsTouched]);
 
   const biz = industryId ? resolveBusinessType(industryId) : null;
   const offeringWord = biz ? offeringNoun(biz.offering) : '메뉴';
@@ -65,6 +127,9 @@ export function OnboardingWizard() {
 
   function finish() {
     setError('');
+    // 낙관적 정리 — 성공 시 서버가 redirect를 throw해 아래 else에 도달하지 못하므로
+    // 여기서 먼저 지운다. finish는 저장 트리거(state)를 건드리지 않아 재저장되지 않음.
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
     start(async () => {
       const res = await completeOnboarding({
         storeName: storeName.trim(),
@@ -75,7 +140,16 @@ export function OnboardingWizard() {
           .map((o) => ({ name: o.name.trim(), price: o.price }))
           .filter((o) => o.name),
       });
-      if (!res.ok) setError(res.error ?? '문제가 발생했습니다');
+      if (!res.ok) {
+        setError(res.error ?? '문제가 발생했습니다');
+        // 실패 → 새로고침해도 복원되도록 초안 재저장
+        try {
+          localStorage.setItem(
+            DRAFT_KEY,
+            JSON.stringify({ step, storeName, industryId, offerings, placeUrl, channels: [...channels], channelsTouched }),
+          );
+        } catch { /* noop */ }
+      }
     });
   }
 
@@ -90,6 +164,28 @@ export function OnboardingWizard() {
           </div>
         ))}
       </div>
+
+      {restored && (
+        <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5">
+          <span className="flex items-center gap-2 text-[12.5px] text-[var(--color-fg-2)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-good)]" />
+            입력하던 내용을 이어서 진행할 수 있어요.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+              setStoreName(''); setIndustryId('');
+              setOfferings([{ name: '' }, { name: '' }, { name: '' }]);
+              setPlaceUrl(''); setChannels(new Set()); setChannelsTouched(false);
+              setStep(0); setRestored(false);
+            }}
+            className="mono shrink-0 text-[11px] text-[var(--color-fg-3)] transition hover:text-[var(--color-fg)]"
+          >
+            처음부터
+          </button>
+        </div>
+      )}
 
       {step === 0 && (
         <Step title="매장 이름이 뭔가요?" desc="블로그·인스타에 노출될 상호입니다.">
