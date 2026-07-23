@@ -174,6 +174,19 @@ export default async function DashboardPage() {
           )}
         </section>
 
+        {/* 플레이스 연결 넛지 — 미연결이면 리뷰 수집·매장 사실 주입이 영영 시작되지 않음
+            (온보딩에서 가장 흔히 건너뛰는 단계 = 콘텐츠 품질 격차의 최대 원인).
+            오프라인 매장이 있는 업종에만 — 온라인 셀러 등엔 플레이스가 없을 수 있음(범용성) */}
+        {!store.naver_place_url && business.saleModes.includes('offline') && (
+          <Link href="/settings" className="mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 transition hover:border-[var(--color-hair-strong)]">
+            <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-amber)]" />
+              <span><b className="text-[var(--color-fg)]">네이버 플레이스를 연결</b>하면 리뷰가 매일 자동 수집되고, 글에 실제 {offeringNoun(business.offering)}·영업시간이 들어가요</span>
+            </span>
+            <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">매장 설정 →</span>
+          </Link>
+        )}
+
         {/* 재방문 유도 넛지 (끊긴 단골 있을 때) */}
         {reactivationTargets > 0 && (
           <Link href="/regulars" className="mt-3 flex items-center justify-between rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 transition hover:border-[var(--color-hair-strong)]">
