@@ -179,13 +179,15 @@ function ReviewCard({ review, placeId }: { review: ReviewRow; placeId: string | 
             {copied ? '✓ 복사됨' : '답글 복사'}
           </button>
         )}
+        {/* 주 동선: 복사 + 이동을 한 탭에 — 사장님 2탭→1탭 (제스처 안에서 복사라 안전) */}
         <a
           href={replyUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => { if (review.replyDraft) void copyReply(); }}
           className="rounded-lg border border-[var(--color-hair-strong)] px-3.5 py-2 text-[12px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
         >
-          네이버에서 답글 달기 ↗
+          {review.replyDraft ? '복사하고 네이버에서 답글 ↗' : '네이버에서 답글 달기 ↗'}
         </a>
         <button
           type="button"

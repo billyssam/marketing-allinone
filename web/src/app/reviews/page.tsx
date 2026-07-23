@@ -83,7 +83,7 @@ export default async function ReviewsPage() {
         <div className="eyebrow">리뷰 모니터링</div>
         <h1 className="h1 mt-2">고객 리뷰 · 답글 관리</h1>
         <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">
-          네이버 플레이스 리뷰를 매일 자동 수집하고 감정을 분석해요. 부정 리뷰는 즉시 알려드립니다.
+          네이버 플레이스 리뷰를 매일 자동 수집하고 감정을 분석해요. 부정 리뷰가 맨 위로 올라와 놓치지 않아요.
         </p>
 
         {/* 플레이스 미연결 안내 — 연결 안 하면 리뷰가 영영 안 들어오니 정직하게 */}
