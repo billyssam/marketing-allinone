@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import 'pretendard/dist/web/variable/pretendardvariable.css';
+// 다이내믹 서브셋: 유니코드 범위별 92조각 — 화면에 쓰인 글리프 범위만 다운로드.
+// 통짜 가변폰트(2.06MB)는 모바일 LCP를 13초로 만듦(Lighthouse 실측) → 절대 되돌리지 말 것.
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -35,7 +37,7 @@ export const viewport: Viewport = {
   themeColor: '#08080a',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // maximumScale 제한 금지 — 저시력 사용자 핀치줌 차단은 접근성 위반(Lighthouse 실측 감점)
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
