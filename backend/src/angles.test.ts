@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan } from '../../shared/content-engine/angles.js';
+import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan, titleStyleFor, repeatedTitleWords } from '../../shared/content-engine/angles.js';
 import { getIndustryPrompt } from '../../shared/content-engine/registry.js';
 import type { DraftInput } from '../../shared/content-engine/types.js';
 
@@ -78,6 +78,43 @@ test('lengthForAngle: 각도 성격별 길이', () => {
   const lens = new Set();
   for (let i=0;i<10;i++) lens.add(dailyDirective('menu','store-len',base+i*DAY,[]).length);
   assert.ok(lens.has('long') && lens.has('short'), `길이 변주: ${[...lens].join(',')}`);
+});
+
+test('titleStyleFor: 연속된 날은 다른 제목 구조 + 6일 주기로 전체 순환', () => {
+  const store = 'store-title';
+  const keys = new Set();
+  for (let d = 2000; d < 2006; d++) {
+    const a = titleStyleFor(store, d);
+    const b = titleStyleFor(store, d + 1);
+    assert.notEqual(a.key, b.key, `day ${d}→${d + 1} 제목 구조 달라야`);
+    keys.add(a.key);
+  }
+  assert.equal(keys.size, 6, '6일이면 6개 구조 전부 등장');
+});
+
+test('dailyDirective: 제목 구조 지시가 실제 directive에 포함', () => {
+  const d = dailyDirective('menu', 'store-t', Date.parse('2026-07-23T08:00:00+09:00'), []);
+  assert.ok(d.directive.includes('오늘의 제목 구조'), '제목 구조 지시 포함');
+  assert.ok(d.directive.includes(d.titleStyle.rule), 'titleStyle.rule이 directive에');
+});
+
+test('repeatedTitleWords: 실제 반복 이력에서 시어 추출 + 상호·지역 제외', () => {
+  const titles = [
+    '옥천 안내면 쿵더쿵, 여름날의 시원한 쉼표',
+    '옥천 안내면 쿵더쿵, 여름날의 달콤한 쉼표',
+    '옥천 안내면 카페 쿵더쿵, 바쁜 일상 속 따뜻한 쉼표',
+    '옥천 안내면 쿵더쿵, 따뜻한 온기로 채우는 쉼표',
+  ];
+  const banned = repeatedTitleWords(titles, ['쿵더쿵', '충북 옥천군 안내면 현리3길']);
+  assert.ok(banned.includes('쉼표'), `'쉼표' 금지: ${banned.join(',')}`);
+  assert.ok(banned.includes('따뜻한'), `'따뜻한' 금지`);
+  assert.ok(banned.includes('여름날의'), `'여름날의' 금지`);
+  assert.ok(!banned.includes('쿵더쿵'), '상호는 금지 안 함');
+  assert.ok(!banned.includes('옥천'), '지역명은 금지 안 함(SEO)');
+});
+
+test('repeatedTitleWords: 반복 없으면 빈 배열', () => {
+  assert.deepEqual(repeatedTitleWords(['완전히 다른 제목', '전혀 새로운 문장'], []), []);
 });
 
 test('weekPlan: N일 계획이 매일 다른 각도(대부분)', () => {

@@ -62,6 +62,49 @@ export function lengthForAngle(key: string): TargetLength {
   return 'medium';
 }
 
+/**
+ * 제목 구조 로테이션 — 프롬프트로 "매번 다른 구조"를 부탁해도 모델은 '지역+상호,'
+ * 시작으로 관성 수렴한다(실측: 8일 연속 "옥천 안내면 쿵더쿵, ~" + '쉼표' 4회 반복).
+ * 각도처럼 구조 자체를 결정적으로 순환시켜 반복을 원천 차단한다.
+ * 길이 6(각도 5와 서로소)이라 각도×제목구조 조합이 30일 주기로 돈다.
+ */
+const TITLE_STYLES: { key: string; rule: string }[] = [
+  { key: 'question', rule: '질문형 제목 (예: "~어떠세요?", "~아시나요?"). 상호는 중간이나 끝에.' },
+  { key: 'sensory', rule: '감각·장면 묘사로 시작하는 제목. 상호로 시작 금지.' },
+  { key: 'number', rule: '숫자가 들어간 제목 (예: "세 가지 이유", "10분이면"). 상호는 뒤쪽에.' },
+  { key: 'situation', rule: '고객의 상황·고민으로 시작하는 제목 (예: "~한 날엔"). 지역·상호는 뒤에 자연스럽게.' },
+  { key: 'plain', rule: '상호로 시작해도 되는 제목. 단 뒤 문구는 최근 제목과 완전히 다른 어휘로.' },
+  { key: 'topic', rule: '오늘의 중심 소재(메뉴·상품 등)를 앞세운 제목. 상호는 뒤에 가볍게.' },
+];
+
+/** 오늘의 제목 구조 — 각도와 독립 오프셋으로 결정적 순환 */
+export function titleStyleFor(storeId: string, dayNumber: number): { key: string; rule: string } {
+  const idx = (((dayNumber + seedOf(storeId) + 3) % TITLE_STYLES.length) + TITLE_STYLES.length) % TITLE_STYLES.length;
+  return TITLE_STYLES[idx];
+}
+
+/**
+ * 최근 제목들에서 2회 이상 반복된 시어 추출 — "이 단어 금지"로 명시해야 모델이 멈춘다.
+ * (실측: '쉼표' 4회·'따뜻한' 6회 — "겹치지 않게"라는 소극 지시로는 못 막았음)
+ * allow(상호·지역명 등 SEO상 반복이 정상인 단어)는 제외.
+ */
+export function repeatedTitleWords(titles: string[], allow: string[] = []): string[] {
+  const tokenize = (s: string) => s.split(/[^가-힣a-zA-Z0-9]+/).filter((w) => w.length >= 2);
+  const allowTokens = allow.flatMap(tokenize);
+  // 접두 매칭: 주소는 "옥천군"인데 제목은 "옥천"처럼 조사·접미가 갈리므로 정확일치로는 못 거름
+  const isAllowed = (w: string) => allowTokens.some((a) => a.startsWith(w) || w.startsWith(a));
+  const count = new Map<string, number>();
+  for (const t of titles) {
+    const seen = new Set<string>();
+    for (const w of tokenize(t)) {
+      if (isAllowed(w) || seen.has(w)) continue; // 같은 제목 안 중복은 1회로
+      seen.add(w);
+      count.set(w, (count.get(w) ?? 0) + 1);
+    }
+  }
+  return [...count.entries()].filter(([, c]) => c >= 2).map(([w]) => w);
+}
+
 /** FNV-1a 해시 — 매장별 안정 시드(같은 매장은 늘 같은 시작점) */
 function seedOf(s: string): number {
   let h = 0x811c9dc5;
@@ -133,10 +176,11 @@ export function dailyDirective(
   storeId: string,
   nowMs: number,
   offeringNames: string[] = [],
-): { directive: string; angle: ContentAngle; featured?: string; length: TargetLength } {
+): { directive: string; angle: ContentAngle; featured?: string; length: TargetLength; titleStyle: { key: string; rule: string } } {
   const day = kstDayNumber(nowMs);
   const angle = angleFor(offering, storeId, day);
   const season = seasonalContext(nowMs);
+  const titleStyle = titleStyleFor(storeId, day);
 
   let featured: string | undefined;
   const names = offeringNames.filter((n) => n && n.trim());
@@ -150,7 +194,8 @@ export function dailyDirective(
   const directive =
     `★ 이번 글의 중심 콘셉트(글 전체를 반드시 이 방향으로 이끌 것): ${angle.directive}` +
     ` ${season.hint}${featuredHint}` +
-    ` 판매 항목을 백과사전처럼 전부 나열하지 말고, 위 콘셉트와 중심 소재를 깊이 있게 풀어낼 것(다른 항목은 필요할 때만 가볍게).`;
+    ` 판매 항목을 백과사전처럼 전부 나열하지 말고, 위 콘셉트와 중심 소재를 깊이 있게 풀어낼 것(다른 항목은 필요할 때만 가볍게).` +
+    ` ★ 오늘의 제목 구조(반드시 이 형태로): ${titleStyle.rule}`;
 
-  return { directive, angle, featured, length: lengthForAngle(angle.key) };
+  return { directive, angle, featured, length: lengthForAngle(angle.key), titleStyle };
 }

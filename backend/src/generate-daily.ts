@@ -20,7 +20,7 @@ import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
 import { resolveOfferings } from '../../shared/content-engine/offerings.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
-import { dailyDirective } from '../../shared/content-engine/angles.js';
+import { dailyDirective, repeatedTitleWords } from '../../shared/content-engine/angles.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -152,8 +152,11 @@ async function main() {
       .order('created_at', { ascending: false })
       .limit(5);
     const recentTitles = (recent ?? []).map((r) => r.title).filter(Boolean) as string[];
+    // 반복 시어를 명시적으로 금지 — "겹치지 않게" 소극 지시로는 '쉼표'류 관성을 못 막음(실측)
+    const banned = repeatedTitleWords(recentTitles, [s.name, s.address ?? '']);
     const avoidHint = recentTitles.length
-      ? ` 최근 이런 제목으로 썼으니 소재·표현·구성이 겹치지 않게 새롭게: ${recentTitles.map((t) => `"${t}"`).join(', ')}.`
+      ? ` 최근 제목들: ${recentTitles.map((t) => `"${t}"`).join(', ')}. 이들과 시작 구조를 반복하지 말 것.` +
+        (banned.length ? ` 다음 단어는 이번 제목에 사용 금지: ${banned.join(', ')}.` : '')
       : '';
     const angleDirective = daily.directive + avoidHint;
 

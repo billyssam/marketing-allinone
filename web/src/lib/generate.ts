@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { persistDrafts, type PersistedPost } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
-import { dailyDirective } from '@shared/content-engine/angles';
+import { dailyDirective, repeatedTitleWords } from '@shared/content-engine/angles';
 import { resolveOfferings } from '@shared/content-engine/offerings';
 import { resolveBusinessType } from '@shared/business/taxonomy';
 import type { ChannelId } from '@shared/channels/registry';
@@ -35,6 +35,22 @@ export async function generateForStore(
   store: StoreRowForGen,
   opts: GenerateOpts = {},
 ): Promise<{ title: string; posts: PersistedPost[] }> {
+  // 최근 제목 회피(크론과 동일) — 수동 생성도 제목이 이력과 반복되지 않게
+  const { data: recent } = await supabase
+    .from('posts')
+    .select('title')
+    .eq('store_id', store.id)
+    .eq('channel', 'blog')
+    .not('title', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  const recentTitles = (recent ?? []).map((r) => r.title).filter(Boolean) as string[];
+  const banned = repeatedTitleWords(recentTitles, [store.name, store.address ?? '']);
+  const avoidHint = recentTitles.length
+    ? ` 최근 제목들: ${recentTitles.map((t) => `"${t}"`).join(', ')}. 이들과 시작 구조를 반복하지 말 것.` +
+      (banned.length ? ` 다음 단어는 이번 제목에 사용 금지: ${banned.join(', ')}.` : '')
+    : '';
+
   const input: DraftInput = {
     store: {
       id: store.id,
@@ -50,13 +66,13 @@ export async function generateForStore(
     targetLength: opts.targetLength,
     // 각도 미지정 시 오늘의 각도+시점+중심소재를 기본 적용(수동 생성도 신선·시의성 있게)
     angle:
-      opts.angle ??
-      dailyDirective(
-        resolveBusinessType(store.industry_id).offering,
-        store.id,
-        Date.now(),
-        resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone)).map((o) => o.name),
-      ).directive,
+      (opts.angle ??
+        dailyDirective(
+          resolveBusinessType(store.industry_id).offering,
+          store.id,
+          Date.now(),
+          resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone)).map((o) => o.name),
+        ).directive) + avoidHint,
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];
 
