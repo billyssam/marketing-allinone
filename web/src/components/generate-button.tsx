@@ -48,20 +48,21 @@ export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
         }),
       });
       if (!res.ok) {
-        if (res.status === 429) {
-          throw new Error('Gemini 무료 한도를 다 썼어요. 결제를 연결하면 계속 만들 수 있어요.');
-        }
-        if (res.status === 503) {
-          throw new Error('아직 AI 키가 연결되지 않았어요. 설정에서 Gemini를 연결해주세요.');
-        }
-        let message = '생성에 실패했어요. 잠시 후 다시 시도해주세요.';
+        // 서버가 보낸 한국어 안내(일일 상한 등)를 우선 표시 — 고정 문구로 덮지 않는다
+        let serverMsg: string | null = null;
         try {
           const data = await res.json();
-          if (data?.error) message = data.error;
+          if (data?.error) serverMsg = data.error;
         } catch {
-          /* 비-JSON 에러 바디는 기본 메시지 유지 */
+          /* 비-JSON 에러 바디 */
         }
-        throw new Error(message);
+        if (res.status === 429) {
+          throw new Error(serverMsg ?? 'Gemini 무료 한도를 다 썼어요. 결제를 연결하면 계속 만들 수 있어요.');
+        }
+        if (res.status === 503) {
+          throw new Error(serverMsg ?? '아직 AI 키가 연결되지 않았어요. 설정에서 Gemini를 연결해주세요.');
+        }
+        throw new Error(serverMsg ?? '생성에 실패했어요. 잠시 후 다시 시도해주세요.');
       }
       setOpen(false);
       setAngle('');

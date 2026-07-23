@@ -62,6 +62,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 수동 생성 일일 상한 — 한 매장이 연타로 Gemini 무료 쿼터(flash 20/일)를 고갈시키면
+  // 다른 매장의 아침 크론 품질까지 죽는다(멀티테넌트 공정성). 크론 생성(auto:daily)은 제외.
+  const MANUAL_DAILY_LIMIT = 8;
+  const kstDayStart = new Date(
+    Math.floor((Date.now() + 9 * 3600_000) / 86_400_000) * 86_400_000 - 9 * 3600_000,
+  ).toISOString();
+  const { count: manualToday } = await supabase
+    .from('posts')
+    .select('id', { count: 'exact', head: true })
+    .eq('store_id', store.id)
+    .eq('channel', 'blog')
+    .gte('created_at', kstDayStart)
+    .or('metadata->>auto.is.null,metadata->>auto.neq.daily');
+  if ((manualToday ?? 0) >= MANUAL_DAILY_LIMIT) {
+    return NextResponse.json(
+      {
+        error: `오늘 직접 생성 한도(${MANUAL_DAILY_LIMIT}회)를 다 썼어요. 내일 아침 자동 초안이 준비되고, 한도도 다시 채워져요.`,
+      },
+      { status: 429 },
+    );
+  }
+
   // 채널 우선순위: 요청 명시 > 매장의 켜진 채널 플래그 > 블로그 폴백(lib 기본)
   const enabled: ChannelId[] = [];
   if (store.channel_blog_enabled) enabled.push('naver_blog');
