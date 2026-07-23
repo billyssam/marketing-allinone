@@ -1,4 +1,5 @@
 import type { IndustryPrompt } from '../types';
+import { lengthDirective } from '../length';
 
 export const restaurantPrompt: IndustryPrompt = {
   systemPrompt: `[음식점 전용 룰]
@@ -40,7 +41,7 @@ JSON:
 ${planning}
 
 ## 조건
-- 목표 길이: ${input.targetLength ?? 'medium'} (short=800자, medium=1800자, long=2400자)
+- ${lengthDirective(input.targetLength)}
 - 사진 ${input.photos.length}장 <img data-photo-index="N">로 삽입
 - 대표 메뉴 문단은 감각어 2개 이상
 - 마지막 문단에 실용 정보 (주소·영업시간·예약 여부)
