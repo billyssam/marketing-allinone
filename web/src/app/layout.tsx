@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 // 통짜 가변폰트(2.06MB)는 모바일 LCP를 13초로 만듦(Lighthouse 실측) → 절대 되돌리지 말 것.
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './globals.css';
+import { SwRegister } from '@/components/sw-register';
 
 export const metadata: Metadata = {
   title: {
@@ -43,7 +44,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        {children}
+        <SwRegister />
+      </body>
     </html>
   );
 }

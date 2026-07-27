@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#08080a" />
+    <title>연결이 끊겼어요 · 마케팅올인원</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0; min-height: 100dvh; display: grid; place-items: center;
+        background: #08080a; color: #f2f0ed; padding: 24px;
+        font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        word-break: keep-all;
+      }
+      .box { max-width: 22rem; text-align: center; }
+      .mark {
+        width: 44px; height: 44px; margin: 0 auto 20px; border-radius: 10px;
+        background: #f5a524; color: #1a1206; display: grid; place-items: center;
+        font-weight: 600; font-size: 18px;
+      }
+      h1 { font-size: 20px; font-weight: 620; letter-spacing: -0.02em; margin: 0 0 10px; }
+      p { font-size: 14px; line-height: 1.7; color: #a8a49e; margin: 0 0 22px; }
+      button {
+        border: 0; border-radius: 999px; padding: 12px 22px; font-size: 14px; font-weight: 500;
+        background: #f2f0ed; color: #08080a; cursor: pointer; font-family: inherit;
+      }
+      button:active { opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <div class="mark">ㅁ</div>
+      <h1>연결이 끊겼어요</h1>
+      <p>인터넷이 연결되면 오늘의 초안을 다시 불러올게요.<br />작성 중이던 내용은 그대로 있습니다.</p>
+      <button onclick="location.reload()">다시 시도</button>
+    </div>
+    <script>
+      // 네트워크가 돌아오면 자동 복귀 — 사장님이 새로고침을 기억할 필요 없게
+      addEventListener('online', () => location.reload());
+    </script>
+  </body>
+</html>
