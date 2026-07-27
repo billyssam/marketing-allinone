@@ -8,8 +8,16 @@
  * 사용법: npx tsx src/check-morning-ready.ts
  * env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
+import { config as loadEnv } from 'dotenv';
+import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
+
+// 로컬 수동 실행 지원 — 다른 운영 스크립트와 동일한 경로에서 env 로드.
+// (CI는 워크플로가 env를 주입하므로 크론은 이전에도 정상이었지만, docs/ops.md가
+//  안내하는 "수동 점검 명령"이 로컬에서 실패하고 있었다.)
+loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
+loadEnv();
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
