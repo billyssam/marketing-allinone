@@ -1,7 +1,7 @@
 /** 캡션 플랫폼 트림 회귀 테스트. 실행: npx tsx --test src/caption.test.ts */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clampCaption, clampForChannel, PLATFORM_MAX } from '../../shared/content-engine/caption.js';
+import { clampCaption, clampForChannel, PLATFORM_MAX, fabricatedNumbers } from '../../shared/content-engine/caption.js';
 
 test('한도 이하는 원문 유지', () => {
   const s = '짧은 캡션이에요. 그대로 둡니다.';
@@ -50,4 +50,21 @@ test('신규 4채널 전부 플랫폼 상한을 갖는다(무방비 발행 방�
 
 test('카카오 채널은 알림 메시지라 가장 짧은 상한', () => {
   assert.ok(PLATFORM_MAX.kakao_channel! < PLATFORM_MAX.naver_band!, '채널메시지 < 밴드 게시글');
+});
+
+test('fabricatedNumbers: 재작성이 주소 숫자를 바꾸면 잡아낸다(실측 사고 재현)', () => {
+  const master = '충북 옥천군 안내면 대청호로 123 · 아메리카노 3,500원';
+  const bad = '충북 옥천군 안내면 대청호로 2330 · 아메리카노 3,500원';
+  assert.deepEqual(fabricatedNumbers(master, bad), ['2330'], '변형된 주소 번지 감지');
+});
+
+test('fabricatedNumbers: 사실이 보존되면 경고 없음', () => {
+  const master = '현리3길 16 · 눈꽃빙수 12,000원 · 043-733-6616';
+  const ok = '눈꽃빙수 12,000원이 준비됐어요. 현리3길 16으로 오세요. 043-733-6616';
+  assert.deepEqual(fabricatedNumbers(master, ok), []);
+});
+
+test('fabricatedNumbers: 없던 가격을 지어내면 잡아낸다', () => {
+  const master = '수제대추차와 크로플을 준비했습니다';
+  assert.deepEqual(fabricatedNumbers(master, '수제대추차 5,800원에 만나보세요'), ['5800']);
 });

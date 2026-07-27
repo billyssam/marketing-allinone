@@ -15,6 +15,8 @@ export const PLATFORM_MAX: Partial<Record<ChannelId, number>> = {
   danggeun: 1500,
   naver_band: 2000,
   kakao_channel: 1000, // 카카오 채널 텍스트형 메시지 상한
+  facebook: 2000, // 플랫폼 상한은 훨씬 크지만 피드에서 잘려 보이므로 실용 상한
+  google_business: 1500, // 구글 비즈니스 게시물 상한
 };
 
 /**
@@ -40,4 +42,16 @@ export function clampCaption(text: string, max: number): string {
 export function clampForChannel(channel: ChannelId, text: string): string {
   const max = PLATFORM_MAX[channel];
   return max ? clampCaption(text, max) : text;
+}
+
+/**
+ * 사실 날조 조기 경보 — 재작성본에 원본에 없던 숫자가 생겼는지.
+ * 주소·가격·전화는 전부 숫자라, 원본에 없는 2자리 이상 숫자는 지어낸 값일 확률이 높다.
+ * (실측 사고: 재작성이 "…로 123"을 "…로 2330"으로 변형 → 손님이 못 찾아오는 주소 발행)
+ * 차단하지 않고 경고만 한다 — 날짜·시간 등 정상 신규 숫자도 있어 오탐 여지가 있기 때문.
+ */
+export function fabricatedNumbers(master: string, rewritten: string): string[] {
+  const nums = (s: string) => new Set((s.match(/\d[\d,]+/g) ?? []).map((n) => n.replace(/,/g, '')));
+  const from = nums(master);
+  return [...nums(rewritten)].filter((n) => !from.has(n));
 }
