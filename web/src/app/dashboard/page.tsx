@@ -48,7 +48,7 @@ export default async function DashboardPage() {
   if (!store) redirect('/onboarding');
 
   // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
-  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, allReviewsRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
+  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, reviewTotalRes, reviewPosRes, reviewNeuRes, reviewNegRes, reviewPendingRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
     supabase.from('posts').select('id, channel, title, body_plain, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready) 중 최근 2일 것만.
@@ -56,8 +56,13 @@ export default async function DashboardPage() {
     supabase.from('posts').select('id, channel, title, body_plain, status').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(6),
     // + 답글 대기 리뷰
     supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
-    // 성과: 리뷰 감정 집계 (실데이터)
-    supabase.from('reviews').select('sentiment, reply_draft, reply_sent_at').eq('store_id', store.id).limit(1000),
+    // 성과: 리뷰 감정 집계 — count 쿼리(전체 기준). 행을 가져와 세면 limit 넘는 순간 숫자가 틀어지고
+    // /reviews 화면과 다른 값을 말하게 된다(실측 발견: 대시보드 500 vs 리뷰화면 100).
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'positive'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'neutral'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'negative'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null),
     // 성과: 초안 총계
     supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
     // 재방문: 단골 방문일
@@ -75,14 +80,15 @@ export default async function DashboardPage() {
   const todoPosts = todoPostsRes.data;
   const pendingReviews = pendingReviewsRes.data;
 
-  // 성과 실데이터 (없는 지표는 컴포넌트에서 "집계 예정"으로 정직 표시)
-  const allReviews = allReviewsRes.data ?? [];
+  // 성과 실데이터 — 전체 count 기준(리뷰가 아무리 쌓여도 /reviews 화면과 같은 숫자)
+  const totalReviews = reviewTotalRes.count ?? 0;
+  const positive = reviewPosRes.count ?? 0;
   const perfData: PerfData = {
-    totalReviews: allReviews.length,
-    positive: allReviews.filter((r) => r.sentiment === 'positive').length,
-    neutral: allReviews.filter((r) => r.sentiment === 'neutral').length,
-    negative: allReviews.filter((r) => r.sentiment === 'negative').length,
-    pendingReplies: allReviews.filter((r) => r.reply_draft && !r.reply_sent_at).length,
+    totalReviews,
+    positive,
+    neutral: reviewNeuRes.count ?? 0,
+    negative: reviewNegRes.count ?? 0,
+    pendingReplies: reviewPendingRes.count ?? 0,
     totalPosts: postsCountRes.count ?? 0,
   };
 

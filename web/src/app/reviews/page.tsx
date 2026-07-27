@@ -36,12 +36,24 @@ export default async function ReviewsPage() {
     .maybeSingle();
   if (!store) redirect('/onboarding');
 
-  const { data: rows } = await supabase
-    .from('reviews')
-    .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
-    .eq('store_id', store.id)
-    .order('posted_at', { ascending: false })
-    .limit(100);
+  const LIST_LIMIT = 100;
+  // 목록은 최근 100건만(렌더 비용), 요약 수치는 **전체 기준**으로 따로 집계한다.
+  // 안 그러면 대시보드("500건 기준")와 이 화면("100건")이 다른 숫자를 말해 신뢰가 깨진다(실측 발견).
+  const [rowsRes, totalRes, posRes, neuRes, negRes, pendingRes, negOpenRes] = await Promise.all([
+    supabase
+      .from('reviews')
+      .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
+      .eq('store_id', store.id)
+      .order('posted_at', { ascending: false })
+      .limit(LIST_LIMIT),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'positive'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'neutral'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'negative'),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'negative').is('reply_sent_at', null),
+  ]);
+  const rows = rowsRes.data;
 
   const reviews: ReviewRow[] = (rows ?? []).map((r) => ({
     id: r.id as string,
@@ -54,12 +66,14 @@ export default async function ReviewsPage() {
     replySentAt: (r.reply_sent_at ?? null) as string | null,
   }));
 
-  const total = reviews.length;
-  const pos = reviews.filter((r) => r.sentiment === 'positive').length;
-  const neu = reviews.filter((r) => r.sentiment === 'neutral').length;
-  const neg = reviews.filter((r) => r.sentiment === 'negative').length;
-  const pending = reviews.filter((r) => !r.replySentAt && r.replyDraft).length;
-  const negOpen = reviews.filter((r) => r.sentiment === 'negative' && !r.replySentAt).length;
+  // 요약은 전체 집계(count 쿼리) — 목록 100건 표본이 아니라 매장의 진짜 수치
+  const total = totalRes.count ?? 0;
+  const pos = posRes.count ?? 0;
+  const neu = neuRes.count ?? 0;
+  const neg = negRes.count ?? 0;
+  const pending = pendingRes.count ?? 0;
+  const negOpen = negOpenRes.count ?? 0;
+  const hiddenCount = Math.max(0, total - reviews.length);
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
   const placeId = placeIdFromUrl(store.naver_place_url);
 
@@ -138,6 +152,11 @@ export default async function ReviewsPage() {
 
         <section className="mt-6">
           <ReviewList reviews={reviews} placeId={placeId} />
+          {hiddenCount > 0 && (
+            <p className="mt-4 text-center text-[12.5px] text-[var(--color-fg-3)]">
+              최근 {reviews.length.toLocaleString()}건을 보여드리고 있어요. 지난 리뷰 {hiddenCount.toLocaleString()}건은 위 요약에 모두 반영돼 있습니다.
+            </p>
+          )}
         </section>
       </main>
     </div>
