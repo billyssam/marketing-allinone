@@ -68,19 +68,69 @@ export function lengthForAngle(key: string): TargetLength {
  * 각도처럼 구조 자체를 결정적으로 순환시켜 반복을 원천 차단한다.
  * 길이 6(각도 5와 서로소)이라 각도×제목구조 조합이 30일 주기로 돈다.
  */
-const TITLE_STYLES: { key: string; rule: string }[] = [
-  { key: 'question', rule: '질문형 제목 (예: "~어떠세요?", "~아시나요?"). 상호는 중간이나 끝에.' },
-  { key: 'sensory', rule: '감각·장면 묘사로 시작하는 제목. 상호로 시작 금지.' },
-  { key: 'number', rule: '숫자가 들어간 제목 (예: "세 가지 이유", "10분이면"). 상호는 뒤쪽에.' },
-  { key: 'situation', rule: '고객의 상황·고민으로 시작하는 제목 (예: "~한 날엔"). 지역·상호는 뒤에 자연스럽게.' },
-  { key: 'plain', rule: '상호로 시작해도 되는 제목. 단 뒤 문구는 최근 제목과 완전히 다른 어휘로.' },
-  { key: 'topic', rule: '오늘의 중심 소재(메뉴·상품 등)를 앞세운 제목. 상호는 뒤에 가볍게.' },
+export interface TitleStyle {
+  key: string;
+  rule: string;
+  /** few-shot 예시 — 형식이 뚜렷한 스타일(질문·숫자)일수록 규칙 문장만으론 무시된다(실측) */
+  example: string;
+  /** 산출물이 이 스타일을 지켰는지 판정(검증·회귀 테스트용) */
+  check?: (title: string) => boolean;
+}
+
+const TITLE_STYLES: TitleStyle[] = [
+  {
+    key: 'question',
+    rule: '질문형 제목 — 반드시 물음표(?)로 끝낼 것. 상호는 문장 중간이나 뒤에.',
+    example: '무더위에 지칠 땐 어디로 가야 할까요? 옥천 쿵더쿵의 여름 한 잔',
+    check: (t) => t.includes('?'),
+  },
+  {
+    key: 'sensory',
+    rule: '감각·장면 묘사로 시작하는 제목(소리·향·온도·풍경). 상호명으로 시작하지 말 것.',
+    example: '버터 향이 번지는 오후, 옥천 쿵더쿵에서 만난 크로플',
+  },
+  {
+    key: 'number',
+    rule: '숫자가 반드시 들어간 제목(가짓수·시간·인원 등). 상호는 뒤쪽에.',
+    example: '단 5분이면 충분한 휴식, 옥천 쿵더쿵의 세 가지 여름 메뉴',
+    // '커피 한 잔' 같은 관용 단수는 숫자 제목이 아니다 → 아라비아 숫자 또는 2 이상 수사만 인정
+    check: (t) => /[0-9]/.test(t) || /(두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(가지|분|잔|시간|명|개|번)/.test(t),
+  },
+  {
+    key: 'situation',
+    rule: '고객의 상황·고민으로 시작하는 제목. 지역·상호는 문장 뒤에 자연스럽게.',
+    example: '퇴근길이 유난히 길게 느껴진 날, 옥천 쿵더쿵에 들렀습니다',
+  },
+  {
+    key: 'plain',
+    rule: '상호를 앞에 두어도 되는 제목. 단 뒤 문구는 최근 제목과 완전히 다른 어휘로.',
+    example: '쿵더쿵 카페의 여름 신메뉴, 눈꽃빙수가 나왔습니다',
+  },
+  {
+    key: 'topic',
+    rule: '오늘의 중심 소재(메뉴·상품 등)를 제목 맨 앞에 세울 것. 상호는 뒤에 가볍게.',
+    example: '수제대추차 한 잔에 담긴 정성, 옥천 쿵더쿵',
+  },
 ];
 
 /** 오늘의 제목 구조 — 각도와 독립 오프셋으로 결정적 순환 */
-export function titleStyleFor(storeId: string, dayNumber: number): { key: string; rule: string } {
+export function titleStyleFor(storeId: string, dayNumber: number): TitleStyle {
   const idx = (((dayNumber + seedOf(storeId) + 3) % TITLE_STYLES.length) + TITLE_STYLES.length) % TITLE_STYLES.length;
   return TITLE_STYLES[idx];
+}
+
+/**
+ * 본문 단계 프롬프트에 직접 넣을 제목 지시 — 규칙 + 예시 + 금지 패턴을 한 덩어리로.
+ * (angle에만 담으면 기획 단계에서 소실됨 — 실측으로 확인된 유실 경로)
+ */
+export function titleDirective(style: TitleStyle, storeName: string, banned: string[] = []): string {
+  return (
+    `제목 규칙(반드시 지킬 것): ${style.rule}\n` +
+    `  · 형식 예시(내용은 따라 쓰지 말고 구조만 참고): "${style.example}"\n` +
+    `  · 🚫 금지: 제목을 "${storeName}"(으)로 시작하거나 "지역명 ${storeName}, ~" 형태로 쓰는 것` +
+    (style.key === 'plain' ? ' — 단 이번 글은 상호로 시작해도 됨.' : '.') +
+    (banned.length ? `\n  · 🚫 이 단어들은 제목에 쓰지 말 것: ${banned.join(', ')}` : '')
+  );
 }
 
 /**
@@ -176,7 +226,7 @@ export function dailyDirective(
   storeId: string,
   nowMs: number,
   offeringNames: string[] = [],
-): { directive: string; angle: ContentAngle; featured?: string; length: TargetLength; titleStyle: { key: string; rule: string } } {
+): { directive: string; angle: ContentAngle; featured?: string; length: TargetLength; titleStyle: TitleStyle } {
   const day = kstDayNumber(nowMs);
   const angle = angleFor(offering, storeId, day);
   const season = seasonalContext(nowMs);
@@ -194,8 +244,9 @@ export function dailyDirective(
   const directive =
     `★ 이번 글의 중심 콘셉트(글 전체를 반드시 이 방향으로 이끌 것): ${angle.directive}` +
     ` ${season.hint}${featuredHint}` +
-    ` 판매 항목을 백과사전처럼 전부 나열하지 말고, 위 콘셉트와 중심 소재를 깊이 있게 풀어낼 것(다른 항목은 필요할 때만 가볍게).` +
-    ` ★ 오늘의 제목 구조(반드시 이 형태로): ${titleStyle.rule}`;
+    ` 판매 항목을 백과사전처럼 전부 나열하지 말고, 위 콘셉트와 중심 소재를 깊이 있게 풀어낼 것(다른 항목은 필요할 때만 가볍게).`;
+  // 제목 지시는 directive에 넣지 않는다 — angle은 기획 단계 전용이라 본문 단계에서 유실된다.
+  // 호출부가 titleStyle을 titleDirective()로 만들어 DraftInput.titleRule에 직접 주입할 것.
 
   return { directive, angle, featured, length: lengthForAngle(angle.key), titleStyle };
 }

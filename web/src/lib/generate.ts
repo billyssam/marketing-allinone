@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { persistDrafts, type PersistedPost } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
-import { dailyDirective, repeatedTitleWords } from '@shared/content-engine/angles';
+import { dailyDirective, repeatedTitleWords, titleDirective } from '@shared/content-engine/angles';
 import { resolveOfferings } from '@shared/content-engine/offerings';
 import { resolveBusinessType } from '@shared/business/taxonomy';
 import type { ChannelId } from '@shared/channels/registry';
@@ -47,9 +47,16 @@ export async function generateForStore(
   const recentTitles = (recent ?? []).map((r) => r.title).filter(Boolean) as string[];
   const banned = repeatedTitleWords(recentTitles, [store.name, store.address ?? '']);
   const avoidHint = recentTitles.length
-    ? ` 최근 제목들: ${recentTitles.map((t) => `"${t}"`).join(', ')}. 이들과 시작 구조를 반복하지 말 것.` +
-      (banned.length ? ` 다음 단어는 이번 제목에 사용 금지: ${banned.join(', ')}.` : '')
+    ? ` 최근 제목들: ${recentTitles.map((t) => `"${t}"`).join(', ')}. 이들과 시작 구조를 반복하지 말 것.`
     : '';
+
+  // 오늘의 로테이션(각도·소재·제목구조) — 수동 생성도 크론과 동일 품질로
+  const today = dailyDirective(
+    resolveBusinessType(store.industry_id).offering,
+    store.id,
+    Date.now(),
+    resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone)).map((o) => o.name),
+  );
 
   const input: DraftInput = {
     store: {
@@ -65,14 +72,9 @@ export async function generateForStore(
     photos: opts.photos ?? [],
     targetLength: opts.targetLength,
     // 각도 미지정 시 오늘의 각도+시점+중심소재를 기본 적용(수동 생성도 신선·시의성 있게)
-    angle:
-      (opts.angle ??
-        dailyDirective(
-          resolveBusinessType(store.industry_id).offering,
-          store.id,
-          Date.now(),
-          resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone)).map((o) => o.name),
-        ).directive) + avoidHint,
+    angle: (opts.angle ?? today.directive) + avoidHint,
+    // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실)
+    titleRule: titleDirective(today.titleStyle, store.name, banned),
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];
 

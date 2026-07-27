@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan, titleStyleFor, repeatedTitleWords } from '../../shared/content-engine/angles.js';
+import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan, titleStyleFor, repeatedTitleWords, titleDirective } from '../../shared/content-engine/angles.js';
 import { getIndustryPrompt } from '../../shared/content-engine/registry.js';
 import type { DraftInput } from '../../shared/content-engine/types.js';
 
@@ -92,10 +92,37 @@ test('titleStyleFor: 연속된 날은 다른 제목 구조 + 6일 주기로 전�
   assert.equal(keys.size, 6, '6일이면 6개 구조 전부 등장');
 });
 
-test('dailyDirective: 제목 구조 지시가 실제 directive에 포함', () => {
+test('dailyDirective: 제목 지시는 directive(기획용)에 넣지 않는다 — 본문 단계 유실 방지', () => {
   const d = dailyDirective('menu', 'store-t', Date.parse('2026-07-23T08:00:00+09:00'), []);
-  assert.ok(d.directive.includes('오늘의 제목 구조'), '제목 구조 지시 포함');
-  assert.ok(d.directive.includes(d.titleStyle.rule), 'titleStyle.rule이 directive에');
+  assert.ok(!d.directive.includes('제목'), 'directive에 제목 지시 없음(titleRule로 분리)');
+  assert.ok(d.titleStyle.key.length > 0, 'titleStyle은 별도 반환');
+});
+
+test('titleDirective: 규칙·예시·금지 프리픽스를 모두 포함', () => {
+  const style = titleStyleFor('store-td', 1000);
+  const t = titleDirective(style, '쿵더쿵', ['쉼표', '따뜻한']);
+  assert.ok(t.includes(style.rule), '규칙 포함');
+  assert.ok(t.includes(style.example), 'few-shot 예시 포함');
+  assert.ok(t.includes('쿵더쿵'), '상호 프리픽스 금지 명시');
+  assert.ok(t.includes('쉼표') && t.includes('따뜻한'), '금지 시어 포함');
+});
+
+test('titleDirective: plain 스타일만 상호 시작 허용', () => {
+  const plain = { key: 'plain', rule: 'r', example: 'e' };
+  const other = { key: 'question', rule: 'r', example: 'e' };
+  assert.ok(titleDirective(plain, '가게').includes('상호로 시작해도 됨'), 'plain은 예외 안내');
+  assert.ok(!titleDirective(other, '가게').includes('상호로 시작해도 됨'), '다른 스타일은 금지 유지');
+});
+
+test('titleStyle.check: question·number는 형식 판정기를 갖는다(검증 가능성)', () => {
+  const styles = [0, 1, 2, 3, 4, 5].map((i) => titleStyleFor('s', i));
+  const q = styles.find((s) => s.key === 'question')!;
+  const n = styles.find((s) => s.key === 'number')!;
+  assert.ok(q.check!('오늘 어디 갈까요?'), '물음표 통과');
+  assert.ok(!q.check!('오늘은 여기입니다'), '물음표 없으면 실패');
+  assert.ok(n.check!('세 가지 이유'), '한글 수사 통과');
+  assert.ok(n.check!('5분이면 충분'), '아라비아 숫자 통과');
+  assert.ok(!n.check!('맛있는 커피 한잔의 여유'), '숫자 없으면 실패');
 });
 
 test('repeatedTitleWords: 실제 반복 이력에서 시어 추출 + 상호·지역 제외', () => {

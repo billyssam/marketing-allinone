@@ -58,6 +58,12 @@ export interface DraftInput {
   }[];
   targetLength?: 'short' | 'medium' | 'long';
   angle?: string;
+  /**
+   * 오늘의 제목 규칙(구조 로테이션). angle과 분리한 이유: angle은 기획 단계 프롬프트로만
+   * 가는데 제목은 본문 단계에서 생성된다 → 제목 지시가 중간에 유실됐음(실측: question·
+   * number 스타일이 통째로 무시). 본문 템플릿에 직접 주입하기 위한 전용 필드.
+   */
+  titleRule?: string;
 }
 
 export interface DraftOutput {

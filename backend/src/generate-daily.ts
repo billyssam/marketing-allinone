@@ -20,7 +20,7 @@ import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
 import { resolveOfferings } from '../../shared/content-engine/offerings.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
-import { dailyDirective, repeatedTitleWords } from '../../shared/content-engine/angles.js';
+import { dailyDirective, repeatedTitleWords, titleDirective } from '../../shared/content-engine/angles.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -155,10 +155,11 @@ async function main() {
     // 반복 시어를 명시적으로 금지 — "겹치지 않게" 소극 지시로는 '쉼표'류 관성을 못 막음(실측)
     const banned = repeatedTitleWords(recentTitles, [s.name, s.address ?? '']);
     const avoidHint = recentTitles.length
-      ? ` 최근 제목들: ${recentTitles.map((t) => `"${t}"`).join(', ')}. 이들과 시작 구조를 반복하지 말 것.` +
-        (banned.length ? ` 다음 단어는 이번 제목에 사용 금지: ${banned.join(', ')}.` : '')
+      ? ` 최근 제목들: ${recentTitles.map((t) => `"${t}"`).join(', ')}. 이들과 시작 구조를 반복하지 말 것.`
       : '';
     const angleDirective = daily.directive + avoidHint;
+    // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실 — 실측)
+    const titleRule = titleDirective(daily.titleStyle, s.name, banned);
 
     const input: DraftInput = {
       store: {
@@ -175,6 +176,7 @@ async function main() {
       photos: [],
       targetLength: angleLength, // 각도 성격에 맞는 길이(심층=길게, 팁=짧게)
       angle: angleDirective,
+      titleRule,
     };
 
     try {
@@ -201,7 +203,8 @@ async function main() {
             body_plain: draft.bodyPlain ?? null,
             tags: draft.tags ?? [],
             status: 'draft' as const,
-            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key },
+            // titleStyle 기록 — 제목 규칙 준수 여부를 나중에 역산 없이 바로 진단하기 위해
+            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key, titleStyle: daily.titleStyle.key },
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
