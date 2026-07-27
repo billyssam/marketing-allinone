@@ -22,6 +22,18 @@ test('lengthDirective: 최소 글자수·소제목·문단 지시를 명령형�
 });
 
 test('lengthDirective: long이 medium보다 많은 글자수를 요구', () => {
-  assert.ok(/2,?200/.test(lengthDirective('long')), 'long 2200자');
+  assert.ok(/1,?900/.test(lengthDirective('long')), 'long 1900자(SEO 최적 상단으로 현실화)');
   assert.ok(/700/.test(lengthDirective('short')), 'short 700자');
+});
+
+test('lengthDirective: 섹션당 최소 분량·밀도 유지 지시 포함(편차 억제)', () => {
+  const d = lengthDirective('long');
+  assert.ok(/소제목마다 최소 \d+자/.test(d), '섹션당 하한 명시');
+  assert.ok(d.includes('뒤로 갈수록 짧아지지 않게'), '후반부 밀도 유지 지시');
+});
+
+test('lengthSpec: 목표가 SEO 최적 구간(1800~2000)을 넘지 않는다', () => {
+  // 과도한 목표가 오히려 결과를 떨어뜨린 실측(long 2200 지시 → 1290자)에 대한 회귀 가드
+  assert.ok(lengthSpec('long').minChars <= 2000, 'long 상한 2000 이하');
+  assert.ok(lengthSpec('long').minChars > lengthSpec('medium').minChars, 'long > medium 유지');
 });

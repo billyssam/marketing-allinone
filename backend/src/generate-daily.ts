@@ -21,6 +21,7 @@ import { resolveOfferings } from '../../shared/content-engine/offerings.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
 import { dailyDirective, repeatedTitleWords, titleDirective } from '../../shared/content-engine/angles.js';
+import { seasonalContext } from '../../shared/content-engine/seasonal.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -159,7 +160,8 @@ async function main() {
       : '';
     const angleDirective = daily.directive + avoidHint;
     // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실 — 실측)
-    const titleRule = titleDirective(daily.titleStyle, s.name, banned);
+    const sn = seasonalContext(Date.now());
+    const titleRule = titleDirective(daily.titleStyle, s.name, banned, `${sn.month}월 ${sn.season}`);
 
     const input: DraftInput = {
       store: {

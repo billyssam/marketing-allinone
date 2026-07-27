@@ -123,12 +123,19 @@ export function titleStyleFor(storeId: string, dayNumber: number): TitleStyle {
  * 본문 단계 프롬프트에 직접 넣을 제목 지시 — 규칙 + 예시 + 금지 패턴을 한 덩어리로.
  * (angle에만 담으면 기획 단계에서 소실됨 — 실측으로 확인된 유실 경로)
  */
-export function titleDirective(style: TitleStyle, storeName: string, banned: string[] = []): string {
+export function titleDirective(
+  style: TitleStyle,
+  storeName: string,
+  banned: string[] = [],
+  season?: string,
+): string {
   return (
     `제목 규칙(반드시 지킬 것): ${style.rule}\n` +
     `  · 형식 예시(내용은 따라 쓰지 말고 구조만 참고): "${style.example}"\n` +
     `  · 🚫 금지: 제목을 "${storeName}"(으)로 시작하거나 "지역명 ${storeName}, ~" 형태로 쓰는 것` +
     (style.key === 'plain' ? ' — 단 이번 글은 상호로 시작해도 됨.' : '.') +
+    // 계절도 angle(기획 단계)에만 있으면 제목에서 샌다 — 제목 지시에 직접 못박는다
+    (season ? `\n  · 계절·시기 표현을 쓴다면 반드시 지금(${season})에 맞을 것. 다른 계절 언급 금지.` : '') +
     (banned.length ? `\n  · 🚫 이 단어들은 제목에 쓰지 말 것: ${banned.join(', ')}` : '')
   );
 }

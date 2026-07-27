@@ -107,6 +107,14 @@ test('titleDirective: 규칙·예시·금지 프리픽스를 모두 포함', () 
   assert.ok(t.includes('쉼표') && t.includes('따뜻한'), '금지 시어 포함');
 });
 
+test('titleDirective: 계절을 주면 제목에도 못박는다(다른 계절 누출 방지)', () => {
+  const style = titleStyleFor('store-se', 500);
+  const withSeason = titleDirective(style, '쿵더쿵', [], '7월 여름');
+  assert.ok(withSeason.includes('7월 여름'), '현재 계절 명시');
+  assert.ok(withSeason.includes('다른 계절 언급 금지'), '타 계절 금지');
+  assert.ok(!titleDirective(style, '쿵더쿵').includes('계절'), '미지정 시 계절 문구 없음');
+});
+
 test('titleDirective: plain 스타일만 상호 시작 허용', () => {
   const plain = { key: 'plain', rule: 'r', example: 'e' };
   const other = { key: 'question', rule: 'r', example: 'e' };

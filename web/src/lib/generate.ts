@@ -3,6 +3,7 @@ import { persistDrafts, type PersistedPost } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
 import { dailyDirective, repeatedTitleWords, titleDirective } from '@shared/content-engine/angles';
+import { seasonalContext } from '@shared/content-engine/seasonal';
 import { resolveOfferings } from '@shared/content-engine/offerings';
 import { resolveBusinessType } from '@shared/business/taxonomy';
 import type { ChannelId } from '@shared/channels/registry';
@@ -51,6 +52,7 @@ export async function generateForStore(
     : '';
 
   // 오늘의 로테이션(각도·소재·제목구조) — 수동 생성도 크론과 동일 품질로
+  const nowSeason = seasonalContext(Date.now());
   const today = dailyDirective(
     resolveBusinessType(store.industry_id).offering,
     store.id,
@@ -73,8 +75,8 @@ export async function generateForStore(
     targetLength: opts.targetLength,
     // 각도 미지정 시 오늘의 각도+시점+중심소재를 기본 적용(수동 생성도 신선·시의성 있게)
     angle: (opts.angle ?? today.directive) + avoidHint,
-    // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실)
-    titleRule: titleDirective(today.titleStyle, store.name, banned),
+    // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실). 계절도 함께 못박음
+    titleRule: titleDirective(today.titleStyle, store.name, banned, `${nowSeason.month}월 ${nowSeason.season}`),
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];
 
