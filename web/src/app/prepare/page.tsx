@@ -22,6 +22,11 @@ const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: str
   threads: { caption: true, hasTags: false, appHref: 'https://www.threads.net', appLabel: '스레드 열기', targetName: '스레드' },
   facebook: { caption: true, hasTags: false, appHref: 'https://www.facebook.com', appLabel: '페이스북 열기', targetName: '페이스북' },
   google_gbp: { caption: true, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
+  // 플레이스 '소식'·당근 '동네홍보'·밴드·카카오채널 — 모두 제목 없는 단일 텍스트 입력
+  naver_place: { caption: true, hasTags: false, appHref: 'https://new.smartplace.naver.com/', appLabel: '스마트플레이스 열기', targetName: '플레이스 소식' },
+  danggeun: { caption: true, hasTags: false, appHref: 'https://www.daangn.com/', appLabel: '당근 열기', targetName: '당근 동네홍보' },
+  naver_band: { caption: true, hasTags: false, appHref: 'https://band.us/', appLabel: '밴드 열기', targetName: '밴드' },
+  kakao_channel: { caption: true, hasTags: false, appHref: 'https://center-pf.kakao.com/', appLabel: '카카오 채널 관리자 열기', targetName: '카카오 채널' },
 };
 function metaFor(channel?: string) {
   return CH_META[channel ?? 'blog'] ?? CH_META.blog;

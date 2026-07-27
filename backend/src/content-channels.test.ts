@@ -21,9 +21,16 @@ test('연결된 콘텐츠 채널이 추가된다', () => {
   assert.ok(ch.includes('google_business'));
 });
 
-test('enum 밖/판매·평판 채널은 제외(영속 불가)', () => {
-  const ch = contentChannelsFor(['naver_place', 'danggeun', 'smartstore', 'baemin', 'kakao_alimtalk']);
-  // naver_blog anchor만 남고 나머지는 enum 매핑 없어 제외
+test('플레이스·당근은 콘텐츠 채널로 포함(2026-07-27 확장)', () => {
+  // 플레이스는 priority 1인데 매핑 누락으로 글이 한 번도 안 나왔던 결함을 수정한 계약
+  const ch = contentChannelsFor(['naver_place', 'danggeun']);
+  assert.ok(ch.includes('naver_place'), '플레이스 소식 생성 대상');
+  assert.ok(ch.includes('danggeun'), '당근 동네홍보 생성 대상');
+});
+
+test('판매·재방문 채널은 콘텐츠 생성 대상이 아니다', () => {
+  // 스토어·배달·알림톡은 글을 쓰는 자리가 아님 → anchor만 남아야
+  const ch = contentChannelsFor(['smartstore', 'baemin', 'kakao_alimtalk', 'coupang']);
   assert.deepEqual(ch, ['naver_blog']);
 });
 
@@ -32,7 +39,11 @@ test('중복 연결도 유일 채널로', () => {
 });
 
 test('모든 CONTENT 채널이 유효한 post_channel enum으로 매핑', () => {
-  const validEnum = new Set(['blog', 'instagram', 'facebook', 'google_gbp', 'threads']);
+  // 0005 마이그레이션 후 DB enum과 일치해야 하는 목록(코드-스키마 계약)
+  const validEnum = new Set([
+    'blog', 'instagram', 'facebook', 'google_gbp', 'threads',
+    'naver_place', 'danggeun', 'naver_band', 'kakao_channel',
+  ]);
   for (const [, post] of Object.entries(CHANNEL_TO_POST)) {
     assert.ok(validEnum.has(post!), `${post} 는 유효 enum`);
   }

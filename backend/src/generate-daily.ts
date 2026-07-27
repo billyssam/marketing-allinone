@@ -212,11 +212,25 @@ async function main() {
         .filter((r): r is NonNullable<typeof r> => r !== null);
       if (!rows.length) throw new Error('생성된 드래프트 없음');
 
-      const { data: inserted, error: insErr } = await supabase
+      let { data: inserted, error: insErr } = await supabase
         .from('posts')
         .insert(rows)
         .select('id, channel, title');
-      if (insErr) throw new Error(insErr.message);
+      // 채널별 실패 격리 — DB enum 미지원 채널(마이그레이션 대기) 하나 때문에
+      // 그날 전 채널 초안이 통째로 날아가지 않게 개별 insert로 폴백한다.
+      if (insErr) {
+        const saved: NonNullable<typeof inserted> = [];
+        const skipped: string[] = [];
+        for (const row of rows) {
+          const r = await supabase.from('posts').insert(row).select('id, channel, title').maybeSingle();
+          if (r.error || !r.data) skipped.push(row.channel);
+          else saved.push(r.data);
+        }
+        if (!saved.length) throw new Error(insErr.message);
+        if (skipped.length) console.log(`[${s.name}] ⚠️ 저장 스킵(DB 미지원 채널): ${skipped.join(', ')}`);
+        inserted = saved;
+        insErr = null;
+      }
 
       made++;
       const blogPost = inserted?.find((p) => p.channel === 'blog') ?? inserted?.[0];

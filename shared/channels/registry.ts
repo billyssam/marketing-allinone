@@ -127,8 +127,15 @@ export const REPUTATION_SOURCES: { id: string; name: string; color: string }[] =
   { id: 'kakao_map', name: '카카오맵', color: '#ffcd3c' },
 ];
 
-/** posts.channel enum — 콘텐츠를 영속화할 수 있는 발행 채널 */
-export type PostChannel = 'blog' | 'instagram' | 'facebook' | 'google_gbp' | 'threads';
+/**
+ * posts.channel enum — 콘텐츠를 영속화할 수 있는 발행 채널.
+ * ⚠️ naver_place·danggeun·naver_band·kakao_channel은 0005 마이그레이션 실행 후 DB에 생긴다.
+ *    실행 전에도 코드는 안전: 저장 단계가 채널별 실패를 격리해 미지원 채널만 조용히 스킵하고,
+ *    SQL이 실행되는 순간 별도 배포 없이 자동으로 살아난다.
+ */
+export type PostChannel =
+  | 'blog' | 'instagram' | 'facebook' | 'google_gbp' | 'threads'
+  | 'naver_place' | 'danggeun' | 'naver_band' | 'kakao_channel';
 
 /**
  * 콘텐츠 엔진 ChannelId → posts.channel enum 매핑.
@@ -141,6 +148,12 @@ export const CHANNEL_TO_POST: Partial<Record<ChannelId, PostChannel>> = {
   facebook: 'facebook',
   google_business: 'google_gbp',
   threads: 'threads',
+  // 🔴 네이버 플레이스는 priority 1(최우선)·live·온보딩 기본 추천인데 이 매핑이 없어
+  //    콘텐츠가 한 번도 생성되지 않았다(2026-07-27 실측 발견). 소식 글 = 방문 유도의 핵심.
+  naver_place: 'naver_place',
+  danggeun: 'danggeun',
+  naver_band: 'naver_band',
+  kakao_channel: 'kakao_channel',
 };
 
 /** 콘텐츠 생성+영속 가능한(=enum 매핑 있는) 채널 id 목록 */

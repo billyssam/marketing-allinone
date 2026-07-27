@@ -16,6 +16,10 @@ export const POST_CHANNEL_LABEL: Record<PostChannel, string> = {
   facebook: '페이스북',
   google_gbp: '구글 비즈니스',
   threads: '스레드',
+  naver_place: '네이버 플레이스',
+  danggeun: '당근마켓',
+  naver_band: '네이버 밴드',
+  kakao_channel: '카카오 채널',
 };
 export const POST_CHANNEL_COLOR: Record<PostChannel, string> = {
   blog: 'var(--color-naver)',
@@ -23,6 +27,10 @@ export const POST_CHANNEL_COLOR: Record<PostChannel, string> = {
   facebook: 'var(--color-ig)',
   google_gbp: 'var(--color-amber)',
   threads: 'var(--color-fg-2)',
+  naver_place: 'var(--color-naver)',
+  danggeun: 'var(--color-amber)',
+  naver_band: 'var(--color-naver)',
+  kakao_channel: 'var(--color-amber)',
 };
 export const POST_STATUS_LABEL: Record<PostStatus, string> = {
   draft: '초안',
@@ -96,12 +104,26 @@ export async function persistDrafts(
 
   if (rows.length === 0) return [];
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('posts')
     .insert(rows)
     .select('id, channel, title, status, metadata');
 
-  if (error) throw new Error(`posts 저장 실패: ${error.message}`);
+  // 채널별 실패 격리 — DB enum에 아직 없는 채널(마이그레이션 대기) 하나 때문에
+  // 나머지 채널 글까지 통째로 날아가지 않게. 개별 insert로 폴백해 되는 것만 저장한다.
+  if (error) {
+    const saved: NonNullable<typeof data> = [];
+    const skipped: string[] = [];
+    for (const row of rows) {
+      const r = await supabase.from('posts').insert(row).select('id, channel, title, status, metadata').maybeSingle();
+      if (r.error || !r.data) skipped.push(row.channel);
+      else saved.push(r.data);
+    }
+    if (!saved.length) throw new Error(`posts 저장 실패: ${error.message}`);
+    if (skipped.length) console.warn(`[posts] 저장 스킵(DB 미지원 채널): ${skipped.join(', ')}`);
+    data = saved;
+    error = null;
+  }
 
   return (data ?? []).map((d) => ({
     id: d.id as string,
