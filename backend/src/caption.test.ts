@@ -38,3 +38,16 @@ test('리밋 없는 채널은 원문', () => {
   const s = 'x'.repeat(9999);
   assert.equal(clampForChannel('naver_blog', s), s);
 });
+
+test('신규 4채널 전부 플랫폼 상한을 갖는다(무방비 발행 방지)', () => {
+  // 채널을 열어놓고 상한을 안 걸면 긴 글이 그대로 나가 발행이 깨진다
+  for (const ch of ['naver_place', 'danggeun', 'naver_band', 'kakao_channel'] as const) {
+    assert.ok(typeof PLATFORM_MAX[ch] === 'number', `${ch} 상한 존재`);
+    const long = '가나다라마바사아. '.repeat(400);
+    assert.ok(clampForChannel(ch, long).length <= PLATFORM_MAX[ch]!, `${ch} 트림 적용`);
+  }
+});
+
+test('카카오 채널은 알림 메시지라 가장 짧은 상한', () => {
+  assert.ok(PLATFORM_MAX.kakao_channel! < PLATFORM_MAX.naver_band!, '채널메시지 < 밴드 게시글');
+});

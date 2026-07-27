@@ -13,6 +13,8 @@ export const PLATFORM_MAX: Partial<Record<ChannelId, number>> = {
   threads: 500,
   naver_place: 2000,
   danggeun: 1500,
+  naver_band: 2000,
+  kakao_channel: 1000, // 카카오 채널 텍스트형 메시지 상한
 };
 
 /**

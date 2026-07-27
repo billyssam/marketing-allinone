@@ -16,7 +16,7 @@ export interface NativeVersion {
   tags?: string[];
 }
 
-const SHORT_FORM: ChannelId[] = ['instagram', 'naver_place', 'danggeun', 'threads'];
+const SHORT_FORM: ChannelId[] = ['instagram', 'naver_place', 'danggeun', 'threads', 'naver_band', 'kakao_channel'];
 
 const CHANNEL_BRIEF: Record<string, string> = {
   instagram:
@@ -27,6 +27,11 @@ const CHANNEL_BRIEF: Record<string, string> = {
     '당근마켓 동네 홍보. 옆집 이웃에게 말하듯 친근하고 담백하게. 과장·광고티 배제. "우리 동네" 정서. 400자 이내.',
   threads:
     '스레드 글. 짧고 후킹, 대화체. 공감 유발 첫 문장. 350자 이내(절대 500자 넘기지 말 것 — 플랫폼 제한).',
+  // 밴드·카카오채널은 "이미 우리를 아는 사람들"이 보는 자리 — 새 손님 설득이 아니라 단골 대상 소식·초대.
+  naver_band:
+    '네이버 밴드 게시글. 이미 우리 가게를 아는 단골 모임에 올리는 소식. 새 손님에게 소개하듯 설명하지 말고, "이번 주에 이런 게 있어요" 식의 알림·초대 톤. 존댓말, 담백하게. 이모지 0~2개. 400자 이내.',
+  kakao_channel:
+    '카카오톡 채널 메시지. 친구 추가한 고객의 알림창에 뜨는 글. 첫 문장에서 용건이 바로 드러나야 하고(뭐가 새로운지·언제까지인지), 광고 느낌보다 단골에게 귀띔하듯. 문의·방문으로 잇는 짧은 한 줄로 마무리. 이모지 0~2개. 300자 이내.',
 };
 
 function resolveKey(config?: { apiKey?: string }): string | null {
