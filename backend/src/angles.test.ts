@@ -107,6 +107,14 @@ test('titleDirective: 규칙·예시·금지 프리픽스를 모두 포함', () 
   assert.ok(t.includes('쉼표') && t.includes('따뜻한'), '금지 시어 포함');
 });
 
+test('titleDirective: 첫 어절 제약을 구체적으로 명시(추상 금지로는 안 막힘)', () => {
+  // 실측: "상호로 시작 금지"만으론 number 스타일에서 "옥천 안내면 쿵더쿵, 20시…"가 나왔다
+  const nonPlain = [0, 1, 2, 3, 4, 5].map((d) => titleStyleFor('s', d)).find((s) => s.key !== 'plain')!;
+  const t = titleDirective(nonPlain, '쿵더쿵');
+  assert.ok(t.includes('첫 두 어절'), '첫 어절 제약 명시');
+  assert.ok(t.includes('실패한 제목'), '위반 시 실패임을 명시');
+});
+
 test('titleDirective: 계절을 주면 제목에도 못박는다(다른 계절 누출 방지)', () => {
   const style = titleStyleFor('store-se', 500);
   const withSeason = titleDirective(style, '쿵더쿵', [], '7월 여름');
@@ -148,8 +156,19 @@ test('repeatedTitleWords: 실제 반복 이력에서 시어 추출 + 상호·지
   assert.ok(!banned.includes('옥천'), '지역명은 금지 안 함(SEO)');
 });
 
-test('repeatedTitleWords: 반복 없으면 빈 배열', () => {
-  assert.deepEqual(repeatedTitleWords(['완전히 다른 제목', '전혀 새로운 문장'], []), []);
+test('repeatedTitleWords: 1회만 쓰인 단어도 금지(2회째 반복을 미리 차단)', () => {
+  // 실측 근거: '위로'가 2회째에 비로소 금지돼 7일 중 3회 등장했다
+  const banned = repeatedTitleWords(['여름날의 특별한 위로', '전혀 다른 문장 구조'], ['쿵더쿵']);
+  assert.ok(banned.includes('위로'), `1회 등장어도 금지: ${banned.join(',')}`);
+});
+
+test('repeatedTitleWords: 금지 목록 상한(프롬프트 비대 방지)', () => {
+  const many = Array.from({ length: 10 }, (_, i) => `단어${i}가 들어간 아주 긴 제목 문장 사례 ${i}`);
+  assert.ok(repeatedTitleWords(many, []).length <= 14, '상한 14개');
+});
+
+test('repeatedTitleWords: 제목 없으면 빈 배열', () => {
+  assert.deepEqual(repeatedTitleWords([], []), []);
 });
 
 test('weekPlan: N일 계획이 매일 다른 각도(대부분)', () => {

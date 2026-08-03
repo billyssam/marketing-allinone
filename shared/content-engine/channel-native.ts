@@ -31,7 +31,9 @@ const CHANNEL_BRIEF: Record<string, string> = {
   danggeun:
     '당근마켓 동네 홍보. 옆집 이웃에게 말하듯 친근하고 담백하게. 과장·광고티 배제. "우리 동네" 정서. **250~400자**.',
   threads:
-    '스레드 글. 짧고 후킹, 대화체. 공감 유발 첫 문장. **200~350자**(절대 500자 넘기지 말 것 — 플랫폼 제한).',
+    // ⚠️ "짧고"라는 표현이 하한과 충돌해 실제로 144자짜리가 나왔다(실측 3/7 미달) →
+    //    "문장은 짧게 끊되 전체 분량은 채운다"로 분리해서 지시한다.
+    '스레드 글. 대화체로 공감 유발하는 첫 문장, 문장은 짧게 끊어 리듬감 있게. 한 토막 더 풀어서 **전체 200~350자를 채울 것**(짧게 끝내면 성의 없어 보인다. 단 500자는 절대 넘기지 말 것 — 플랫폼 제한).',
   // 밴드·카카오채널은 "이미 우리를 아는 사람들"이 보는 자리 — 새 손님 설득이 아니라 단골 대상 소식·초대.
   naver_band:
     '네이버 밴드 게시글. 이미 우리 가게를 아는 단골 모임에 올리는 소식. 새 손님에게 소개하듯 설명하지 말고, "이번 주에 이런 게 있어요" 식의 알림·초대 톤. 존댓말, 담백하게. 이모지 0~2개. **250~400자**.',
@@ -42,6 +44,45 @@ const CHANNEL_BRIEF: Record<string, string> = {
   google_business:
     '구글 비즈니스 프로필 게시물. 지도·검색에서 이 가게를 처음 보는 사람(관광객·외지인 포함)이 읽는다. 군더더기 없이 무엇을 파는 곳인지·왜 지금 갈 만한지를 명확하게. **원본에 있는** 실용 정보(영업시간·위치)만 우선 배치하고, 원본에 없으면 그 줄을 통째로 생략한다(추정 시간표 금지). 감성 수식은 최소. **200~400자**.',
 };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** 일시 장애(503 과부하·429)인가 — 재시도로 회복 가능한 부류 */
+const isTransient = (e: unknown) =>
+  /503|overload|high load|unavailable|429|rate limit|timeout|ECONNRESET/i.test(e instanceof Error ? e.message : String(e));
+
+/**
+ * 캡션 재작성 호출 — 일시 장애에 재시도.
+ * 실측: flash-lite가 "503 currently experiencing high load"를 반환하면 캡션이 통째로
+ * 규칙 폴백(블로그 자르기)으로 나간다. 사장님이 매일 붙여넣는 결과물이라 한 번의
+ * 외부 장애로 품질이 무너지면 안 된다. lite 재시도 2회 → 그래도 안 되면 flash 1회.
+ */
+async function generateWithRetry(
+  genAI: GoogleGenerativeAI,
+  model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+  prompt: string,
+  configuredModel?: string,
+) {
+  const cfg = { temperature: 0.9, responseMimeType: 'application/json', maxOutputTokens: 8192 } as const;
+  for (let i = 0; i <= 2; i++) {
+    try {
+      return await model.generateContent(prompt);
+    } catch (e) {
+      if (!isTransient(e) || i === 2) {
+        // lite가 계속 과부하면 flash로 한 번 더(모델별 인프라가 달라 회복될 때가 있음)
+        if (isTransient(e) && !configuredModel) {
+          console.warn('[native] flash-lite 지속 장애 → gemini-2.5-flash로 1회 폴백');
+          const alt = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: cfg });
+          return await alt.generateContent(prompt);
+        }
+        throw e;
+      }
+      const wait = 2000 * (i + 1);
+      console.warn(`[native] 일시 장애 → ${wait / 1000}s 후 재시도 (${i + 1}/2)`);
+      await sleep(wait);
+    }
+  }
+  throw new Error('unreachable');
+}
 
 function resolveKey(config?: { apiKey?: string }): string | null {
   return (
@@ -114,8 +155,19 @@ ${targets.map((c) => `  "${c}": { "bodyPlain": "...", "tags": ["..."] }`).join('
 tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머지 채널 tags는 빈 배열.`;
 
   try {
-    const res = await model.generateContent(prompt);
-    const parsed = JSON.parse(res.response.text());
+    const res = await generateWithRetry(genAI, model, prompt, config?.model);
+    const raw = res.response.text();
+    const finish = res.response.candidates?.[0]?.finishReason;
+    let parsed: Record<string, { bodyPlain?: unknown; tags?: unknown }>;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      // 조용히 삼키면 크론에서 캡션이 규칙 폴백으로 나가도 아무도 모른다(실측으로 겪음)
+      console.warn(
+        `[native] JSON 파싱 실패(finish=${finish}, len=${raw.length}): ${(e as Error).message}\n  앞 160자: ${raw.slice(0, 160)}`,
+      );
+      throw e;
+    }
     const out: Partial<Record<ChannelId, NativeVersion>> = {};
     for (const c of targets) {
       if (parsed[c]?.bodyPlain) {
@@ -132,8 +184,13 @@ tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머
         out[c] = { bodyPlain, tags };
       }
     }
+    if (!Object.keys(out).length) {
+      console.warn(`[native] 응답에 유효 채널이 없음(요청 ${targets.join(',')}) — 규칙 폴백으로 진행`);
+    }
     return out;
-  } catch {
-    return {}; // 실패 시 규칙기반 폴백
+  } catch (e) {
+    // 폴백은 유지하되 반드시 흔적을 남긴다 — 캡션이 조용히 블로그 자르기로 나가는 걸 막기 위해
+    console.warn(`[native] 재작성 실패 → 규칙 폴백: ${(e as Error).message?.slice(0, 200)}`);
+    return {};
   }
 }

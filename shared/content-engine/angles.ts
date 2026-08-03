@@ -132,8 +132,10 @@ export function titleDirective(
   return (
     `제목 규칙(반드시 지킬 것): ${style.rule}\n` +
     `  · 형식 예시(내용은 따라 쓰지 말고 구조만 참고): "${style.example}"\n` +
-    `  · 🚫 금지: 제목을 "${storeName}"(으)로 시작하거나 "지역명 ${storeName}, ~" 형태로 쓰는 것` +
-    (style.key === 'plain' ? ' — 단 이번 글은 상호로 시작해도 됨.' : '.') +
+    (style.key === 'plain'
+      ? `  · 이번 글은 상호로 시작해도 됨. 단 뒤 문구는 최근 제목과 완전히 다른 어휘로.`
+      : `  · 🚫 제목의 **첫 두 어절**에 "${storeName}"이나 지역명(시·군·면·동)이 오면 안 됨.` +
+        ` "지역명 ${storeName}, ~" 형태는 특히 금지 — 이 틀로 시작하면 실패한 제목이다.`) +
     // 계절도 angle(기획 단계)에만 있으면 제목에서 샌다 — 제목 지시에 직접 못박는다
     (season ? `\n  · 계절·시기 표현을 쓴다면 반드시 지금(${season})에 맞을 것. 다른 계절 언급 금지.` : '') +
     (banned.length ? `\n  · 🚫 이 단어들은 제목에 쓰지 말 것: ${banned.join(', ')}` : '')
@@ -159,7 +161,15 @@ export function repeatedTitleWords(titles: string[], allow: string[] = []): stri
       count.set(w, (count.get(w) ?? 0) + 1);
     }
   }
-  return [...count.entries()].filter(([, c]) => c >= 2).map(([w]) => w);
+  // 문턱 1회 — "2회 이상"이면 두 번째 사용까지 허용돼 실제로 반복이 남는다
+  // (실측: '위로'가 7일 중 3회. 2회째에 비로소 금지되니 이미 반복이 눈에 띈 뒤였다)
+  // 최근 제목들에 한 번이라도 쓰인 특징어는 이번엔 쓰지 않는 게 다양성에 유리.
+  // 프롬프트가 길어지지 않게 자주 쓰인 순으로 상한을 둔다.
+  const MAX_BANNED = 14;
+  return [...count.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_BANNED)
+    .map(([w]) => w);
 }
 
 /** FNV-1a 해시 — 매장별 안정 시드(같은 매장은 늘 같은 시작점) */
