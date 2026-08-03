@@ -68,22 +68,47 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
     .maybeSingle();
   if (!store) redirect('/onboarding');
 
-  const { data: rows } = await supabase
+  const { status: rawStatus } = await searchParams;
+  const filter: StatusFilter = (FILTERS.some((f) => f.key === rawStatus) ? rawStatus : 'all') as StatusFilter;
+
+  // 그룹 → DB status 목록 (groupOf의 역방향, 단일 원천)
+  const DRAFT_STATUSES = ['draft', 'ready', 'sent_to_owner'];
+  const ARCHIVED_STATUSES = ['archived', 'failed'];
+  const statusesFor = (g: StatusFilter) =>
+    g === 'published' ? ['published'] : g === 'archived' ? ARCHIVED_STATUSES : DRAFT_STATUSES;
+
+  const LIST_LIMIT = 100;
+  const base = () => supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id);
+  // 목록은 **선택된 필터 안에서** 가져온다. 전체 200건을 받아 걸러내면
+  // 필터를 걸수록 보이는 글이 줄어드는 이상한 동작이 된다.
+  // 카운트는 전체 기준 count 쿼리 — 글이 limit을 넘는 순간 표본이 곧 전체가 되던 문제 제거.
+  const listQuery = supabase
     .from('posts')
     .select('id, channel, title, body_plain, status, metadata, created_at, published_at, external_url')
     .eq('store_id', store.id)
     .order('created_at', { ascending: false })
-    .limit(200);
+    .limit(LIST_LIMIT);
+  if (filter !== 'all') listQuery.in('status', statusesFor(filter));
 
-  const posts = rows ?? [];
+  const [rowsRes, allRes, draftRes, pubRes, archRes] = await Promise.all([
+    listQuery,
+    base(),
+    base().in('status', DRAFT_STATUSES),
+    base().eq('status', 'published'),
+    base().in('status', ARCHIVED_STATUSES),
+  ]);
+
+  const posts = rowsRes.data ?? [];
   const now = Date.now();
+  const visible = posts;
 
-  const { status: rawStatus } = await searchParams;
-  const filter: StatusFilter = (FILTERS.some((f) => f.key === rawStatus) ? rawStatus : 'all') as StatusFilter;
-  const visible = filter === 'all' ? posts : posts.filter((p) => groupOf(p.status as string) === filter);
-
-  const counts: Record<StatusFilter, number> = { all: posts.length, draft: 0, published: 0, archived: 0 };
-  for (const p of posts) counts[groupOf(p.status as string)]++;
+  const counts: Record<StatusFilter, number> = {
+    all: allRes.count ?? 0,
+    draft: draftRes.count ?? 0,
+    published: pubRes.count ?? 0,
+    archived: archRes.count ?? 0,
+  };
+  const hiddenCount = Math.max(0, counts[filter] - visible.length);
 
   return (
     <div className="min-h-screen">
@@ -182,6 +207,11 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
               );
             })}
           </div>
+        )}
+        {hiddenCount > 0 && (
+          <p className="mt-4 text-center text-[12.5px] text-[var(--color-fg-3)]">
+            최근 {visible.length.toLocaleString()}건을 보여드리고 있어요. 지난 글 {hiddenCount.toLocaleString()}건도 위 숫자에는 포함돼 있습니다.
+          </p>
         )}
 
         {posts.length >= 200 && (
