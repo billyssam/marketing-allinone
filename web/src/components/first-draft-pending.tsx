@@ -11,7 +11,10 @@ import { useRouter } from 'next/navigation';
  * 초안이 영영 안 생김. ~45초 지나도 여전히 초안 0이면 "지연" 상태로 전환해
  * 사장님이 직접 첫 글을 만들 수 있게 한다(첫인상이 빈 대시보드로 방치되지 않게).
  */
-const STALL_AFTER = 9; // × 5초 ≈ 45초
+// × 5초. 실측: 신규 가입 웰컴 드래프트가 36초(블로그+인스타 2채널).
+// 채널이 더 많거나 Gemini가 일시 장애로 재시도하면 더 걸린다 → 정상인데 "오래 걸려요"가
+// 뜨지 않도록 여유를 둔다. 진짜 실패는 이 시간 뒤에 자가복구 버튼으로 회수.
+const STALL_AFTER = 16; // ≈ 80초
 
 export function FirstDraftPending() {
   const router = useRouter();
