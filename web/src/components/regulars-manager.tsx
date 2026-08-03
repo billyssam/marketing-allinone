@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { tierByDays, isReactivationTarget, draftReactivation, type RegularTier } from '@shared/content-engine/reactivation';
 import { addRegular, deleteRegular } from '@/app/regulars/actions';
 import { AppHeader } from '@/components/app-header';
@@ -44,6 +44,20 @@ export function RegularsManager({ storeName, regulars }: { storeName: string; re
 
   const targets = useMemo(() => list.filter((r) => isReactivationTarget(r.daysSince)), [list]);
   const shown = filter === 'targets' ? targets : list;
+
+  // 표시 상한 — 단골이 수백 명이면 카드를 전부 렌더해 모바일이 스크롤 지옥이 된다
+  // (실측: 300명 매장에서 카드 212개 동시 렌더). 하루에 수백 명에게 보내지 않으므로
+  // 우선순위 높은(오래 안 온) 순으로 끊어 보여주고 필요할 때만 늘린다.
+  const PAGE = 40;
+  const [visible, setVisible] = useState(PAGE);
+  const page = shown.slice(0, visible);
+  const restCount = Math.max(0, shown.length - page.length);
+  // 필터를 바꾸면 다시 처음부터
+  const prevFilter = useRef(filter);
+  if (prevFilter.current !== filter) {
+    prevFilter.current = filter;
+    if (visible !== PAGE) setVisible(PAGE);
+  }
 
   function onAdded(row: RegularRow) {
     setList((prev) => [row, ...prev]);
@@ -115,9 +129,21 @@ export function RegularsManager({ storeName, regulars }: { storeName: string; re
             </div>
           ) : (
             <div className="grid gap-2.5">
-              {shown.map((r) => (
+              {page.map((r) => (
                 <RegularCard key={r.id} r={r} storeName={storeName} benefit={benefit} onDelete={() => onDelete(r.id)} disabled={pending} />
               ))}
+            </div>
+          )}
+          {restCount > 0 && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setVisible((v) => v + PAGE)}
+                className="rounded-full border border-[var(--color-hair-strong)] px-5 py-2.5 text-[13px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
+              >
+                {restCount.toLocaleString()}명 더 보기
+              </button>
+              <p className="mt-2 text-[12px] text-[var(--color-fg-3)]">오래 안 오신 분부터 보여드리고 있어요.</p>
             </div>
           )}
         </div>
