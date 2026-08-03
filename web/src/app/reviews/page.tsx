@@ -44,6 +44,9 @@ export default async function ReviewsPage() {
       .from('reviews')
       .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
       .eq('store_id', store.id)
+      // 미답(reply_sent_at null) 먼저 — 최신순으로만 자르면 리뷰가 쌓였을 때
+      // 오래된 미답 리뷰가 100건 밖으로 밀려 영영 안 보인다(사장님이 할 일을 놓침).
+      .order('reply_sent_at', { ascending: true, nullsFirst: true })
       .order('posted_at', { ascending: false })
       .limit(LIST_LIMIT),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
@@ -154,7 +157,7 @@ export default async function ReviewsPage() {
           <ReviewList reviews={reviews} placeId={placeId} />
           {hiddenCount > 0 && (
             <p className="mt-4 text-center text-[12.5px] text-[var(--color-fg-3)]">
-              최근 {reviews.length.toLocaleString()}건을 보여드리고 있어요. 지난 리뷰 {hiddenCount.toLocaleString()}건은 위 요약에 모두 반영돼 있습니다.
+              답글이 필요한 리뷰부터 {reviews.length.toLocaleString()}건을 보여드리고 있어요. 나머지 {hiddenCount.toLocaleString()}건도 위 요약에는 모두 반영돼 있습니다.
             </p>
           )}
         </section>
