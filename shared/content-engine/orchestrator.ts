@@ -14,6 +14,11 @@ export interface ChannelDraftBundle {
   master: DraftOutput;
   perChannel: Record<string, DraftContent>;
   channels: ChannelId[];
+  /**
+   * 마스터가 폴백 모델(lite)로 만들어졌는지 = 그날 flash 쿼터가 소진됐다는 신호.
+   * 파일럿에서 매장이 늘면 품질이 조용히 강등되므로 저장·경보로 드러낸다.
+   */
+  degraded: boolean;
 }
 
 export async function generateChannelDrafts(
@@ -40,7 +45,7 @@ export async function generateChannelDrafts(
       meta: { ...base.meta, native: true },
     };
   }
-  return { master, perChannel, channels };
+  return { master, perChannel, channels, degraded: gemini.usedFallback() };
 }
 
 /** 이미 생성된 마스터가 있을 때(재발행·수정) — Gemini 호출 없이 재포맷만 */
@@ -49,5 +54,6 @@ export function reformat(
   channels: ChannelId[],
   images: MasterImage[] = [],
 ): ChannelDraftBundle {
-  return { master, perChannel: formatForChannels(master, channels, images), channels };
+  // Gemini를 새로 호출하지 않으므로 품질 강등이 발생할 여지가 없다
+  return { master, perChannel: formatForChannels(master, channels, images), channels, degraded: false };
 }

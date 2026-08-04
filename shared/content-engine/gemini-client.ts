@@ -24,6 +24,12 @@ export interface GeminiClientConfig {
 export interface GeminiClient {
   generate(input: DraftInput): Promise<DraftOutput>;
   planOnly(input: DraftInput): Promise<string>;
+  /**
+   * 직전 generate가 폴백 모델(lite)로 만들어졌는지.
+   * 파일럿에서 매장이 늘면 flash 무료 20/일이 소진돼 **품질이 조용히 강등**되는데,
+   * 지금은 크론 로그에만 남아 아무도 모른다 → 호출부가 기록·경보할 수 있게 노출.
+   */
+  usedFallback(): boolean;
 }
 
 export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClient {
@@ -49,6 +55,8 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
   // 모델별 쿼터 버킷이 분리라 lite(한도 훨씬 큼)가 살아있음 → 품질 우선 + 용량 확보.
   const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
   const isRateLimited = (e: unknown) => /429|quota|rate/i.test(e instanceof Error ? e.message : String(e));
+  // generate 1회 동안 폴백이 한 번이라도 쓰였는지(품질 추적용)
+  let fellBack = false;
   async function callWithFallback(
     modelName: string,
     systemInstruction: string,
@@ -60,6 +68,7 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
       return (await m.generateContent(prompt)).response.text();
     } catch (e) {
       if (!isRateLimited(e) || modelName === FALLBACK_MODEL) throw e;
+      fellBack = true;
       console.warn(`[gemini] ${modelName} 한도 → ${FALLBACK_MODEL} 폴백`);
       const m = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction, generationConfig });
       return (await m.generateContent(prompt)).response.text();
@@ -73,7 +82,10 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
       return callWithFallback(planningModelName, systemInstruction, { temperature }, industry.planningTemplate(input));
     },
 
+    usedFallback: () => fellBack,
+
     async generate(input) {
+      fellBack = false; // 이번 호출 기준으로 초기화
       const industry = getIndustryPrompt(input.store.industryId);
       const systemInstruction = `${BASE_SYSTEM_PROMPT}\n\n${industry.systemPrompt}\n\n${brandToneSection(input)}\n\n${placeFactSection(input)}`;
 

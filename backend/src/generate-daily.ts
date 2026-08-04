@@ -119,7 +119,7 @@ async function main() {
     else if (archived?.length) console.log(`🗂  지난 자동 초안 ${archived.length}건 보관 처리\n`);
   }
 
-  let made = 0, skipped = 0, failed = 0;
+  let made = 0, skipped = 0, failed = 0, degraded = 0;
   for (const s of stores) {
     // 멱등: 오늘 데일리 초안이 이미 있으면 스킵
     if (!FORCE) {
@@ -206,7 +206,8 @@ async function main() {
             tags: draft.tags ?? [],
             status: 'draft' as const,
             // titleStyle 기록 — 제목 규칙 준수 여부를 나중에 역산 없이 바로 진단하기 위해
-            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key, titleStyle: daily.titleStyle.key },
+            // degraded=true면 그날 flash 쿼터 소진으로 품질 낮은 lite가 쓰였다는 뜻(사후 추적용)
+            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key, titleStyle: daily.titleStyle.key, degraded: bundle.degraded },
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -233,8 +234,11 @@ async function main() {
       }
 
       made++;
+      if (bundle.degraded) degraded++;
       const blogPost = inserted?.find((p) => p.channel === 'blog') ?? inserted?.[0];
-      console.log(`[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')}) · 각도:${angle.label}: ${bundle.master.title}`);
+      console.log(
+        `[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')})${bundle.degraded ? ' ⚠️품질강등(lite)' : ''} · 각도:${angle.label}: ${bundle.master.title}`,
+      );
       await sendTelegram(
         `☀️ <b>${s.name}</b> 오늘의 초안 ${inserted?.length}건이 준비됐어요 (${inserted?.map((p) => p.channel).join('·')})\n${bundle.master.title}\n${APP_URL}/prepare?post=${blogPost?.id}`,
       );
@@ -253,7 +257,15 @@ async function main() {
     if (stores.length > 1 && s !== stores[stores.length - 1]) await sleep(15_000);
   }
 
-  console.log(`\n완료 — 생성 ${made} · 스킵 ${skipped} · 실패 ${failed}`);
+  console.log(`\n완료 — 생성 ${made} · 스킵 ${skipped} · 실패 ${failed}${degraded ? ` · ⚠️품질강등 ${degraded}` : ''}`);
+  // 품질 강등은 "성공했지만 낮은 모델로 만들어진" 상태 → 실패로 처리하면 재시도가 무의미하고,
+  // 침묵하면 파일럿 내내 사장님이 낮은 품질 글을 받는다. 그래서 별도 경보만 보낸다.
+  if (degraded > 0) {
+    console.log(`⚠️ ${degraded}개 매장이 flash 한도 소진으로 lite로 생성됨 — 매장 수가 무료 한도를 넘었다는 신호(Gemini 유료 전환 검토)`);
+    await sendTelegram(
+      `⚠️ 오늘 <b>${degraded}개 매장</b>이 품질 낮은 모델(lite)로 생성됐어요.\nGemini 무료 한도(flash 20회/일)를 넘었습니다 — 매장이 늘었다면 유료 전환을 검토하세요.`,
+    );
+  }
   // 24/7 운영: 부분 실패도 실패로 보고해야 알림이 울리고 재시도 크론이 자가치유한다.
   // (성공 매장은 멱등 스킵이라 재실행 무해 · 실패 매장만 다시 시도됨)
   if (failed > 0) process.exit(1);
