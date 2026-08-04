@@ -116,7 +116,7 @@ export function ChannelCenter({
                               <div className="mono mt-0.5 text-[10px]" style={{ color: au.color }}>{au.label}</div>
                             </div>
                           </div>
-                          <Toggle on={isOn} disabled={!canConnect || isBusy} onClick={() => toggle(c.id, canConnect)} />
+                          <Toggle on={isOn} disabled={!canConnect || isBusy} onClick={() => toggle(c.id, canConnect)} label={c.name} />
                         </div>
 
                         <div className="mono mt-3 flex flex-wrap gap-1.5">
@@ -165,12 +165,24 @@ function Stat({ label, value, accent }: { label: string; value: number; accent?:
   );
 }
 
-function Toggle({ on, disabled, onClick }: { on: boolean; disabled?: boolean; onClick: () => void }) {
+function Toggle({
+  on,
+  disabled,
+  onClick,
+  label,
+}: {
+  on: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  /** 접근 가능한 이름 — 없으면 스크린리더가 "버튼"으로만 읽어 어떤 채널인지 알 수 없다(axe critical) */
+  label: string;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
+      aria-label={`${label} ${on ? '연결됨, 누르면 연결 해제' : '연결 안 됨, 누르면 연결'}`}
       disabled={disabled}
       onClick={onClick}
       className={`relative h-6 w-11 flex-shrink-0 rounded-full transition disabled:opacity-60 ${

@@ -254,11 +254,13 @@ function AddForm({ onAdded }: { onAdded: (r: RegularRow) => void }) {
     <div className="panel mt-6 rounded-[var(--radius-lg)] p-4">
       <div className="eyebrow mb-3">단골 추가</div>
       <div className="grid gap-2.5 sm:grid-cols-[1fr_1.2fr_1fr_auto]">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="이름"
+        {/* aria-label 필수 — placeholder는 입력을 시작하면 사라지고, type=date는 아예 표시되지 않는다
+            (axe critical: Form elements must have labels) */}
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="이름" aria-label="단골 이름"
           className="rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]" />
-        <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="전화번호 (010...)"
+        <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="전화번호 (010...)" aria-label="단골 전화번호"
           className="rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]" />
-        <input value={lastVisit} onChange={(e) => setLastVisit(e.target.value)} type="date"
+        <input value={lastVisit} onChange={(e) => setLastVisit(e.target.value)} type="date" aria-label="마지막 방문일"
           className="rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] text-[var(--color-fg-2)] outline-none focus:border-[var(--color-amber)]" />
         <button type="button" onClick={submit} disabled={pending || phone.trim().length === 0}
           className="btn-primary rounded-xl px-5 py-2.5 text-[13.5px] font-medium disabled:opacity-40">

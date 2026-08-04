@@ -139,7 +139,8 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
                     : 'border border-[var(--color-hair-strong)] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]'
                 }`}
               >
-                {f.label} <span className={active ? 'opacity-60' : 'text-[var(--color-fg-4)]'}>{counts[f.key]}</span>
+                {/* fg-4는 칩 배경 위에서 대비 미달(axe serious) → fg-3으로 */}
+                {f.label} <span className={active ? 'opacity-60' : 'text-[var(--color-fg-3)]'}>{counts[f.key]}</span>
               </Link>
             );
           })}
@@ -214,9 +215,6 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
           </p>
         )}
 
-        {posts.length >= 200 && (
-          <p className="mono mt-3 text-[11px] text-[var(--color-fg-4)]">최근 200건까지 표시됩니다.</p>
-        )}
       </main>
     </div>
   );
