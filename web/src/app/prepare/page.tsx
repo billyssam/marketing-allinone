@@ -16,9 +16,14 @@ interface Draft {
 }
 
 // 채널별 붙여넣기 특성 — 캡션형(제목·태그 없음), 태그 필드 유무, 열 앱
-const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: string; appLabel: string; targetName: string }> = {
-  blog: { caption: false, hasTags: true, appHref: 'naverblog://write', appLabel: '네이버 블로그 앱 열기', targetName: '블로그' },
-  instagram: { caption: true, hasTags: false, appHref: 'instagram://app', appLabel: '인스타그램 앱 열기', targetName: '인스타그램' },
+/**
+ * appHref = 실제 이동 주소(항상 https — JS가 죽어도 최소한 웹은 열린다).
+ * appScheme = 앱이 설치돼 있으면 먼저 시도할 커스텀 스킴.
+ *   커스텀 스킴만 두면 앱 미설치·인앱 브라우저 차단 시 **아무 일도 안 일어나** 사장님이 막힌다.
+ */
+const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: string; appScheme?: string; appLabel: string; targetName: string }> = {
+  blog: { caption: false, hasTags: true, appHref: 'https://m.blog.naver.com', appScheme: 'naverblog://write', appLabel: '네이버 블로그 앱 열기', targetName: '블로그' },
+  instagram: { caption: true, hasTags: false, appHref: 'https://www.instagram.com', appScheme: 'instagram://app', appLabel: '인스타그램 앱 열기', targetName: '인스타그램' },
   threads: { caption: true, hasTags: false, appHref: 'https://www.threads.net', appLabel: '스레드 열기', targetName: '스레드' },
   facebook: { caption: true, hasTags: false, appHref: 'https://www.facebook.com', appLabel: '페이스북 열기', targetName: '페이스북' },
   google_gbp: { caption: true, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
@@ -222,6 +227,11 @@ function PrepareInner() {
         ) : (
           <a
             href={meta.appHref}
+            onClick={(e) => {
+              if (!meta.appScheme) return; // https만 있는 채널은 기본 동작(앱 있으면 OS가 앱으로 연다)
+              e.preventDefault();
+              openAppWithFallback(meta.appScheme, meta.appHref);
+            }}
             className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
           >
             {meta.appLabel}
@@ -238,6 +248,24 @@ export default function PreparePage() {
       <PrepareInner />
     </Suspense>
   );
+}
+
+/**
+ * 앱 스킴을 먼저 시도하고, 앱이 열리지 않으면 웹으로 폴백.
+ * 앱이 실제로 열리면 페이지가 백그라운드로 가면서 visibilitychange가 발생 → 폴백 취소.
+ * (앱 미설치·인앱 브라우저 스킴 차단 시 "눌렀는데 아무 일도 없음"을 막는 게 목적)
+ */
+function openAppWithFallback(scheme: string, webUrl: string) {
+  let left = false;
+  const onHide = () => {
+    left = true;
+  };
+  document.addEventListener('visibilitychange', onHide, { once: true });
+  window.setTimeout(() => {
+    document.removeEventListener('visibilitychange', onHide);
+    if (!left && !document.hidden) window.location.href = webUrl;
+  }, 1200);
+  window.location.href = scheme;
 }
 
 /** 성공 여부를 돌려준다 — 제스처 없는 자동복사는 모바일에서 흔히 거부되므로 UI가 정직해야 함 */
