@@ -22,6 +22,47 @@ test('부정: 강한 클레임은 negative로 분류', () => {
   }
 });
 
+test('범용성: 업종 맥락에서 음식 전용어가 오탐하지 않는다', () => {
+  // 실측 사고 — '머리카락'·'위생'이 단독으로 강한부정에 있어서 미용실·네일샵·병원의
+  // 명백한 칭찬이 negative로 뒤집혔다. 사장님은 칭찬에 부정 알림을 받고,
+  // 기뻐한 손님은 "아쉬운 경험을 드려 죄송합니다" 답글을 받게 되는 상태였다.
+  const shouldBePositive = [
+    '머리카락이 많이 상했었는데 살려주셔서 감사해요. 너무 만족스럽습니다!',
+    '펌하고 나서 머리카락 결이 훨씬 부드러워졌어요. 강추합니다',
+    '위생 철저하고 도구도 매번 소독해주셔서 안심하고 받았어요',
+    '위생적이고 시설도 깔끔합니다. 친절하세요',
+  ];
+  for (const c of shouldBePositive) {
+    const r = analyzeSentiment(c);
+    assert.equal(r.sentiment, 'positive', `"${c}" → ${r.sentiment} (근거: ${r.signals.negative})`);
+  }
+  // 음식점의 진짜 클레임은 그대로 잡혀야 한다
+  const stillNegative = analyzeSentiment('머리카락이 나왔어요. 위생 상태가 너무 별로입니다');
+  assert.equal(stillNegative.sentiment, 'negative');
+});
+
+test('범용성: 비음식 업종 긍정어와 붙여쓴 표현을 인식한다', () => {
+  // 사전이 음식에 치우쳐 시술·의료·운동 리뷰가 중립으로 샜다(정형외과 10건 중 3건).
+  const cases = [
+    '루루쌤 손도 빠르시고 쉐입 칼각으로 잡아주십니다',
+    '과잉진료없이 치료를 해주십니다 효과좋아요', // 띄어쓰기 없는 실제 리뷰 형태
+    '자세히 설명해주시고 꼼꼼하게 봐주셔서 좋았어요',
+    '진짜 너무너무 예뽀요 선생님이 꼼꼼하고 예뿌게 잘해주셔서',
+  ];
+  for (const c of cases) {
+    const r = analyzeSentiment(c);
+    assert.equal(r.sentiment, 'positive', `"${c}" → ${r.sentiment}`);
+  }
+});
+
+test('범용성: 공백 정규화가 단어 경계를 넘지 않는다', () => {
+  // 전체에 공백 제거 매칭을 적용했더니 "해주십니다신장분사기"에서 '다신'(강한부정)이
+  // 걸려 칭찬이 부정으로 뒤집혔다 → 띄어쓰기가 있는 항목에만 적용하도록 좁혔다.
+  const r = analyzeSentiment('과잉진료없이 치료를 해주십니다 신장분사기와 주사치료 효과좋아요');
+  assert.equal(r.sentiment, 'positive', `→ ${r.sentiment} (부정근거: ${r.signals.negative})`);
+  assert.ok(!r.signals.negative.includes('다신'), '경계를 넘은 오탐이 없어야');
+});
+
 test('긍정: 칭찬 리뷰는 positive로 분류', () => {
   const cases = [
     '대추차가 진하고 너무 맛있어요 사장님도 친절하시고 또 갈게요',
