@@ -14,6 +14,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const notice = params.get('notice');
   const socialSoon = notice === 'social-soon';
   const checkEmail = notice === 'check-email';
+  const resetSent = notice === 'reset-sent';
   const soonLabel = PROVIDER_LABEL[params.get('p') ?? ''] ?? '소셜';
 
   return (
@@ -37,6 +38,12 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       {checkEmail && (
         <div className="mt-6 rounded-xl border border-[var(--color-good)] bg-[var(--color-panel-2)] p-3.5 text-[12.5px] text-[var(--color-fg-2)]">
           <b className="text-[var(--color-good)]">확인 메일을 보냈어요.</b> 메일함(스팸함 포함)의 링크를 누르면 가입이 완료됩니다.
+        </div>
+      )}
+
+      {resetSent && (
+        <div className="mt-6 rounded-xl border border-[var(--color-good)] bg-[var(--color-panel-2)] p-3.5 text-[12.5px] leading-relaxed text-[var(--color-fg-2)]">
+          <b className="text-[var(--color-good)]">재설정 링크를 보냈어요.</b> 메일함(스팸함 포함)에서 링크를 누르면 새 비밀번호를 정할 수 있어요.
         </div>
       )}
 
@@ -86,6 +93,15 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
           </p>
         )}
       </form>
+
+      {/* 비밀번호 찾기 — 소셜 로그인이 켜지기 전엔 이메일이 유일 경로라 없으면 복구 불가 */}
+      {mode === 'login' && (
+        <p className="mt-4 text-center text-[12.5px]">
+          <Link href="/forgot-password" className="text-[var(--color-fg-3)] underline underline-offset-2 hover:text-[var(--color-fg-2)]">
+            비밀번호를 잊으셨나요?
+          </Link>
+        </p>
+      )}
 
       <p className="mt-6 text-center text-[13px] text-[var(--color-fg-3)]">
         {mode === 'login' ? (

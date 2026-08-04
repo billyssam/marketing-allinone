@@ -74,6 +74,46 @@ export async function signInWithNaver(): Promise<void> {
   redirect('/auth/naver/start');
 }
 
+/**
+ * 비밀번호 재설정 메일 발송.
+ * 소셜 로그인이 아직 꺼져 있어 이메일이 유일한 진입 경로 → 비밀번호를 잊으면
+ * 사장님이 영영 못 들어온다(파일럿에서 반드시 발생하는 상황).
+ * 계정 존재 여부는 알려주지 않는다(계정 유무 탐색 방지) — 항상 같은 안내.
+ */
+export async function requestPasswordReset(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!isSupabaseConfigured) return { error: NOT_READY };
+  const email = String(formData.get('email') ?? '').trim();
+  if (!email) return { error: '이메일을 입력하세요' };
+
+  const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL;
+  const supabase = await createClient();
+  // 실패해도 사용자에겐 동일 안내(존재하지 않는 계정을 구분해주지 않기 위해)
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+  });
+  redirect('/login?notice=reset-sent');
+}
+
+/** 메일 링크로 들어온 세션에서 새 비밀번호 저장 */
+export async function updatePassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  if (!isSupabaseConfigured) return { error: NOT_READY };
+  const password = String(formData.get('password') ?? '');
+  const confirm = String(formData.get('confirm') ?? '');
+  if (password.length < 6) return { error: '비밀번호는 6자 이상이어야 합니다' };
+  if (password !== confirm) return { error: '두 비밀번호가 서로 달라요' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  // 메일 링크 세션이 없으면(만료·직접 접근) 재요청으로 유도
+  if (!user) return { error: '재설정 링크가 만료됐어요. 메일을 다시 요청해주세요.' };
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: translate(error.message) };
+  redirect('/dashboard');
+}
+
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
