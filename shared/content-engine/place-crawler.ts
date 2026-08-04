@@ -40,6 +40,10 @@ export async function crawlNaverPlace(url: string): Promise<PlaceInfo> {
     await page.waitForSelector('h1', { timeout: 10000 });
     await page.waitForTimeout(1500);
 
+    // 업종에 따라 /place/ → /hairshop/ /nailshop/ /restaurant/ 등으로 리다이렉트된다.
+    // 가격 탭 주소를 만들려면 이 실제 타입이 필요하다.
+    const placeType = page.url().match(/m\.place\.naver\.com\/([a-z]+)\/\d+/)?.[1] ?? 'place';
+
     const info = await page.evaluate(() => {
       const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
@@ -129,7 +133,27 @@ export async function crawlNaverPlace(url: string): Promise<PlaceInfo> {
     // 메뉴는 별도 evaluate (스크롤 후 지연 로드 대응)
     await page.evaluate(() => window.scrollTo(0, 800));
     await page.waitForTimeout(600);
-    const menu = await extractMenu(page);
+    let menu = await extractMenu(page);
+
+    // 홈에 메뉴가 없으면 가격 탭을 본다.
+    //
+    // 왜 필요한가(실측): 홈 메뉴는 음식점·카페 전용 구조(a[href*="/menu/"])다.
+    // 미용실·네일샵·헬스장은 홈에 메뉴가 0건이고 가격이 별도 /price 탭에 있다 —
+    // 실제로 준오헤어(셋팅펌 250,000원)·시그니초네일(손젤 29,000원)·
+    // 버핏그라운드(PT 26회 1,609,990원) 모두 데이터는 있는데 0건으로 수집됐다.
+    // 자영업 업종 대부분이 비음식인데 이대로면 그분들 글엔 실제 가격이 하나도 안 들어간다.
+    if (menu.length === 0) {
+      try {
+        await page.goto(`https://m.place.naver.com/${placeType}/${placeId}/price`, {
+          waitUntil: 'domcontentloaded',
+          timeout: 20000,
+        });
+        await page.waitForTimeout(2000);
+        menu = await extractPriceTab(page);
+      } catch {
+        /* 가격 탭이 없는 업종도 많다 — 실패는 정상 경로로 취급하고 나머지 사실만 쓴다 */
+      }
+    }
 
     return {
       name: info.name,
@@ -143,6 +167,51 @@ export async function crawlNaverPlace(url: string): Promise<PlaceInfo> {
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * 가격 탭(비음식 업종) 추출.
+ *
+ * 실측한 3업종(미용실·네일샵·헬스장) 모두 `li` 안에 [이름 텍스트 + <em>가격</em>] 구조이고
+ * 클래스명은 해시(dELze·CLSES 등)라 쓸 수 없다 → li/em 관계만으로 잡는다.
+ * "여성컷35,000~60,000원"처럼 범위로 적힌 경우 첫 em(하한)을 대표가로 쓴다.
+ */
+async function extractPriceTab(page: Page): Promise<{ name: string; price?: number }[]> {
+  return page.evaluate(() => {
+    const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+    const results: { name: string; price?: number }[] = [];
+    const seen = new Set<string>();
+
+    document.querySelectorAll('li').forEach((li) => {
+      // 섹션(예: "컷", "손 젤")이 항목 li들을 감싸는 구조라 바깥 li까지 잡으면
+      // "컷여성컷" 같이 헤더가 붙은 유령 항목이 생긴다 → 최말단 li만 쓴다.
+      if (li.querySelector('li')) return;
+
+      const em = Array.from(li.querySelectorAll('em')).find((e) =>
+        /^[\d,]{3,}$/.test(norm(e.textContent)),
+      );
+      if (!em) return;
+
+      const priceText = norm(em.textContent);
+      const price = Number(priceText.replace(/,/g, ''));
+      if (!Number.isFinite(price) || price < 500 || price >= 10_000_000) return;
+
+      // 이름 = li 텍스트에서 가격이 시작되기 전까지
+      const raw = norm(li.textContent);
+      const cut = raw.indexOf(priceText);
+      let name = cut > 0 ? raw.slice(0, cut) : '';
+      name = name
+        .replace(/대표$/, '') // 네이버가 붙이는 "대표" 뱃지
+        .replace(/[~\-–]\s*$/, '')
+        .trim();
+      if (!name || name.length > 60) return;
+      if (seen.has(name)) return;
+      seen.add(name);
+      results.push({ name, price });
+    });
+
+    return results;
+  });
 }
 
 async function extractMenu(page: Page): Promise<{ name: string; price?: number }[]> {
@@ -170,7 +239,9 @@ async function extractMenu(page: Page): Promise<{ name: string; price?: number }
       }
       if (!priceEm) return;
       const price = Number((priceEm.textContent ?? '').replace(/,/g, ''));
-      if (!Number.isFinite(price) || price < 500 || price >= 1_000_000) return;
+      // 상한 100만원은 음식점 기준이었다 — 헬스장 PT 패키지(1,609,990원)·학원 수강료처럼
+      // 정상적으로 100만원을 넘는 업종이 있어 걸러지면 안 된다.
+      if (!Number.isFinite(price) || price < 500 || price >= 10_000_000) return;
 
       if (seen.has(name)) return;
       seen.add(name);
