@@ -4,7 +4,36 @@
 > 라이브: https://marketing-allinone.vercel.app · DB: Supabase `exmbpietyadkjnunrhka`
 > 로컬: `cd web && npm run dev` (3500) 또는 preview `marketing-all-in-one`
 
-## 🚨 유일한 블로커 — 사장님 액션 1건 (SQL)
+## 🚨 파일럿(8/20) 블로커 — 사장님 액션 3건
+
+> 셋 다 Supabase 대시보드 작업. 코드는 전부 준비돼 있고 설정만 바뀌면 즉시 살아난다.
+> 매일 05:30 `auth-config-check`가 1·2번을 실측해 이슈로 울린다.
+
+### 1. 🔴 리다이렉트 허용목록 (가장 급함 — 인증 전체가 깨져 있음)
+
+Supabase가 **허용목록에 없는 주소를 에러 없이 Site URL로 바꿔치기**한다.
+실측: 운영 주소를 넘겼는데 `redirect_to=http://localhost:3000`이 돌아왔다.
+→ 비밀번호 재설정 메일·가입 확인 메일·향후 카카오/구글 OAuth 콜백이 **전부 죽은 링크**.
+앱은 200을 뱉고 헬스체크도 통과하므로 화면으론 절대 안 보인다.
+
+**Authentication → URL Configuration**
+- Site URL = `https://marketing-allinone.vercel.app`
+- Redirect URLs에 `https://marketing-allinone.vercel.app/**` 추가
+
+확인: `cd backend && npx tsx src/check-auth-config.ts` → 허용목록 항목 ✅
+
+### 2. 🔴 메일 도달 (사장님 자가가입이 막혀 있음)
+
+내장 메일 서비스 = 프로젝트 전체 **시간당 2통** + 팀 외 주소 발송 거부.
+확인메일 ON이라 사장님이 가입 버튼을 누르면 `429 over_email_send_rate_limit` →
+**계정조차 생성되지 않는다**(실측).
+
+- 근본 해결: 커스텀 SMTP(Resend — CARTON 홈페이지에서 이미 쓰는 그것) 연결 후
+  repo variable `CUSTOM_SMTP_CONFIGURED=true`
+- **그때까지 파일럿은 초대 방식으로 진행 가능(이미 구현·E2E 검증 완료)**:
+  `cd backend && npx tsx src/invite-owner.ts <이메일> <이름>` → 카톡 안내문 출력
+
+### 3. 4채널 DB enum (SQL)
 
 플레이스·당근·밴드·카카오채널 4채널이 **코드는 배포 완료, DB enum만 대기** 중입니다.
 SQL 실행 즉시 재배포 없이 다음 크론부터 자동 생성됩니다.

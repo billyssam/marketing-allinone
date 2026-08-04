@@ -7,6 +7,7 @@
 
 | 시각 | 워크플로 | 역할 |
 |---|---|---|
+| 05:30 | `auth-config-check` | **가입·로그인·재설정이 실제로 되는가** (리다이렉트 허용목록 + 메일 도달) |
 | 06:00 | `uptime-check` | 프로덕션 생존(랜딩 200 + `/api/health` DB 실확인) |
 | 07:30 | `daily-content` | 연결 매장 전부에 오늘 초안 생성(블로그 anchor + 연결 채널) |
 | 08:30 | `daily-content` (2차) | **자가치유 재시도** — 멱등 스킵 덕에 실패 매장만 재생성 |
@@ -36,6 +37,19 @@
 1. Actions → `데일리 콘텐츠 생성` → Run workflow 즉시 수동 실행.
 2. 로그에서 어느 매장이 왜 실패하는지 확인(매장별 에러가 찍힘).
 
+### 🔴 인증 설정 문제 (가입·로그인·재설정)
+
+헬스체크는 통과하는데 사장님만 못 들어오는 상태를 잡는다. 로그에 원인과 조치가 그대로 찍힌다.
+
+1. **리다이렉트 허용목록** — Supabase는 허용목록에 없는 주소를 **에러 없이 Site URL로 바꿔치기**한다.
+   운영 주소가 빠져 있으면 재설정 메일·가입 확인 메일·카카오/구글 OAuth 콜백이 전부 죽은 링크가 된다.
+   조치: Supabase → Authentication → URL Configuration →
+   Site URL `https://marketing-allinone.vercel.app`, Redirect URLs에 `https://marketing-allinone.vercel.app/**`.
+2. **메일 도달** — 내장 메일 서비스는 프로젝트 전체 **시간당 2통**, 팀 외 주소는 발송 거부.
+   확인메일 ON 상태에서 사장님이 직접 가입하면 `429`로 **계정조차 생성되지 않는다**.
+   조치 A: 커스텀 SMTP(Resend 등) 연결 후 repo variable `CUSTOM_SMTP_CONFIGURED=true`.
+   조치 B: 그때까지는 초대 방식 — `cd backend && npx tsx src/invite-owner.ts <이메일> <이름>`.
+
 ### 🔴 리뷰 수집 크론 실패
 1. 하루 3회 도니 다음 회차가 자동 재시도.
 2. **연속 실패**면 네이버 플레이스 마크업 변경 가능성 — `backend/src/crawl-reviews.ts` 셀렉터 점검.
@@ -43,6 +57,12 @@
 ## 수동 점검 명령 (로컬)
 
 ```bash
+# 인증 설정 (가입·로그인·재설정이 실제로 되는가)
+cd backend && npx tsx src/check-auth-config.ts
+
+# 파일럿 사장님 초대 (메일 없이 계정 열기 → 카톡 안내문 출력)
+cd backend && npx tsx src/invite-owner.ts owner@example.com "쿵더쿵 사장님"
+
 # 아침 준비 상태 (연결 매장 전수)
 cd backend && npx tsx src/check-morning-ready.ts
 
