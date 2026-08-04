@@ -161,7 +161,8 @@ async function main() {
     const angleDirective = daily.directive + avoidHint;
     // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실 — 실측)
     const sn = seasonalContext(Date.now());
-    const titleRule = titleDirective(daily.titleStyle, s.name, banned, `${sn.month}월 ${sn.season}`);
+    // offering을 넘겨야 제목 few-shot 예시가 업종에 맞는다(안 넘기면 전 업종이 카페 예시를 본다)
+    const titleRule = titleDirective(daily.titleStyle, s.name, banned, `${sn.month}월 ${sn.season}`, offering);
 
     const input: DraftInput = {
       store: {

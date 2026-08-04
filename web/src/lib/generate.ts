@@ -76,7 +76,14 @@ export async function generateForStore(
     // 각도 미지정 시 오늘의 각도+시점+중심소재를 기본 적용(수동 생성도 신선·시의성 있게)
     angle: (opts.angle ?? today.directive) + avoidHint,
     // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실). 계절도 함께 못박음
-    titleRule: titleDirective(today.titleStyle, store.name, banned, `${nowSeason.month}월 ${nowSeason.season}`),
+    // offering을 넘겨야 제목 few-shot 예시가 업종에 맞는다(안 넘기면 전 업종이 카페 예시를 본다)
+    titleRule: titleDirective(
+      today.titleStyle,
+      store.name,
+      banned,
+      `${nowSeason.month}월 ${nowSeason.season}`,
+      resolveBusinessType(store.industry_id).offering,
+    ),
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];
 

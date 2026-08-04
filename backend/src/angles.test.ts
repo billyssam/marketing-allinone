@@ -102,7 +102,7 @@ test('titleDirective: 규칙·예시·금지 프리픽스를 모두 포함', () 
   const style = titleStyleFor('store-td', 1000);
   const t = titleDirective(style, '쿵더쿵', ['쉼표', '따뜻한']);
   assert.ok(t.includes(style.rule), '규칙 포함');
-  assert.ok(t.includes(style.example), 'few-shot 예시 포함');
+  assert.ok(t.includes(style.example.menu), 'few-shot 예시 포함');
   assert.ok(t.includes('쿵더쿵'), '상호 프리픽스 금지 명시');
   assert.ok(t.includes('쉼표') && t.includes('따뜻한'), '금지 시어 포함');
 });
@@ -124,10 +124,28 @@ test('titleDirective: 계절을 주면 제목에도 못박는다(다른 계절 �
 });
 
 test('titleDirective: plain 스타일만 상호 시작 허용', () => {
-  const plain = { key: 'plain', rule: 'r', example: 'e' };
-  const other = { key: 'question', rule: 'r', example: 'e' };
+  const ex = { menu: 'e', product: 'e', service: 'e', booking: 'e' };
+  const plain = { key: 'plain', rule: 'r', example: ex };
+  const other = { key: 'question', rule: 'r', example: ex };
   assert.ok(titleDirective(plain, '가게').includes('상호로 시작해도 됨'), 'plain은 예외 안내');
   assert.ok(!titleDirective(other, '가게').includes('상호로 시작해도 됨'), '다른 스타일은 금지 유지');
+});
+
+test('범용성: 제목 few-shot 예시가 업종(offering)별로 갈린다', () => {
+  // 예시 하나를 전 업종에 쓰면 카페 예시가 미용실·헬스장 글까지 끌어당긴다.
+  // 자영업 43업종 중 음식은 일부일 뿐이라 나머지가 계속 남의 옷을 입게 된다.
+  for (const d of [0, 1, 2, 3, 4, 5]) {
+    const style = titleStyleFor('s-offering', d);
+    const kinds = ['menu', 'product', 'service', 'booking'] as const;
+    const shown = kinds.map((k) => titleDirective(style, '가게', [], undefined, k));
+    // 업종마다 실제로 다른 예시가 들어가야 한다
+    assert.equal(new Set(shown).size, kinds.length, `${style.key}: 업종별 예시가 달라야`);
+    // 비음식 업종 예시에 음식 어휘가 새면 안 된다
+    for (const k of ['product', 'service', 'booking'] as const) {
+      const t = style.example[k];
+      assert.ok(!/메뉴|빙수|크로플|대추차|한 잔/.test(t), `${style.key}/${k} 음식 어휘 누출: ${t}`);
+    }
+  }
 });
 
 test('titleStyle.check: question·number는 형식 판정기를 갖는다(검증 가능성)', () => {
