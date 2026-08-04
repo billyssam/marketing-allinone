@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 import './globals.css';
 import { SwRegister } from '@/components/sw-register';
+import { InAppNotice } from '@/components/inapp-notice';
 
 export const metadata: Metadata = {
   title: {
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         {children}
         <SwRegister />
+        <InAppNotice />
       </body>
     </html>
   );
