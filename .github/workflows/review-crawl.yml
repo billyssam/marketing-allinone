@@ -23,7 +23,10 @@ permissions:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 25분 — 실제 크롤은 매장당 20초 안팎이지만 `playwright install --with-deps`가
+    # 러너 상태에 따라 10분 넘게 걸린다(2026-08-05 실측: 설치 10분32초 / 크롤 19초 / 플레이스 2초).
+    # 15분이면 여유가 3분대뿐이라 파일럿 8매장에서 타임아웃으로 그 회차가 통째로 날아간다.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v5
 
