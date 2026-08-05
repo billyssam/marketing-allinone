@@ -243,8 +243,9 @@ export function OnboardingWizard() {
         </Step>
       )}
 
+      {/* desc의 "메뉴"를 못박으면 미용실·헬스장 사장님에겐 남의 서비스처럼 읽힌다 */}
       {step === 3 && (
-        <Step title="네이버 플레이스 주소" desc="붙여넣으면 매장 정보·메뉴·리뷰 톤을 자동으로 학습해요. (선택)">
+        <Step title="네이버 플레이스 주소" desc={`붙여넣으면 매장 정보·${offeringWord}·리뷰 톤을 자동으로 학습해요. (선택)`}>
           <input value={placeUrl} onChange={(e) => setPlaceUrl(e.target.value)} placeholder="https://map.naver.com/p/..."
             className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 text-[14px] outline-none focus:border-[var(--color-amber)]" />
           <p className="mt-2 text-[12px] text-[var(--color-fg-3)]">나중에 대시보드에서 추가해도 됩니다.</p>

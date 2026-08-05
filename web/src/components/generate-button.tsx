@@ -20,8 +20,26 @@ export interface ComposerAngle {
   directive: string;
 }
 
+/**
+ * 업종별 주제 예시 — 사장님이 매일 보는 자리라 남의 업종 예시가 떠 있으면 안 된다.
+ * (카페 예시 "신메뉴 대추라떼 출시"가 미용실·헬스장 사장님에게도 그대로 보이고 있었다)
+ */
+const TOPIC_EXAMPLE: Record<string, string> = {
+  메뉴: '신메뉴 대추라떼 출시',
+  상품: '여름 신상 입고 소식',
+  시술: '이달의 추천 시술',
+  프로그램: '여름 단기 프로그램 오픈',
+};
+
 /** 오늘 글 컴포저 — 각도·주제·길이·채널 선택 → /api/generate → posts 저장 → 새로고침 */
-export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
+export function GenerateButton({
+  angles = [],
+  offeringWord = '메뉴',
+}: {
+  angles?: ComposerAngle[];
+  /** 업종별 판매 항목 명사(메뉴/상품/시술/프로그램) — 예시 문구를 맞춘다 */
+  offeringWord?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [angle, setAngle] = useState('');
@@ -115,7 +133,7 @@ export function GenerateButton({ angles = [] }: { angles?: ComposerAngle[] }) {
               value={angle}
               onChange={(e) => setAngle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !loading) generate(); }}
-              placeholder="직접 주제 쓰기 (예: 신메뉴 대추라떼 출시)"
+              placeholder={`직접 주제 쓰기 (예: ${TOPIC_EXAMPLE[offeringWord] ?? TOPIC_EXAMPLE['메뉴']})`}
               className="mt-2 w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-3.5 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]"
             />
             <p className="mt-1.5 text-[11px] text-[var(--color-fg-3)]">

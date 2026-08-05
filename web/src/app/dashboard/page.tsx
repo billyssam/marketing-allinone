@@ -162,7 +162,7 @@ export default async function DashboardPage() {
             <Link href="/channels" className="rounded-full border border-[var(--color-hair-strong)] px-4 py-2 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]">
               + 채널 추가
             </Link>
-            <GenerateButton angles={anglesForOffering(business.offering)} />
+            <GenerateButton angles={anglesForOffering(business.offering)} offeringWord={offeringNoun(business.offering)} />
           </div>
         </div>
 
