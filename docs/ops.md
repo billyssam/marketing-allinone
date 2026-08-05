@@ -14,6 +14,7 @@
 | 09:00 | `review-crawl` | 리뷰 수집·감정분석 (+ 플레이스 사실 7일 멱등) |
 | 09:30 | `morning-ready` | **비즈니스 SLA** — 크론 성공 여부가 아니라 "초안이 DB에 실존하는가" 전수 확인 |
 | 12:00 / 18:00 | `review-crawl` | 리뷰 수집 2·3차 |
+| 월요일 09:00 | `weekly-digest` | 전 매장 주간 리포트를 이슈로 — **운영자가 카톡으로 전달**(🔴부정 미답변/⚠️할 일/✅깨끗) |
 | 매월 1일 | `ops-keepalive` | 커밋 40일↑면 빈 커밋 — GitHub 스케줄 60일 자동비활성 방지 |
 
 - GitHub 크론은 1~2시간 지연이 흔함(07:30 예약 → 실발화 08:1x). 타임라인은 그 지연을 흡수하도록 설계됨.
@@ -62,6 +63,9 @@ cd backend && npx tsx src/check-auth-config.ts
 
 # 파일럿 사장님 초대 (메일 없이 계정 열기 → 카톡 안내문 출력)
 cd backend && npx tsx src/invite-owner.ts owner@example.com "쿵더쿵 사장님"
+
+# 주간 다이제스트 (전 매장 요약 → 카톡으로 복사 전달)
+cd backend && npx tsx src/weekly-digest.ts
 
 # 아침 준비 상태 (연결 매장 전수)
 cd backend && npx tsx src/check-morning-ready.ts
