@@ -37,6 +37,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # SMTP를 붙인 뒤 repo variable로 true를 주면 메일 항목이 통과로 바뀐다
           CUSTOM_SMTP_CONFIGURED: ${{ vars.CUSTOM_SMTP_CONFIGURED }}
+          # 'invite'면 자가가입을 의도적으로 닫은 운영 모드로 보고 메일 항목을 통과시킨다
+          OWNER_SIGNUP_MODE: ${{ vars.OWNER_SIGNUP_MODE }}
         run: npx tsx src/check-auth-config.ts
 
       - name: 실패 알림 — 이슈 생성(누적 금지)

@@ -104,6 +104,15 @@ async function checkEmailDeliverability() {
     return;
   }
 
+  // 초대 운영 모드 — 사장님 자가가입을 **의도적으로 닫고** 운영자가 계정을 열어주는 방식.
+  // 파일럿은 이 방식으로 확정됐다(pilot-kit.md). 매일 실패로 울리면 진짜 문제가 묻히므로
+  // 통과시키되, 자가가입을 열 때 조용히 잊히지 않도록 상태를 로그에 남긴다.
+  if (process.env.OWNER_SIGNUP_MODE === 'invite') {
+    console.log('✅ 초대 운영 모드 — 자가가입은 닫혀 있고 invite-owner.ts로 계정을 연다');
+    console.log('   (자가가입을 열려면: 확인메일 OFF 또는 커스텀 SMTP 연결 후 이 플래그 제거)');
+    return;
+  }
+
   // 참고용 실측(판정에는 쓰지 않고 근거로만 덧붙임)
   const probe = await fetch(`${url}/auth/v1/recover`, {
     method: 'POST',
