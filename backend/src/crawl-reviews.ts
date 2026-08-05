@@ -85,9 +85,22 @@ async function liveRun() {
 
   console.log(`📋 대상 매장 ${stores.length}곳\n`);
   let totalNeg = 0;
+  let failed = 0;
   for (const s of stores as StoreForReview[]) {
-    const r = await syncStoreReviews(supabase, s);
+    // 매장별 격리 — syncStoreReviews 안의 crawlNaverPlaceReviews(Playwright)는
+    // 플레이스 주소 변경·네이버 차단·타임아웃에 그냥 throw한다.
+    // 감싸지 않으면 **매장 하나 때문에 그 회차 전 매장 리뷰 수집이 죽는다**
+    // (파일럿 8매장이면 한 곳만 삐끗해도 나머지 7곳이 리뷰를 못 받는다).
+    let r: Awaited<ReturnType<typeof syncStoreReviews>>;
+    try {
+      r = await syncStoreReviews(supabase, s);
+    } catch (e) {
+      failed++;
+      console.log(`[${s.name}] ⚠️ 크롤 실패(건너뜀): ${e instanceof Error ? e.message : String(e)}`);
+      continue;
+    }
     if (r.error) {
+      failed++;
       console.log(`[${r.storeName}] ⚠️ ${r.error}`);
       continue;
     }
@@ -119,7 +132,12 @@ async function liveRun() {
       totalNeg += r.pendingNegatives.length;
     }
   }
-  console.log(`\n완료. 신규 부정 리뷰 알림 대상 총 ${totalNeg}건.`);
+  console.log(`\n완료 — 매장 ${stores.length}곳 · 실패 ${failed} · 신규 부정 리뷰 알림 대상 총 ${totalNeg}건.`);
+  // 전부 처리한 뒤에 실패를 알린다. 조용히 성공으로 끝나면 어느 매장이 몇 주째
+  // 리뷰를 못 받고 있는지 아무도 모른다(하루 3회라 다음 회차 자가치유 여지도 있음).
+  if (failed > 0) {
+    throw new Error(`${stores.length}곳 중 ${failed}곳 리뷰 수집 실패 — 로그의 매장별 사유 확인`);
+  }
 }
 
 async function main() {

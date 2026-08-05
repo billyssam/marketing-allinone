@@ -47,6 +47,10 @@ jobs:
         run: npx tsx src/crawl-reviews.ts
 
       - name: 플레이스 정보 크롤 (메뉴·영업시간 → 콘텐츠 사실 주입, 7일 멱등)
+        # 리뷰 크롤이 실패(일부 매장 실패 포함)해도 반드시 돈다.
+        # 둘은 독립된 일인데 순서 때문에 묶이면, 한 매장 리뷰 실패가
+        # 전 매장의 메뉴·영업시간 갱신까지 막아 글 품질이 조용히 낡는다.
+        if: ${{ !cancelled() }}
         working-directory: backend
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
