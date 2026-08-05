@@ -164,6 +164,19 @@ export const CHANNEL_TO_POST: Partial<Record<ChannelId, PostChannel>> = {
 export const CONTENT_CHANNELS = Object.keys(CHANNEL_TO_POST) as ChannelId[];
 
 /**
+ * posts.channel → 콘텐츠 엔진 ChannelId (CHANNEL_TO_POST의 역방향).
+ * 저장된 글에서 채널 메타(효과 priority·색·이름)를 되찾을 때 쓴다.
+ * 별도 표를 만들면 두 표가 어긋나므로 반드시 역산으로 유도한다.
+ */
+const POST_TO_CHANNEL = Object.fromEntries(
+  Object.entries(CHANNEL_TO_POST).map(([cid, post]) => [post, cid]),
+) as Record<string, ChannelId>;
+
+export function channelIdOfPost(postChannel: string): ChannelId | undefined {
+  return POST_TO_CHANNEL[postChannel];
+}
+
+/**
  * 연결된 채널 중 콘텐츠를 생성할 채널을 고른다(적응).
  * 네이버 블로그는 제품의 핵심 산출물이라 항상 포함(anchor).
  * 그 외 연결된 콘텐츠 채널(인스타·페북·구글·스레드)을 추가 → "연결하면 그 채널 글도 나옴".

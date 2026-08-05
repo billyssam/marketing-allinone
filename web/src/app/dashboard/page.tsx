@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { DashboardPerformance, type PerfData } from '@/components/dashboard-performance';
 import { AppHeader } from '@/components/app-header';
-import { CHANNELS, AUTOMATION_LABEL, type ChannelId } from '@shared/channels/registry';
+import { CHANNELS, AUTOMATION_LABEL, channelIdOfPost, type ChannelId } from '@shared/channels/registry';
+import { pickDailyFocus } from '@shared/content-engine/daily-focus';
+import { DailyFocusCard } from '@/components/daily-focus-card';
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
 import { FirstDraftPending } from '@/components/first-draft-pending';
@@ -53,7 +55,9 @@ export default async function DashboardPage() {
     supabase.from('posts').select('id, channel, title, body_plain, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready) 중 최근 2일 것만.
     // 지난 글은 지우지 않고 아래 '최근 초안'에 남김 — 브리핑은 오늘 할 일이어야 함(무덤 방지)
-    supabase.from('posts').select('id, channel, title, body_plain, status').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(6),
+    // limit 6이었는데 8채널을 연결하면 2건이 잘려 만든 글이 대시보드에서 아예 안 보였다.
+    // 지금은 우선순위 카드가 1~2개만 세우고 나머지는 접으므로 넉넉히 가져와도 부담이 없다.
+    supabase.from('posts').select('id, channel, title, body_plain, status').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(12),
     // + 답글 대기 리뷰
     supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
     // 성과: 리뷰 감정 집계 — count 쿼리(전체 기준). 행을 가져와 세면 limit 넘는 순간 숫자가 틀어지고
@@ -114,6 +118,46 @@ export default async function DashboardPage() {
     isReactivationTarget(daysSince(r.last_visit_at as string | null, nowMs)),
   ).length;
 
+  // 오늘의 우선순위 — 채널을 여러 개 연결하면 붙여넣기가 8건까지 뜬다.
+  // 전부 평평하게 나열하면 아무것도 안 하게 되므로 하나를 골라 이유와 함께 앞에 세운다.
+  const publishedHistory = await supabase
+    .from('posts')
+    .select('channel, published_at')
+    .eq('store_id', store.id)
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(200);
+  const lastPublished = new Map<string, string>();
+  for (const row of publishedHistory.data ?? []) {
+    // 내림차순이라 처음 만난 것이 그 채널의 최신
+    if (!lastPublished.has(row.channel as string)) lastPublished.set(row.channel as string, row.published_at as string);
+  }
+  const focus = pickDailyFocus(
+    (todoPosts ?? []).flatMap((p) => {
+      const cid = channelIdOfPost(p.channel as string);
+      if (!cid) return [];
+      return [{
+        postId: p.id as string,
+        channel: cid,
+        title: postDisplayTitle(p),
+        lastPublishedAt: lastPublished.get(p.channel as string) ?? null,
+      }];
+    }),
+    nowMs,
+  );
+
+  const reviewItems: BriefingItem[] = (pendingReviews ?? []).map((r) => ({
+    key: `review-${r.id}`,
+    kind: 'review' as const,
+    channelLabel: '리뷰',
+    color: 'var(--color-review)',
+    title: `${r.rating ? '★'.repeat(r.rating) : ''} ${r.content}`.trim(),
+    status: '답글 대기',
+    actionLabel: '답글 확인 →',
+    href: '/reviews',
+  }));
+
+  // 총 할 일 개수(KPI용)는 글+리뷰 합계를 유지한다
   const briefingItems: BriefingItem[] = [
     ...(todoPosts ?? []).map((p) => ({
       key: `post-${p.id}`,
@@ -125,16 +169,7 @@ export default async function DashboardPage() {
       actionLabel: '붙여넣기 →',
       href: `/prepare?post=${p.id}`,
     })),
-    ...(pendingReviews ?? []).map((r) => ({
-      key: `review-${r.id}`,
-      kind: 'review' as const,
-      channelLabel: '리뷰',
-      color: 'var(--color-review)',
-      title: `${r.rating ? '★'.repeat(r.rating) : ''} ${r.content}`.trim(),
-      status: '답글 대기',
-      actionLabel: '답글 확인 →',
-      href: '/reviews',
-    })),
+    ...reviewItems,
   ];
 
   const statData: StatStripData = {
@@ -175,6 +210,16 @@ export default async function DashboardPage() {
         <section className="mt-8">
           {briefingItems.length === 0 && perfData.totalPosts === 0 && justOnboarded ? (
             <FirstDraftPending />
+          ) : focus.primary ? (
+            <>
+              {/* 글은 우선순위 카드로 — 같은 글이 아래 브리핑에도 뜨면 중복이라 리뷰만 넘긴다 */}
+              <DailyFocusCard focus={focus} />
+              {reviewItems.length > 0 && (
+                <div className="mt-3">
+                  <DashboardBriefing items={reviewItems} />
+                </div>
+              )}
+            </>
           ) : (
             <DashboardBriefing items={briefingItems} />
           )}
