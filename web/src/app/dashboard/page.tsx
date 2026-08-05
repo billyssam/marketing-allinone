@@ -279,6 +279,13 @@ export default async function DashboardPage() {
         <section className="mt-10">
           <div className="mb-3 flex items-center gap-2 text-[13px] font-medium">
             성과 <span className="mono rounded bg-[var(--color-panel-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">실시간</span>
+            {/* 리포트는 매일 보는 화면이 아니라 nav 대신 여기서 연결한다(모바일 nav가 이미 빠듯). */}
+            <Link
+              href="/report"
+              className="ml-auto text-[12.5px] font-normal text-[var(--color-fg-3)] transition hover:text-[var(--color-fg)]"
+            >
+              이번 주 리포트 →
+            </Link>
           </div>
           <DashboardPerformance data={perfData} weekly={weekly} feed={feed} />
         </section>
