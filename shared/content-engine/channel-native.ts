@@ -4,6 +4,8 @@ import type { DraftInput, DraftOutput } from './types';
 import { htmlToPlain } from './channel-formatter';
 import { STANDARD_LANGUAGE_RULE } from './prompts/base';
 import { clampForChannel, fabricatedNumbers } from './caption';
+import { resolveOfferings, offeringLabel } from './offerings';
+import { resolveBusinessType } from '../business/taxonomy';
 
 /**
  * 채널 네이티브 재작성 — 마스터(블로그)를 각 단문 채널의 "고유 톤"으로 1회 호출 재작성.
@@ -14,6 +16,35 @@ import { clampForChannel, fabricatedNumbers } from './caption';
 export interface NativeVersion {
   bodyPlain: string;
   tags?: string[];
+}
+
+/**
+ * 매장 실제 사실을 재작성 프롬프트에 직접 주입.
+ *
+ * 왜 필요한가(실측): 원본 블로그는 앞 1,400자만 잘라서 넘기는데, 주소·전화·영업시간은
+ * 설계상 본문 **마지막** "찾아오시는 길" 문단에 들어간다. 즉 사실이 애초에 전달되지 않았다.
+ * 그 결과 마스터는 사실 9종을 담는데 단문 채널은 0~1종만 남았다
+ * (플레이스 소식은 "정보 중심" 브리프인데 정작 정보가 없었다).
+ */
+function factBlock(input: DraftInput): string {
+  const p = input.place;
+  const lines: string[] = [];
+  const address = p?.address || input.store.address;
+  if (address) lines.push(`- 주소: ${address}`);
+  if (p?.phone) lines.push(`- 전화번호: ${p.phone}`);
+  if (p?.hours) lines.push(`- 영업시간: ${p.hours}`);
+
+  const offerings = resolveOfferings(input.store.brandTone, p);
+  if (offerings.length) {
+    const kind = resolveBusinessType(input.store.industryId).offering;
+    const items = offerings
+      .slice(0, 6)
+      .map((o) => (o.price ? `${o.name} ${o.price.toLocaleString()}원` : o.name))
+      .join(' · ');
+    lines.push(`- ${offeringLabel(kind)}: ${items}`);
+  }
+  if (!lines.length) return '';
+  return `## 매장 실제 사실 (지어내지 말고 이 값만 인용)\n${lines.join('\n')}\n`;
 }
 
 const SHORT_FORM: ChannelId[] = [
@@ -28,7 +59,9 @@ const CHANNEL_BRIEF: Record<string, string> = {
     '인스타그램 캡션. 첫 줄이 강렬한 훅(스크롤 멈추게). 짧은 문장, 줄바꿈 활용, 이모지 1~3개 절제. 해시태그는 본문에 넣지 말고 tags 배열로. **300~500자**(너무 짧으면 성의 없어 보인다).',
   naver_place:
     // 업종 무관 — "신메뉴"라고 못박으면 미용실·헬스장 소식이 남의 옷을 입는다
-    '네이버 플레이스 소식. 정보 중심·간결. 지금 방문할 이유(새 메뉴·상품·시술, 시즌, 영업정보) 강조. 이모지 최소. **150~250자**.',
+    // 주소·전화 반복 금지 — 이 글은 매장 페이지 **안에** 뜨는 소식이라 이미 화면에 있다(실측: 덤프가 됐다)
+    '네이버 플레이스 소식. 정보 중심·간결. 지금 방문할 이유(새 메뉴·상품·시술, 시즌, 영업정보) 하나를 골라 강조. ' +
+      '주소·전화번호는 쓰지 말 것(매장 페이지 안에 이미 표시된다). 이모지 최소. **150~250자**.',
   danggeun:
     '당근마켓 동네 홍보. 옆집 이웃에게 말하듯 친근하고 담백하게. 과장·광고티 배제. "우리 동네" 정서. **250~400자**.',
   threads:
@@ -124,18 +157,26 @@ export async function nativizeShortForm(
   const tone = input.store.brandTone ?? {};
   const briefs = targets.map((c) => `- "${c}": ${CHANNEL_BRIEF[c]}`).join('\n');
   const plain = htmlToPlain(master.bodyHtml);
+  const facts = factBlock(input);
 
   const prompt = `아래 블로그 원본을 각 채널의 고유 톤으로 재작성하라.
 블로그를 자르지 말고, 채널 성격에 맞게 새로 쓴다.
 말투 원칙: ${STANDARD_LANGUAGE_RULE}
 
 ## ⚠️ 사실 보존 (절대 규칙 — 어기면 실패)
-1. 주소·전화번호·가격·영업시간은 원본에 있는 **문자 그대로** 옮긴다. 숫자를 바꾸거나
+1. 주소·전화번호·가격·영업시간은 아래 "매장 실제 사실"에 있는 **문자 그대로** 옮긴다. 숫자를 바꾸거나
    반올림하거나 비슷한 값으로 대체하는 것 절대 금지(실측 사고: "…로 123"을 "…로 2330"으로 변형).
-2. 원본에 없는 주소·전화·가격·수상경력·기간한정 문구를 **새로 만들어내지 않는다**.
+2. 아래 목록에 없는 주소·전화·가격·수상경력·기간한정 문구를 **새로 만들어내지 않는다**.
    모르면 그 항목을 아예 쓰지 않는다(자리표시자·추정치도 금지).
-3. 판매 항목명(메뉴·상품·시술·프로그램)은 원본 표기 그대로. 없는 항목을 추가하지 않는다.
+3. 판매 항목명(메뉴·상품·시술·프로그램)은 목록 표기 그대로. 없는 항목을 추가하지 않는다.
+4. **감성 문구만 쓰고 끝내지 말 것.** 아래 사실 중 **1~2개를 골라** 문장 안에 자연스럽게 녹인다.
+   "naver_place"·"google_business"는 방문을 결정하는 정보 채널이라 최소 1개는 반드시 넣는다.
+   ("분위기 좋은 공간입니다" 류만 남기고 숫자를 전부 버리는 것이 실제로 반복된 실패다)
+5. 단, **전부 나열하지 말 것.** 판매 항목은 많아야 2개까지만 언급한다.
+   가격 다섯 개를 늘어놓고 영업시간까지 붙이면 소식이 아니라 정보 덤프가 된다(실측 실패).
+   짧은 채널일수록 하나를 골라 이유와 함께 말하는 쪽이 낫다.
 
+${facts}
 ## 매장
 - 상호: ${input.store.name}
 - 톤: ${tone.voice ?? ''}
