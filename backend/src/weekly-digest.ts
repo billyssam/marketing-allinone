@@ -15,8 +15,10 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { buildWeeklyReport, type ReportPost, type ReportReview } from '../../shared/weekly-report';
 
-loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
-loadEnv();
+// quiet 필수 — 이 스크립트의 stdout은 **운영자가 그대로 복사해 카톡에 붙이는 내용**이다.
+// dotenv의 "injected env" 안내 2줄이 복사 블록에 섞여 들어갔다(실측).
+loadEnv({ path: resolve(process.cwd(), '../web/.env.local'), quiet: true });
+loadEnv({ quiet: true });
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
