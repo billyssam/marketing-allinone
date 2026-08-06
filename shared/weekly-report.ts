@@ -70,11 +70,18 @@ function kstDateLabel(ms: number): string {
  * 최근 7일(오늘 포함) 집계.
  * @param nowMs 기준 시각 — 테스트에서 고정할 수 있도록 주입받는다
  */
+/** 플레이스에 표시된 리뷰 총량 기록(정확한 수치만 쌓인다) */
+export interface ReviewCountPoint {
+  at: string;
+  count: number;
+}
+
 export function buildWeeklyReport(
   storeName: string,
   posts: ReportPost[],
   reviews: ReportReview[],
   nowMs: number,
+  opts: { reviewHistory?: ReviewCountPoint[] } = {},
 ): WeeklyReport {
   const start = kstMidnight(nowMs) - 6 * DAY;
   const inWindow = (iso?: string | null) => !!iso && Date.parse(iso) >= start;
@@ -124,8 +131,32 @@ export function buildWeeklyReport(
     stats.push({ label: '단 답글', value: `${repliedThisWeek.length}` });
   }
 
+  // ── 네이버 리뷰 총량 ──
+  // 우리가 크롤한 표본(최신 20건)이 아니라 플레이스에 표시된 **실제 총량**이라
+  // "리뷰 늘었나?"에 정직하게 답할 수 있는 유일한 지표다.
+  // 축약 표기("1.5만")는 애초에 기록에서 빠지므로 여기 오는 값은 전부 정확한 수치다.
+  const history = (opts.reviewHistory ?? []).slice().sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const latest = history[history.length - 1];
+  const prior = history.length >= 2 ? history[history.length - 2] : undefined;
+  let reviewGrowth: number | undefined;
+  if (latest && prior) {
+    const diff = latest.count - prior.count;
+    // 줄어든 건 알리지 않는다 — 리뷰 삭제·크롤 오차로도 줄 수 있고, 사장님이 어쩔 수 없는 일이다
+    if (diff > 0) reviewGrowth = diff;
+  }
+  if (latest) {
+    stats.push({
+      label: '네이버 리뷰',
+      value: `${latest.count.toLocaleString()}`,
+      sub: reviewGrowth ? `지난 기록보다 +${reviewGrowth}` : '가게 전체 누적',
+    });
+  }
+
   // ── 잘된 것 ──
   const wins: string[] = [];
+  if (reviewGrowth) {
+    wins.push(`네이버 리뷰가 ${reviewGrowth}건 늘었어요. 지금 ${latest!.count.toLocaleString()}건입니다.`);
+  }
   if (published.length >= 3) wins.push(`한 주에 ${published.length}번 올리셨어요. 이 속도면 노출이 쌓입니다.`);
   else if (published.length > 0) wins.push(`${published.length}개 올리셨어요. 주 3회를 넘기면 검색 노출이 확실히 달라집니다.`);
   if (weekReviews.length > 0 && negative.length === 0) {

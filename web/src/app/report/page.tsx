@@ -31,8 +31,14 @@ export default async function ReportPage() {
   }
 
   const supabase = await createClient();
-  const { data: store } = await supabase.from('stores').select('id, name').eq('owner_id', user.id).maybeSingle();
+  const { data: store } = await supabase.from('stores').select('id, name, brand_tone').eq('owner_id', user.id).maybeSingle();
   if (!store) redirect('/onboarding');
+
+  // 플레이스에 표시된 리뷰 총량 기록 — "리뷰 늘었나?"에 답할 수 있는 유일한 실측 지표.
+  // (우리가 크롤하는 건 최신 20건 표본이라 그걸로 추이를 내면 거짓말이 된다)
+  const reviewHistory =
+    ((store.brand_tone as { place_facts?: { reviewHistory?: { at: string; count: number }[] } } | null)
+      ?.place_facts?.reviewHistory) ?? [];
 
   // 집계 범위는 최근 14일까지만 읽는다(주간 계산엔 7일이면 되지만,
   // "안 올린 글"은 누적이라 조금 더 넓게 본 뒤 순수 함수가 판단한다).
@@ -61,6 +67,7 @@ export default async function ReportPage() {
     (postsRes.data ?? []) as ReportPost[],
     (reviewsRes.data ?? []) as ReportReview[],
     Date.now(),
+    { reviewHistory },
   );
 
   return (

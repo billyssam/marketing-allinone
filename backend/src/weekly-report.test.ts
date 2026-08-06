@@ -109,6 +109,34 @@ test('범용성: 업종을 가정하는 어휘를 쓰지 않는다', () => {
   assert.ok(!/메뉴|맛|음식|드시|커피|음료|손님상/.test(all), `업종 가정 어휘 누출: ${all}`);
 });
 
+test('네이버 리뷰 총량: 기록이 1개뿐이면 증감을 말하지 않는다', () => {
+  const r = buildWeeklyReport('가게', [], [], NOW, { reviewHistory: [{ at: ago(3), count: 280 }] });
+  const stat = r.stats.find((s) => s.label === '네이버 리뷰');
+  assert.equal(stat?.value, '280');
+  assert.equal(stat?.sub, '가게 전체 누적', '비교 대상이 없으면 증감 문구 금지');
+  assert.ok(!r.wins.some((w) => /늘었어요/.test(w)));
+});
+
+test('네이버 리뷰 총량: 늘었을 때만 성과로 말한다', () => {
+  const up = buildWeeklyReport('가게', [], [], NOW, {
+    reviewHistory: [{ at: ago(10), count: 274 }, { at: ago(3), count: 280 }],
+  });
+  assert.ok(up.wins.some((w) => w.includes('6건 늘었어요')), JSON.stringify(up.wins));
+  assert.equal(up.stats.find((s) => s.label === '네이버 리뷰')?.sub, '지난 기록보다 +6');
+
+  // 줄어든 건 알리지 않는다 — 리뷰 삭제·크롤 오차로도 줄 수 있고 사장님이 어쩔 수 없다
+  const down = buildWeeklyReport('가게', [], [], NOW, {
+    reviewHistory: [{ at: ago(10), count: 280 }, { at: ago(3), count: 274 }],
+  });
+  assert.ok(!down.wins.some((w) => /리뷰가/.test(w)), JSON.stringify(down.wins));
+  assert.equal(down.stats.find((s) => s.label === '네이버 리뷰')?.sub, '가게 전체 누적');
+});
+
+test('네이버 리뷰 총량: 기록이 없으면 항목 자체를 만들지 않는다', () => {
+  const r = buildWeeklyReport('가게', [], [], NOW);
+  assert.ok(!r.stats.some((s) => s.label === '네이버 리뷰'), '없는 지표를 지어내지 않는다');
+});
+
 test('평문은 카톡에 그대로 붙여넣을 수 있는 형태다', () => {
   const posts: ReportPost[] = [{ created_at: ago(1), channel: 'blog', published_at: ago(1), status: 'published' }];
   const r = buildWeeklyReport('쿵더쿵', posts, [], NOW);

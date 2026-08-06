@@ -46,6 +46,13 @@ export interface PlaceInfo {
   descriptionRaw?: string;
   menu?: { name: string; price?: number }[];
   reviewHighlights?: { keyword: string; count: number }[];
+  /**
+   * 플레이스에 표시된 리뷰 총 개수. 우리가 크롤한 표본(최신 20건)이 아니라 **실제 총량**이라
+   * 주 단위 증감을 성과로 보여줄 수 있다.
+   * ⚠️ exact=false면 "1.5만" 같은 축약 표기다 — 몇백 건이 늘어도 숫자가 안 바뀌므로
+   *    추이 계산에 쓰면 안 된다(늘었는데 0으로 보이거나, 반올림 경계에서 껑충 뛴다).
+   */
+  reviewCount?: { count: number; exact: boolean };
 }
 
 export interface DraftInput {

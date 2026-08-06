@@ -31,7 +31,7 @@ const supabase = createClient(url, key, { auth: { persistSession: false } });
 const SEP = '─'.repeat(52);
 
 async function main() {
-  const { data: stores, error } = await supabase.from('stores').select('id, name').order('name');
+  const { data: stores, error } = await supabase.from('stores').select('id, name, brand_tone').order('name');
   if (error) throw error;
   if (!stores?.length) {
     console.log('매장 0곳 — 보낼 것 없음');
@@ -58,11 +58,17 @@ async function main() {
         .limit(500),
     ]);
 
+    // 플레이스 리뷰 총량 기록 — 화면(/report)과 같은 근거를 쓴다
+    const reviewHistory =
+      ((s.brand_tone as { place_facts?: { reviewHistory?: { at: string; count: number }[] } } | null)
+        ?.place_facts?.reviewHistory) ?? [];
+
     const report = buildWeeklyReport(
       s.name,
       (postsRes.data ?? []) as ReportPost[],
       (reviewsRes.data ?? []) as ReportReview[],
       nowMs,
+      { reviewHistory },
     );
 
     // 운영자가 먼저 보는 한 줄 — 손 볼 매장을 바로 알아채게

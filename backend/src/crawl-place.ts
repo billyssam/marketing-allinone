@@ -65,6 +65,16 @@ async function main() {
 
     try {
       const info = await crawlNaverPlace(s.naver_place_url as string);
+      // 리뷰 총량 이력 — 사장님이 가장 궁금해하는 "리뷰 늘었나?"에 답하려면 시점별 기록이 필요하다.
+      // place_facts는 덮어쓰기라 이력이 남지 않으므로 배열로 따로 쌓는다(최근 12회 = 약 3개월).
+      // 정확한 수치일 때만 쌓는다 — "1.5만" 같은 축약은 늘어도 안 변해서 추이를 왜곡한다.
+      const prevHistory = (prev as { reviewHistory?: { at: string; count: number }[] } | undefined)?.reviewHistory ?? [];
+      const rc = info.reviewCount;
+      const reviewHistory =
+        rc?.exact && rc.count > 0
+          ? [...prevHistory, { at: new Date().toISOString(), count: rc.count }].slice(-12)
+          : prevHistory;
+
       const place_facts = {
         name: info.name,
         address: info.address,
@@ -74,6 +84,8 @@ async function main() {
         categories: info.categories,
         descriptionRaw: cleanDirections(info.descriptionRaw) ?? null,
         menu: (info.menu ?? []).slice(0, 20),
+        reviewCount: info.reviewCount ?? null,
+        reviewHistory,
         crawled_at: new Date().toISOString(),
       };
       const { error: upErr } = await supabase

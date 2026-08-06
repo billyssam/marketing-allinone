@@ -5,6 +5,25 @@ const NAVER_PLACE_ID_REGEX = /place\/(\d+)/;
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 
+/**
+ * "280" · "2,103" · "1.5만" · "3천" → 개수.
+ * 축약 표기는 근사값이라 exact=false로 표시한다 — 몇백 건이 늘어도 "1.5만"은 그대로라
+ * 추이 계산에 쓰면 "안 늘었다"고 거짓말하게 된다.
+ */
+export function parseReviewCount(raw: string): { count: number; exact: boolean } | undefined {
+  const s = (raw ?? '').replace(/\s/g, '');
+  if (!s) return undefined;
+  const m = s.match(/^([\d,.]+)([만천])?$/);
+  if (!m) return undefined;
+  const n = Number(m[1].replace(/,/g, ''));
+  if (!Number.isFinite(n)) return undefined;
+  if (m[2] === '만') return { count: Math.round(n * 10_000), exact: false };
+  if (m[2] === '천') return { count: Math.round(n * 1_000), exact: false };
+  // 축약이 아니면 소수점이 있을 리 없다(있으면 잘못 잡은 것)
+  if (!Number.isInteger(n)) return undefined;
+  return { count: n, exact: true };
+}
+
 export function extractPlaceId(url: string): string | null {
   const m = url.match(NAVER_PLACE_ID_REGEX);
   return m ? m[1] : null;
@@ -127,7 +146,16 @@ export async function crawlNaverPlace(url: string): Promise<PlaceInfo> {
       // 편의 시설 (참고용, PlaceInfo 스키마 확장 시 활용)
       const amenities = valueOf('편의');
 
-      return { name, categories, address, phone, hours, descriptionRaw, amenities };
+      // 리뷰 총 개수 — 우리가 크롤하는 표본(최신 20건)이 아니라 매장의 실제 총량.
+      // 탭 라벨에 "리뷰 280" / "리뷰 2,103" / "리뷰 1.5만" 형태로 노출된다.
+      // 축약(만·천)은 근사값이라 따로 표시해 추이 계산에서 빼게 한다.
+      let reviewCountRaw = '';
+      {
+        const m = (document.body.innerText || '').match(/리뷰\s*([\d,.]+\s*[만천]?)/);
+        if (m) reviewCountRaw = m[1].trim();
+      }
+
+      return { name, categories, address, phone, hours, descriptionRaw, amenities, reviewCountRaw };
     });
 
     // 메뉴는 별도 evaluate (스크롤 후 지연 로드 대응)
@@ -163,6 +191,7 @@ export async function crawlNaverPlace(url: string): Promise<PlaceInfo> {
       categories: info.categories,
       descriptionRaw: info.descriptionRaw || undefined,
       menu: menu.slice(0, 30),
+      reviewCount: parseReviewCount(info.reviewCountRaw),
     };
   } finally {
     await browser.close();
