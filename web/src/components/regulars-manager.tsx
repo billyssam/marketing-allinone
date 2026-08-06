@@ -35,7 +35,27 @@ function agoLabel(days: number | null) {
   return `${m}개월 전 방문`;
 }
 
-export function RegularsManager({ storeName, regulars }: { storeName: string; regulars: RegularRow[] }) {
+/**
+ * 업종별 혜택 예시 — 사장님이 직접 보는 자리다.
+ * "아메리카노 1잔 무료"로 고정돼 있어 미용실·헬스장 사장님에겐 남의 가게 예시가 떴다.
+ */
+const BENEFIT_EXAMPLE: Record<string, string> = {
+  메뉴: '예: 아메리카노 1잔 무료',
+  상품: '예: 다음 구매 10% 할인',
+  시술: '예: 다음 시술 10% 할인',
+  프로그램: '예: 1회 체험 무료',
+};
+
+export function RegularsManager({
+  storeName,
+  regulars,
+  offeringWord = '메뉴',
+}: {
+  storeName: string;
+  regulars: RegularRow[];
+  /** 업종별 판매 항목 명사(메뉴/상품/시술/프로그램) — 혜택 예시를 맞춘다 */
+  offeringWord?: string;
+}) {
   const [list, setList] = useState(regulars);
   const [benefit, setBenefit] = useState('');
   const [filter, setFilter] = useState<'targets' | 'all'>('targets');
@@ -82,7 +102,11 @@ export function RegularsManager({ storeName, regulars }: { storeName: string; re
         <div className="eyebrow">재방문 유도</div>
         <h1 className="h1 mt-2">단골 관리</h1>
         <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">
-          한동안 안 오신 단골에게 재방문 메시지를 준비해요. 알림톡 연동 후 한 번에 보낼 수 있어요.
+          {/* "알림톡 연동 후 보낼 수 있어요"라고만 써 있어서 **지금 안 된다**고 읽혔다.
+              실제로는 문자 앱을 번호·내용까지 채워 여는 1탭 발송이 이미 된다.
+              되는 걸 안 된다고 말하면 사장님이 아예 안 쓴다. */}
+          한동안 안 오신 단골에게 재방문 메시지를 준비해요. <b className="text-[var(--color-fg)]">지금 바로 문자로</b> 보내실 수 있어요.
+          {' '}(알림톡은 연동되면 한 번에 발송)
         </p>
 
         {/* 요약 — 대시보드/리뷰와 동일한 헤어라인 KPI 타일 */}
@@ -101,7 +125,7 @@ export function RegularsManager({ storeName, regulars }: { storeName: string; re
           <input
             value={benefit}
             onChange={(e) => setBenefit(e.target.value)}
-            placeholder="예: 아메리카노 1잔 무료"
+            placeholder={BENEFIT_EXAMPLE[offeringWord] ?? BENEFIT_EXAMPLE['메뉴']}
             className="mt-1.5 w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-2.5 text-[13.5px] outline-none focus:border-[var(--color-amber)]"
           />
           <p className="mt-1.5 text-[11px] text-[var(--color-fg-3)]">넣으면 아래 메시지에 자동 반영돼요.</p>

@@ -41,6 +41,24 @@ test('메시지: 이름·상호 포함, 이모지 없음', () => {
   assert.doesNotMatch(m, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, '이모지 없어야');
 });
 
+test('메시지: 한 문장 안에서 같은 말을 두 번 쓰지 않는다', () => {
+  // 실측: "가까운 날 **편하게** 한번 들러주세요. 언제든 **편하게** 오세요."
+  // 조합이 seed로 결정되므로 특정 단골에게는 매번 그 조합이 나간다 — 성의 없어 보인다.
+  const bad: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    for (const days of [35, 62, 120]) {
+      const m = draftReactivation({ name: `단골${i}`, storeName: '스타일링룸', daysSince: days, nowMs: Date.parse('2026-08-06T00:00:00Z') });
+      const words = m.replace(/[.,!?~—-]/g, ' ').split(/\s+/).filter((w) => w.length >= 2 && w !== '스타일링룸');
+      const seen = new Set<string>();
+      for (const w of words) {
+        if (seen.has(w)) { bad.push(`${w} 중복 → ${m}`); break; }
+        seen.add(w);
+      }
+    }
+  }
+  assert.equal(bad.length, 0, bad[0] ?? '');
+});
+
 test('메시지: 혜택 문구 반영', () => {
   const withBenefit = draftReactivation({ name: '김철수', storeName: '쿵더쿵', daysSince: 100, benefit: '아메리카노 1잔 무료' });
   assert.match(withBenefit, /아메리카노 1잔 무료/);

@@ -80,5 +80,24 @@ export function draftReactivation(input: ReactivationInput): string {
 
   const closers = [`기다리고 있을게요. — ${store}`, `언제든 편하게 오세요. — ${store}`];
 
-  return `${pick(openers, seed)} ${pick(bodies, seed + 'b')} ${pick(closers, seed + 'c')}`;
+  const body = pick(bodies, seed + 'b');
+  let closer = pick(closers, seed + 'c');
+  // 같은 말이 한 문자메시지에 두 번 나오면 성의 없어 보인다
+  // (실측: "가까운 날 **편하게** 한번 들러주세요. 언제든 **편하게** 오세요.")
+  // 조합이 seed로 결정되므로 특정 단골에게는 매번 그 조합이 나간다 → 겹치면 다른 맺음말로.
+  if (repeatsWord(body, closer, store)) {
+    closer = closers.find((c) => !repeatsWord(body, c, store)) ?? closer;
+  }
+  return `${pick(openers, seed)} ${body} ${closer}`;
+}
+
+/** 두 문장이 2글자 이상 어절을 공유하는가(상호명은 맺음말에 항상 들어가므로 제외) */
+function repeatsWord(a: string, b: string, exclude: string): boolean {
+  const words = (s: string) =>
+    s
+      .replace(/[.,!?~—-]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 2 && w !== exclude);
+  const setA = new Set(words(a));
+  return words(b).some((w) => setA.has(w));
 }

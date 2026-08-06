@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { daysSince } from '@shared/content-engine/reactivation';
 import { RegularsManager, type RegularRow } from '@/components/regulars-manager';
+import { resolveBusinessType } from '@shared/business/taxonomy';
+import { offeringNoun } from '@shared/content-engine/offerings';
 
 export const metadata = { title: '단골 관리' };
 
@@ -22,7 +24,7 @@ export default async function RegularsPage() {
   }
 
   const supabase = await createClient();
-  const { data: store } = await supabase.from('stores').select('id, name').eq('owner_id', user.id).maybeSingle();
+  const { data: store } = await supabase.from('stores').select('id, name, industry_id').eq('owner_id', user.id).maybeSingle();
   if (!store) redirect('/onboarding');
 
   const { data: rows } = await supabase
@@ -42,5 +44,12 @@ export default async function RegularsPage() {
     daysSince: daysSince(r.last_visit_at as string | null, now),
   }));
 
-  return <RegularsManager storeName={store.name} regulars={regulars} />;
+  // 혜택 예시를 업종에 맞춘다("아메리카노 1잔 무료"가 미용실 사장님에게 뜨던 문제)
+  return (
+    <RegularsManager
+      storeName={store.name}
+      regulars={regulars}
+      offeringWord={offeringNoun(resolveBusinessType(store.industry_id).offering)}
+    />
+  );
 }
