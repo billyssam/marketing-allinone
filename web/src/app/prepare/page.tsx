@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { withJosa } from '@shared/korean';
 
 type Step = 'title' | 'body' | 'tags' | 'done';
 
@@ -44,9 +45,10 @@ function flowFor(channel?: string): Step[] {
 }
 
 const STEP_INFO: Record<Step, { label: string; hint: string; cta: string }> = {
-  title: { label: '제목', hint: '블로그 앱에서 제목 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 본문' },
-  body: { label: '본문', hint: '본문 칸을 길게 눌러 붙여넣기 하세요.', cta: '다음 · 태그' },
-  tags: { label: '태그', hint: '태그 입력칸에 붙여넣기 하세요.', cta: '완료' },
+  // "앱에서 ~하세요"는 이미 앱에 있다는 전제라 어떻게 가는지가 빠진다 → "앱을 열고"로 행동을 유도
+  title: { label: '제목', hint: '아래 버튼으로 앱을 열고, 제목 칸을 길게 눌러 붙여넣으세요.', cta: '다음 · 본문' },
+  body: { label: '본문', hint: '앱으로 돌아가 본문 칸을 길게 눌러 붙여넣으세요.', cta: '다음 · 태그' },
+  tags: { label: '태그', hint: '앱으로 돌아가 태그 입력칸에 붙여넣으세요.', cta: '완료' },
   done: { label: '완료', hint: '이제 앱에서 발행 버튼만 누르면 끝이에요.', cta: '닫기' },
 };
 
@@ -58,6 +60,8 @@ function PrepareInner() {
   const [copied, setCopied] = useState(false);
   /** 마지막 (자동)복사가 실제로 성공했는지 — 실패면 "탭하여 복사"로 정직하게 안내 */
   const [copyOk, setCopyOk] = useState(false);
+  /** 이번 단계에서 앱을 한 번이라도 열었는지 — 열기 전엔 '앱 열기', 다녀온 뒤엔 '다음'을 강조 */
+  const [visited, setVisited] = useState(false);
   const [status, setStatus] = useState<{ tone: 'ok' | 'wait' | 'err'; msg: string }>({
     tone: 'wait',
     msg: '초안을 불러오는 중…',
@@ -132,6 +136,7 @@ function PrepareInner() {
     }
     const next = flow[stepIdx + 1];
     setStep(next);
+    setVisited(false); // 새 단계는 다시 '앱 열기'부터 — 단계마다 붙여넣을 칸이 다르다
     await copyCurrent(next, draft);
   }
 
@@ -141,7 +146,7 @@ function PrepareInner() {
   const hint = meta.caption
     ? isDone
       ? `이제 ${meta.targetName} 앱에서 게시 버튼만 누르면 끝이에요.`
-      : `${meta.targetName} 새 게시물 캡션 칸에 길게 눌러 붙여넣기 하세요.`
+      : `아래 버튼으로 ${withJosa(meta.targetName, '을를')} 열고, 새 게시물 캡션 칸에 길게 눌러 붙여넣으세요.`
     : info.hint;
   const ctaLabel = isDone ? '닫기' : isLastStep ? '완료' : info.cta;
 
@@ -210,34 +215,56 @@ function PrepareInner() {
         </div>
       )}
 
-      {/* 하단 CTA */}
-      <div className="mt-8 space-y-2.5">
-        <button
-          type="button"
-          onClick={advance}
-          disabled={!draft && !isDone}
-          className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {ctaLabel}
-        </button>
-        {isDone ? (
+      {/* 하단 CTA
+          실제 순서는 [복사] → [앱 열기] → 앱에서 붙여넣기 → 돌아와서 [다음]인데,
+          예전엔 [다음]이 주 버튼이고 앱 열기가 보조라 **먼저 눌러야 할 게 아래 흐리게** 있었다.
+          제품을 만든 사람도 이 버튼이 뭔지 몰랐을 만큼 순서가 안 보였다(실측 피드백).
+          → 앱에 다녀왔는지(visited)에 따라 강조를 넘긴다. */}
+      {isDone ? (
+        <div className="mt-8 space-y-2.5">
+          <button
+            type="button"
+            onClick={advance}
+            className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105"
+          >
+            {ctaLabel}
+          </button>
           <Link href="/dashboard" className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">
             대시보드로 돌아가기
           </Link>
-        ) : (
+        </div>
+      ) : (
+        <div className="mt-8 space-y-2.5">
           <a
             href={meta.appHref}
             onClick={(e) => {
+              setVisited(true);
               if (!meta.appScheme) return; // https만 있는 채널은 기본 동작(앱 있으면 OS가 앱으로 연다)
               e.preventDefault();
               openAppWithFallback(meta.appScheme, meta.appHref);
             }}
-            className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]"
+            className={
+              visited
+                ? 'block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]'
+                : 'block w-full rounded-full bg-[var(--color-amber)] py-3.5 text-center text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105'
+            }
           >
-            {meta.appLabel}
+            {visited ? `${meta.appLabel} (다시)` : `1. ${meta.appLabel}`}
           </a>
-        )}
-      </div>
+          <button
+            type="button"
+            onClick={advance}
+            disabled={!draft}
+            className={
+              visited
+                ? 'w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40'
+                : 'w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)] disabled:cursor-not-allowed disabled:opacity-40'
+            }
+          >
+            2. 붙여넣었어요 · {ctaLabel.replace(/^다음 · /, '')}
+          </button>
+        </div>
+      )}
     </main>
   );
 }
