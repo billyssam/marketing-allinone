@@ -46,6 +46,20 @@ test('정보 채널에 사실이 없으면 잡는다', () => {
   assert.ok(!t.some((i) => i.rule === 'no-facts'));
 });
 
+test('매장에 사실이 없으면 사실 주입을 요구하지 않는다(고칠 수 없는 지적 방지)', () => {
+  // 플레이스 미연결 + 항목 미입력 매장은 넣을 사실이 없어서 못 넣는 것이다.
+  // 매일 결함으로 올리면 고칠 수도 없는 알림이 쌓여 전체를 안 보게 된다.
+  const post = [ok('naver_place', '분위기 좋은 공간입니다. '.repeat(10))];
+  assert.ok(checkPosts(post, '쿵더쿵').some((i) => i.rule === 'no-facts'), '기본은 잡아야');
+  assert.ok(
+    !checkPosts(post, '쿵더쿵', { storeHasFacts: false }).some((i) => i.rule === 'no-facts'),
+    '사실이 없는 매장은 면제',
+  );
+  // 면제해도 다른 규칙은 그대로 본다
+  const bad = checkPosts([ok('naver_place', '쿵더쿵는 좋아요')], '쿵더쿵', { storeHasFacts: false });
+  assert.ok(bad.some((i) => i.rule === 'josa'));
+});
+
 test('상호 조사 오류를 잡는다(받침 유무 양방향)', () => {
   const a = checkPosts([ok('naver_place', '쿵더쿵는 늘 이 자리에서. 10,000원. '.repeat(6))], '쿵더쿵');
   assert.ok(a.some((i) => i.rule === 'josa'), JSON.stringify(a));

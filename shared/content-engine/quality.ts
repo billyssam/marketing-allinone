@@ -46,10 +46,14 @@ const FACT_RE = /[\d,]{3,}\s*원|\d{2,3}-\d{3,4}-\d{4}|\d{1,2}\s*시|\d{1,2}:\d{
 export function checkPosts(
   posts: PostForCheck[],
   storeName: string,
-  opts: { requireFacts?: string[] } = {},
+  opts: { requireFacts?: string[]; storeHasFacts?: boolean } = {},
 ): QualityIssue[] {
   const issues: QualityIssue[] = [];
-  const mustHaveFacts = new Set(opts.requireFacts ?? ['naver_place', 'google_business']);
+  // 매장이 가진 사실이 아예 없으면(플레이스 미연결 + 항목 미입력) 넣을 게 없어서 못 넣는 것이다.
+  // 그걸 매일 결함으로 올리면 고칠 수도 없는 알림이 쌓여 전체를 안 보게 된다.
+  const mustHaveFacts = new Set(
+    opts.storeHasFacts === false ? [] : (opts.requireFacts ?? ['naver_place', 'google_business']),
+  );
 
   for (const p of posts) {
     const body = (p.bodyPlain ?? '').trim();

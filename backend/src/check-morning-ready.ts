@@ -36,7 +36,7 @@ function kstTodayStartIso(): string {
 }
 
 async function main() {
-  const { data: stores, error } = await supabase.from('stores').select('id,name,onboarded_at,created_at');
+  const { data: stores, error } = await supabase.from('stores').select('id,name,onboarded_at,created_at,brand_tone');
   if (error) throw error;
   if (!stores?.length) {
     console.log('매장 0 — 검증할 것 없음');
@@ -82,9 +82,15 @@ async function main() {
     // 크론은 성공으로 찍히고 초안도 있는데 **내용이 나쁜** 일이 실제로 반복됐다
     // (단문 채널 사실 0건·분량 절반 붕괴·상호 조사 오류). 며칠씩 사람이 못 볼 때가 있어
     // 사람 눈 대신 규칙으로 매일 확인한다.
+    // 매장이 가진 사실이 있는지 — 없으면 사실 주입을 요구하지 않는다(고칠 수 없는 지적이 된다)
+    const tone = (s.brand_tone ?? {}) as { place_facts?: { menu?: unknown[] }; offerings?: unknown[] };
+    const storeHasFacts =
+      (tone.place_facts?.menu?.length ?? 0) > 0 || (tone.offerings?.length ?? 0) > 0;
+
     const issues = checkPosts(
       todays.map((p) => ({ channel: p.channel as string, title: p.title as string | null, bodyPlain: p.body_plain as string | null })),
       s.name,
+      { storeHasFacts },
     );
     if (issues.length) {
       badQuality.push(`${s.name}: ${issues.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`);
