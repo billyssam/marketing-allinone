@@ -50,7 +50,7 @@ export default async function DashboardPage() {
   if (!store) redirect('/onboarding');
 
   // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
-  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, reviewTotalRes, reviewPosRes, reviewNeuRes, reviewNegRes, reviewPendingRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
+  const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, urgentNegRes, reviewTotalRes, reviewPosRes, reviewNeuRes, reviewNegRes, reviewPendingRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
     supabase.from('posts').select('id, channel, title, body_plain, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready) 중 최근 2일 것만.
@@ -60,6 +60,8 @@ export default async function DashboardPage() {
     supabase.from('posts').select('id, channel, title, body_plain, status').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(12),
     // + 답글 대기 리뷰
     supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
+    // 답글 안 단 **부정** 리뷰 — 글보다 급하다. 위 목록은 limit 3이라 부정이 밀려 안 보일 수 있어 따로 본다.
+    supabase.from('reviews').select('id, content', { count: 'exact' }).eq('store_id', store.id).eq('sentiment', 'negative').is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(1),
     // 성과: 리뷰 감정 집계 — count 쿼리(전체 기준). 행을 가져와 세면 limit 넘는 순간 숫자가 틀어지고
     // /reviews 화면과 다른 값을 말하게 된다(실측 발견: 대시보드 500 vs 리뷰화면 100).
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
@@ -207,6 +209,25 @@ export default async function DashboardPage() {
         </section>
 
         {/* 오늘의 브리핑 (실데이터: 발행 대기 초안 + 답글 대기 리뷰) */}
+        {/* 답글 안 단 부정 리뷰 — 오늘 글보다 급하다. 늦게 대응할수록 손해가 커지므로 맨 위. */}
+        {(urgentNegRes.count ?? 0) > 0 && (
+          <Link
+            href="/reviews"
+            className="mt-8 flex items-center gap-3 rounded-[var(--radius-lg)] border border-[var(--color-bad)]/40 bg-[var(--color-bad)]/[0.07] p-4 transition hover:border-[var(--color-bad)]/70"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--color-bad)]/15 text-[15px] text-[var(--color-bad)]">!</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14px] font-medium text-[var(--color-fg)]">
+                답글 안 단 아쉬운 리뷰 {urgentNegRes.count}건
+              </span>
+              <span className="mt-0.5 block truncate text-[12.5px] text-[var(--color-fg-2)]">
+                {(urgentNegRes.data?.[0]?.content as string | undefined) ?? '먼저 답글부터 달아주세요'}
+              </span>
+            </span>
+            <span className="shrink-0 text-[13px] font-medium text-[var(--color-bad)]">답글 쓰기 →</span>
+          </Link>
+        )}
+
         <section className="mt-8">
           {briefingItems.length === 0 && perfData.totalPosts === 0 && justOnboarded ? (
             <FirstDraftPending />

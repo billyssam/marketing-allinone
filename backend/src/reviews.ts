@@ -82,13 +82,16 @@ export async function syncStoreReviews(
   if (error) return { ...base, error: `reviews upsert 실패: ${error.message}` };
   base.upserted = data?.length ?? 0;
 
-  // 알림 대기 부정 리뷰: 부정 + 아직 미통보
+  // 알림 대기 부정 리뷰: 부정 + 아직 미통보 + **아직 답글도 안 단** 것.
+  // reply_sent_at을 안 보면, 사장님이 답글을 달아 이미 해결했는데도
+  // 통보 기록이 없다는 이유로 영원히 알림 대상에 남는다(텔레그램 미설정 시 실제로 그랬다).
   const { data: negatives, error: negErr } = await supabase
     .from('reviews')
     .select('id, author_display, content, reply_draft')
     .eq('store_id', store.id)
     .eq('sentiment', 'negative')
     .is('owner_notified_at', null)
+    .is('reply_sent_at', null)
     .order('posted_at', { ascending: false });
   if (!negErr && negatives) {
     base.pendingNegatives = negatives.map((n) => ({

@@ -47,7 +47,34 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: npx tsx src/crawl-reviews.ts
+        # ⚠️ pipefail 필수 — tee를 거치면 파이프라인 종료코드가 tee의 것이 되어
+        #    스크립트가 exit 1 해도 성공으로 찍힌다(매장 실패가 조용히 묻힌다).
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx src/crawl-reviews.ts 2>&1 | tee /tmp/review.log
+
+      - name: 부정 리뷰 알림 — 텔레그램이 없으면 이슈로
+        # 크롤이 실패했어도 이미 수집된 부정 리뷰는 알려야 한다
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -f /tmp/review.log ] || exit 0
+          N=$(sed -n 's/.*신규 부정 리뷰 알림 대상 총 \([0-9]\+\)건.*/\1/p' /tmp/review.log | tail -1)
+          N=${N:-0}
+          SENT=$(grep -c '텔레그램 알림 발송' /tmp/review.log || true)
+          # 텔레그램으로 이미 갔으면 중복 알림 안 만든다
+          if [ "$N" = "0" ] || [ "$SENT" != "0" ]; then
+            echo "부정 리뷰 알림 불필요 (대상 $N · 텔레그램 발송 $SENT)"; exit 0
+          fi
+          TITLE="🔴 부정 리뷰 ${N}건 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY=$(printf '답글이 아직 없는 아쉬운 리뷰가 %s건 있습니다. 늦을수록 손해가 커지니 사장님께 바로 알려주세요.\n\n대시보드 맨 위에도 표시됩니다: https://marketing-allinone.vercel.app/reviews\n\n(운영자 텔레그램 토큰이 설정되면 이 이슈 대신 텔레그램으로 갑니다)\n\n로그: %s' "$N" "$RUN_URL")
+          COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$COUNT" = "0" ]; then
+            gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
+          fi
 
       - name: 플레이스 정보 크롤 (메뉴·영업시간 → 콘텐츠 사실 주입, 7일 멱등)
         # 리뷰 크롤이 실패(일부 매장 실패 포함)해도 반드시 돈다.
