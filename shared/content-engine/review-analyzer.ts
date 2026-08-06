@@ -6,6 +6,7 @@
  * - 답글은 어디까지나 초안 → 사장님이 확인 후 발행(assisted). 절대 자동 게시 아님.
  * - 부정 리뷰는 사과+개선의지+재방문 유도, 긍정은 진심 감사+디테일 언급.
  */
+import { withJosa } from '../korean';
 
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
@@ -185,7 +186,7 @@ export function draftReply(ctx: ReplyContext, sentiment: Sentiment): string {
     const closers = [
       `다음에 오실 때도 변함없는 정성으로 모시겠습니다. 또 뵈어요. — ${store}`,
       `기억해 주신 만큼 늘 한결같겠습니다. 또 들러주세요. — ${store}`,
-      `${store}는 늘 이 자리에서 기다리고 있겠습니다. 감사합니다.`,
+      `${withJosa(store, '은는')} 늘 이 자리에서 기다리고 있겠습니다. 감사합니다.`,
     ];
     return `${pick(openers, seed)} ${pick(closers, seed + 'c')}`;
   }
