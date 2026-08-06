@@ -57,7 +57,8 @@ const SHORT_FORM: ChannelId[] = [
   'facebook', 'google_business',
 ];
 
-const CHANNEL_BRIEF: Record<string, string> = {
+/** 품질 점검이 목표 분량을 여기서 파싱해 쓴다 — 별도 표를 만들면 두 값이 어긋난다 */
+export const CHANNEL_BRIEF: Record<string, string> = {
   instagram:
     '인스타그램 캡션. 첫 줄이 강렬한 훅(스크롤 멈추게). 짧은 문장, 줄바꿈 활용, 이모지 1~3개 절제. 해시태그는 본문에 넣지 말고 tags 배열로. **300~500자**(너무 짧으면 성의 없어 보인다).',
   naver_place:

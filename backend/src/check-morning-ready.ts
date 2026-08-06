@@ -12,6 +12,7 @@ import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
+import { checkPosts } from '../../shared/content-engine/quality';
 
 // 로컬 수동 실행 지원 — 다른 운영 스크립트와 동일한 경로에서 env 로드.
 // (CI는 워크플로가 env를 주입하므로 크론은 이전에도 정상이었지만, docs/ops.md가
@@ -35,7 +36,7 @@ function kstTodayStartIso(): string {
 }
 
 async function main() {
-  const { data: stores, error } = await supabase.from('stores').select('id,name');
+  const { data: stores, error } = await supabase.from('stores').select('id,name,onboarded_at,created_at');
   if (error) throw error;
   if (!stores?.length) {
     console.log('매장 0 — 검증할 것 없음');
@@ -45,6 +46,7 @@ async function main() {
   const todayStart = kstTodayStartIso();
   let checked = 0;
   const missing: string[] = [];
+  const badQuality: string[] = [];
 
   for (const s of stores) {
     // 콘텐츠 채널이 하나라도 연결된 매장만 SLA 대상 (연결 = 행 존재, generate-daily와 동일 기준)
@@ -55,23 +57,51 @@ async function main() {
     const channels = contentChannelsFor((conns ?? []).map((c) => c.channel_id as string));
     if (!channels.length) continue;
 
+    // 오늘 가입한 매장은 아직 데일리 크론(07:30)을 한 번도 안 거쳤다.
+    // 그 자리는 온보딩 직후 만들어지는 **웰컴 초안**이 채운다.
+    // 이걸 빼지 않으면 파일럿 사장님이 가입하는 날마다 거짓 알림이 뜬다(실측).
+    const joinedAt = (s.onboarded_at ?? s.created_at) as string | null;
+    if (joinedAt && Date.parse(joinedAt) >= Date.parse(todayStart)) {
+      console.log(`[${s.name}] 오늘 가입 — 데일리 SLA 대상 아님(웰컴 초안이 담당)`);
+      continue;
+    }
+
     checked++;
     const { data: todays } = await supabase
       .from('posts')
-      .select('id')
+      .select('channel, title, body_plain')
       .eq('store_id', s.id)
       .gte('created_at', todayStart)
-      .contains('metadata', { auto: 'daily' })
-      .limit(1);
-    if (!todays?.length) missing.push(s.name);
+      .contains('metadata', { auto: 'daily' });
+    if (!todays?.length) {
+      missing.push(s.name);
+      continue;
+    }
+
+    // "있는가"에 더해 "쓸 만한가"까지 본다.
+    // 크론은 성공으로 찍히고 초안도 있는데 **내용이 나쁜** 일이 실제로 반복됐다
+    // (단문 채널 사실 0건·분량 절반 붕괴·상호 조사 오류). 며칠씩 사람이 못 볼 때가 있어
+    // 사람 눈 대신 규칙으로 매일 확인한다.
+    const issues = checkPosts(
+      todays.map((p) => ({ channel: p.channel as string, title: p.title as string | null, bodyPlain: p.body_plain as string | null })),
+      s.name,
+    );
+    if (issues.length) {
+      badQuality.push(`${s.name}: ${issues.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`);
+    }
   }
 
-  console.log(`검증 매장 ${checked} · 오늘 초안 누락 ${missing.length}`);
+  console.log(`검증 매장 ${checked} · 오늘 초안 누락 ${missing.length} · 품질 이상 ${badQuality.length}`);
   if (missing.length) {
     console.error(`❌ 오늘 자동 초안이 없는 매장: ${missing.join(', ')}`);
-    process.exit(1);
   }
-  console.log('✅ 모든 연결 매장에 오늘 초안 준비됨');
+  if (badQuality.length) {
+    console.error('❌ 초안 품질 이상:');
+    for (const b of badQuality) console.error(`   ${b}`);
+  }
+  // 누락과 품질을 **함께** 판단한다 — 하나만 먼저 exit하면 나머지가 가려진다
+  if (missing.length || badQuality.length) process.exit(1);
+  console.log('✅ 모든 연결 매장에 오늘 초안 준비됨 (품질 점검 통과)');
 }
 
 main().catch((e) => {
