@@ -6,6 +6,7 @@ import { AppHeader } from '@/components/app-header';
 import { CHANNELS, AUTOMATION_LABEL, channelIdOfPost, type ChannelId } from '@shared/channels/registry';
 import { pickDailyFocus } from '@shared/content-engine/daily-focus';
 import { DailyFocusCard } from '@/components/daily-focus-card';
+import { InstallPrompt } from '@/components/install-prompt';
 import { GenerateButton } from '@/components/generate-button';
 import { DashboardBriefing, type BriefingItem } from '@/components/dashboard-briefing';
 import { FirstDraftPending } from '@/components/first-draft-pending';
@@ -360,6 +361,10 @@ export default async function DashboardPage() {
         <section className="mt-10">
           <WeekPlan plan={plan} />
         </section>
+
+        {/* 홈 화면 추가 — 매일 카톡을 찾아 들어오는 마찰을 없앤다.
+            첫 화면을 가리지 않도록 아래에 두고, 닫으면 30일간 다시 묻지 않는다. */}
+        <InstallPrompt />
       </main>
     </div>
   );
