@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { persistDrafts, type PersistedPost } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
-import { dailyDirective, repeatedTitleWords, titleDirective } from '@shared/content-engine/angles';
+import { dailyDirective, repeatedTitleWords, titleDirective, recentFirstWords } from '@shared/content-engine/angles';
 import { seasonalContext } from '@shared/content-engine/seasonal';
 import { resolveOfferings } from '@shared/content-engine/offerings';
 import { resolveBusinessType } from '@shared/business/taxonomy';
@@ -44,7 +44,8 @@ export async function generateForStore(
     .eq('channel', 'blog')
     .not('title', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(5);
+    // 5건 창을 벗어난 장기 반복을 못 잡아 12로(크론과 동일 기준)
+    .limit(12);
   const recentTitles = (recent ?? []).map((r) => r.title).filter(Boolean) as string[];
   const banned = repeatedTitleWords(recentTitles, [store.name, store.address ?? '']);
   const avoidHint = recentTitles.length
@@ -83,6 +84,8 @@ export async function generateForStore(
       banned,
       `${nowSeason.month}월 ${nowSeason.season}`,
       resolveBusinessType(store.industry_id).offering,
+      // 매번 같은 단어로 시작하는 관성을 막는다(실측: 30건 중 16건이 '옥천'으로 시작)
+      recentFirstWords(recentTitles),
     ),
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];

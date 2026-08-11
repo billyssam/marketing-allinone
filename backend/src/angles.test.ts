@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan, titleStyleFor, repeatedTitleWords, titleDirective } from '../../shared/content-engine/angles.js';
+import { angleFor, kstDayNumber, anglesForOffering, dailyDirective, weekPlan, titleStyleFor, repeatedTitleWords, titleDirective, recentFirstWords } from '../../shared/content-engine/angles.js';
 import { getIndustryPrompt } from '../../shared/content-engine/registry.js';
 import type { DraftInput } from '../../shared/content-engine/types.js';
 
@@ -129,6 +129,34 @@ test('titleDirective: plain 스타일만 상호 시작 허용', () => {
   const other = { key: 'question', rule: 'r', example: ex };
   assert.ok(titleDirective(plain, '가게').includes('상호로 시작해도 됨'), 'plain은 예외 안내');
   assert.ok(!titleDirective(other, '가게').includes('상호로 시작해도 됨'), '다른 스타일은 금지 유지');
+});
+
+test('첫 어절 관성: 최근에 쓴 시작 단어를 구체적으로 금지한다', () => {
+  // 실측(8/11): 30건 중 16건이 '옥천'으로 시작. "첫 두 어절에 지역명 금지"라는 추상 규칙은
+  // 안 지켜졌고, 지역명 자체는 SEO상 제목에 있어야 해서 금지어로 뺄 수도 없다.
+  const titles = [
+    '옥천 안내면 쿵더쿵의 여름',
+    '옥천에서 만난 달콤한 위로',
+    '버터 향 스치는 길, 쿵더쿵',
+    '옥천 쿵더쿵, 오늘의 한 잔',
+  ];
+  const starts = recentFirstWords(titles);
+  assert.deepEqual(starts, ['옥천', '버터'], `첫 어절만 중복 없이: ${JSON.stringify(starts)}`);
+
+  const style = titleStyleFor('s-start', 1);
+  const t = titleDirective(style, '쿵더쿵', [], undefined, 'menu', starts);
+  assert.ok(t.includes('시작**하지 말 것'), t);
+  assert.ok(t.includes('옥천'), '구체 단어가 들어가야');
+  assert.ok(t.includes('문장 중간·뒤에 넣는 건 괜찮다'), '지역명 자체를 막으면 SEO 손해');
+
+  // 안 넘기면 해당 문구가 없어야(기존 호출부 무영향)
+  assert.ok(!titleDirective(style, '쿵더쿵').includes('시작**하지 말 것'));
+});
+
+test('첫 어절 수집: 상한을 지키고 짧은 조각은 버린다', () => {
+  const many = ['가게 하나', '나무 둘', '다리 셋', '라면 넷', '마루 다섯', '바다 여섯', '사과 일곱'];
+  assert.equal(recentFirstWords(many, 3).length, 3, '상한');
+  assert.deepEqual(recentFirstWords(['A 짧음', '옥천 정상']), ['옥천'], '1글자 첫 어절은 제외');
 });
 
 test('범용성: 제목 few-shot 예시가 업종(offering)별로 갈린다', () => {

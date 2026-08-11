@@ -165,6 +165,13 @@ export function titleDirective(
   banned: string[] = [],
   season?: string,
   offering: OfferingKind = 'menu',
+  /**
+   * 최근 제목들이 실제로 쓴 첫 어절 — "이 단어로 시작하지 말 것"으로 못박는다.
+   * "첫 두 어절에 지역명 금지" 같은 **추상 규칙은 지켜지지 않았다**(실측: 30건 중 16건이
+   * '옥천'으로 시작). 지역명 자체는 SEO상 제목에 있어야 하므로 금지어에서 빼는 게 맞고,
+   * 막아야 할 건 "매번 그 단어로 시작하는" 관성이다.
+   */
+  avoidStartWords: string[] = [],
 ): string {
   return (
     `제목 규칙(반드시 지킬 것): ${style.rule}\n` +
@@ -175,8 +182,38 @@ export function titleDirective(
         ` "지역명 ${storeName}, ~" 형태는 특히 금지 — 이 틀로 시작하면 실패한 제목이다.`) +
     // 계절도 angle(기획 단계)에만 있으면 제목에서 샌다 — 제목 지시에 직접 못박는다
     (season ? `\n  · 계절·시기 표현을 쓴다면 반드시 지금(${season})에 맞을 것. 다른 계절 언급 금지.` : '') +
-    (banned.length ? `\n  · 🚫 이 단어들은 제목에 쓰지 말 것: ${banned.join(', ')}` : '')
+    (banned.length ? `\n  · 🚫 이 단어들은 제목에 쓰지 말 것: ${banned.join(', ')}` : '') +
+    // 지역명은 제목에 있어야 하지만 **매번 맨 앞**이면 관성이다. 구체 단어로 못박는다.
+    (avoidStartWords.length
+      ? `\n  · 🚫 제목을 이 단어로 **시작**하지 말 것: ${avoidStartWords.join(', ')}` +
+        ` (문장 중간·뒤에 넣는 건 괜찮다)`
+      : '')
   );
+}
+
+/**
+ * 최근 제목들이 실제로 쓴 첫 어절 — 다음 제목이 그 단어로 시작하지 않게 막는 데 쓴다.
+ *
+ * 실측(2026-08-11): 30건 중 16건이 '옥천'으로 시작했다. "첫 두 어절에 지역명 금지"라는
+ * 추상 규칙은 지켜지지 않았고, 지역명 자체는 SEO상 제목에 있어야 하므로 금지어로 뺄 수도 없다.
+ * → 막을 것은 "그 단어로 **시작**하는" 관성뿐이라 첫 어절만 따로 모은다.
+ */
+export function recentFirstWords(titles: string[], max = 6): string[] {
+  const out: string[] = [];
+  for (const t of titles) {
+    const w = (t ?? '').trim().split(/\s+/)[0]?.replace(/[^가-힣a-zA-Z0-9]/g, '');
+    if (!w || w.length < 2) continue;
+    // "옥천"과 "옥천에서"는 조사만 다른 같은 관성이다 → 접두가 겹치면 짧은 쪽만 남긴다
+    // (repeatedTitleWords가 주소 대조에 쓰는 방식과 동일)
+    const i = out.findIndex((o) => o.startsWith(w) || w.startsWith(o));
+    if (i >= 0) {
+      if (w.length < out[i].length) out[i] = w;
+      continue;
+    }
+    out.push(w);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 /**

@@ -20,7 +20,7 @@ import { placeFromBrandTone } from '../../shared/content-engine/place-facts.js';
 import { resolveOfferings } from '../../shared/content-engine/offerings.js';
 import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/registry.js';
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
-import { dailyDirective, repeatedTitleWords, titleDirective } from '../../shared/content-engine/angles.js';
+import { dailyDirective, repeatedTitleWords, titleDirective, recentFirstWords } from '../../shared/content-engine/angles.js';
 import { seasonalContext } from '../../shared/content-engine/seasonal.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
@@ -151,7 +151,9 @@ async function main() {
       .eq('channel', 'blog')
       .not('title', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(5);
+      // 5건만 보면 그 창을 벗어난 장기 반복을 못 잡는다
+      // (실측: 30건 중 '따뜻한' 11회 — 5건 창에서는 매번 "처음 쓰는 말"로 보였다)
+      .limit(12);
     const recentTitles = (recent ?? []).map((r) => r.title).filter(Boolean) as string[];
     // 반복 시어를 명시적으로 금지 — "겹치지 않게" 소극 지시로는 '쉼표'류 관성을 못 막음(실측)
     const banned = repeatedTitleWords(recentTitles, [s.name, s.address ?? '']);
@@ -162,7 +164,14 @@ async function main() {
     // 제목 규칙은 본문 단계에 직접 주입(angle에 넣으면 기획 단계에서 유실 — 실측)
     const sn = seasonalContext(Date.now());
     // offering을 넘겨야 제목 few-shot 예시가 업종에 맞는다(안 넘기면 전 업종이 카페 예시를 본다)
-    const titleRule = titleDirective(daily.titleStyle, s.name, banned, `${sn.month}월 ${sn.season}`, offering);
+    const titleRule = titleDirective(
+      daily.titleStyle,
+      s.name,
+      banned,
+      `${sn.month}월 ${sn.season}`,
+      offering,
+      recentFirstWords(recentTitles),
+    );
 
     const input: DraftInput = {
       store: {
