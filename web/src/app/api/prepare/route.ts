@@ -36,7 +36,13 @@ export async function POST(req: NextRequest) {
     .select('id')
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  // 이미 published였거나 없는 id → 멱등하게 ok (다시 눌러도 무해)
+
+  // 0행이면 (a)이미 published거나 (b)없는 id다. 둘을 뭉뚱그려 ok를 주면
+  // **존재하지 않는 글에도 성공을 반환**한다(실측). 멱등이 필요한 건 (a)뿐이므로 구분한다.
+  if (!data) {
+    const { data: exists } = await supabase.from('posts').select('id').eq('id', postId).maybeSingle();
+    if (!exists) return NextResponse.json({ error: '초안을 찾을 수 없습니다' }, { status: 404 });
+  }
   return NextResponse.json({ ok: true, updated: Boolean(data) });
 }
 

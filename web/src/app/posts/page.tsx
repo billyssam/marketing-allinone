@@ -4,6 +4,7 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { postDisplayTitle } from '@/lib/posts';
 import { relTime } from '@/lib/activity';
+import { UnpublishButton } from '@/components/unpublish-button';
 
 export const metadata = { title: '글 보관함' };
 
@@ -204,6 +205,9 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
                       보기 ↗
                     </a>
                   )}
+                  {/* assisted 발행은 external_url이 없어 발행됨 글에 **버튼이 하나도 없었다**.
+                      "완료는 눌렀는데 앱에서 발행은 안 한" 흔한 경우를 되돌릴 길이 필요하다. */}
+                  {group === 'published' && <UnpublishButton postId={p.id as string} />}
                 </div>
               );
             })}
