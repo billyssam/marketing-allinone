@@ -1,6 +1,40 @@
 import type { BrandTone, PlaceInfo } from './types';
 
 /**
+ * 네이버 플레이스 주소 검증 — **저장 시점에** 잡는다.
+ *
+ * 지금까지 입력값을 그대로 저장했다. 잘못 넣으면 크롤이 매일 조용히 실패하고
+ * 사실 없는 글이 계속 나간다(사장님은 왜 메뉴·영업시간이 안 들어가는지 모른다).
+ * 크롤 단계 격리는 이미 넣었지만, 애초에 못 들어오게 막는 쪽이 낫다.
+ *
+ * ⚠️ playwright에 의존하지 않는 순수 함수라 웹(서버 액션)에서도 안전하다.
+ *    place-crawler의 extractPlaceId를 쓰면 barrel이 playwright를 끌어와 빌드가 깨진다.
+ */
+const PLACE_ID_PATTERNS = [
+  /place\/(\d{6,})/, // m.place.naver.com/place/123/home · map.naver.com/p/entry/place/123
+  /placePath.*?\/(\d{6,})/,
+  /\/(\d{6,})(?:\/|\?|$)/, // 마지막 폴백: 경로 끝 숫자
+];
+
+export type PlaceUrlCheck =
+  | { ok: true; placeId: string; url: string }
+  | { ok: false; reason: 'empty' | 'shortlink' | 'unknown' };
+
+export function checkPlaceUrl(raw: string | null | undefined): PlaceUrlCheck {
+  const s = (raw ?? '').trim();
+  if (!s) return { ok: false, reason: 'empty' }; // 플레이스는 선택 입력이라 빈 값은 오류가 아니다
+
+  // 지도 앱 공유는 naver.me 단축 링크로 나온다 — 여기서는 ID를 알 수 없어 서버가 펼쳐야 한다
+  if (/naver\.me\//i.test(s)) return { ok: false, reason: 'shortlink' };
+
+  for (const re of PLACE_ID_PATTERNS) {
+    const m = s.match(re);
+    if (m) return { ok: true, placeId: m[1], url: `https://m.place.naver.com/place/${m[1]}/home` };
+  }
+  return { ok: false, reason: 'unknown' };
+}
+
+/**
  * 네이버 플레이스 영업시간 문자열 정제.
  * 크롤러가 상태 배지·라스트오더 중첩 span을 구분자 없이 이어붙여
  *   "영업 중20:00에 라스트오더20시 0분에 라스트오더 - 동절기에는 저녁 8시까지 영업합니다. :)"

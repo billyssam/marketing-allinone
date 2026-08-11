@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { generateForStore } from '@/lib/generate';
+import { resolvePlaceUrl, placeUrlMessage } from '@/lib/place-url';
 import type { ChannelId } from '@shared/channels/registry';
 import type { StoreOffering } from '@shared/content-engine/types';
 
@@ -32,13 +33,23 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
     .slice(0, 40);
   const brandTone = offerings.length ? { offerings } : {};
 
+  // 플레이스 주소는 **저장 전에** 확인한다. 잘못 들어가면 크롤이 매일 조용히 실패하고
+  // 사실 없는 글이 계속 나가는데, 사장님은 왜 메뉴·영업시간이 안 들어가는지 모른다.
+  // 지도 앱 공유는 naver.me 단축 링크라 서버에서 펼쳐 실제 주소로 정규화한다.
+  let placeUrl: string | null = null;
+  if ((payload.naverPlaceUrl ?? '').trim()) {
+    const checked = await resolvePlaceUrl(payload.naverPlaceUrl);
+    if (!checked.ok) return { ok: false, error: placeUrlMessage(checked.reason as 'shortlink' | 'unknown') };
+    placeUrl = checked.url;
+  }
+
   const { data: store, error } = await supabase
     .from('stores')
     .insert({
       owner_id: user.id,
       name: payload.storeName,
       industry_id: payload.industryId,
-      naver_place_url: payload.naverPlaceUrl ?? null,
+      naver_place_url: placeUrl,
       address: payload.address ?? null,
       brand_tone: brandTone,
       onboarded_at: new Date().toISOString(),
@@ -66,7 +77,7 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
             id: store.id,
             name: payload.storeName,
             industry_id: payload.industryId,
-            naver_place_url: payload.naverPlaceUrl ?? null,
+            naver_place_url: placeUrl,
             address: payload.address ?? null,
             brand_tone: brandTone,
           },
