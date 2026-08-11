@@ -137,6 +137,18 @@ function resolveKey(config?: { apiKey?: string }): string | null {
   );
 }
 
+/**
+ * 한 번에 요청할 채널 수 상한.
+ *
+ * 실측(2026-08-11, 무인 4일간 품질 점검이 매일 잡아냄):
+ *   4채널 매장 → 전부 목표 분량 통과(플레이스 284·인스타 531)
+ *   8채널 매장 → 전부 하한 미달(플레이스 110·카카오 71·당근 191·밴드 171)
+ * 한 응답에 채널이 많아질수록 모델이 각각을 알아서 줄인다. 지시문으로는 못 막았다
+ * ("분량은 반드시 채운다"를 명시했는데도 4일 연속 미달).
+ * → 나눠서 부른다. 호출이 늘지만 짧은 글은 사장님이 쓸 수가 없다.
+ */
+const MAX_CHANNELS_PER_CALL = 4;
+
 export async function nativizeShortForm(
   master: DraftOutput,
   input: DraftInput,
@@ -145,6 +157,19 @@ export async function nativizeShortForm(
 ): Promise<Partial<Record<ChannelId, NativeVersion>>> {
   const targets = channels.filter((c) => SHORT_FORM.includes(c));
   if (!targets.length) return {};
+
+  // 상한을 넘으면 나눠서 부르고 합친다(각 배치는 독립이라 실패해도 나머지는 산다)
+  if (targets.length > MAX_CHANNELS_PER_CALL) {
+    const batches: ChannelId[][] = [];
+    for (let i = 0; i < targets.length; i += MAX_CHANNELS_PER_CALL) {
+      batches.push(targets.slice(i, i + MAX_CHANNELS_PER_CALL));
+    }
+    const merged: Partial<Record<ChannelId, NativeVersion>> = {};
+    for (const b of batches) {
+      Object.assign(merged, await nativizeShortForm(master, input, b, config));
+    }
+    return merged;
+  }
 
   const key = resolveKey(config);
   if (!key) return {}; // 키 없으면 조용히 스킵 (formatter 규칙기반 폴백)
