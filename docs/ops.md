@@ -58,6 +58,10 @@
 ## 수동 점검 명령 (로컬)
 
 ```bash
+# 🚦 파일럿 준비 점검 — "지금 사장님을 받아도 되나" 한 번에
+# (서비스·초대 링크·매장별 오늘 초안+품질·Gemini 한도. 막는 것만 exit 1)
+cd backend && npm run preflight
+
 # 인증 설정 (가입·로그인·재설정이 실제로 되는가)
 cd backend && npx tsx src/check-auth-config.ts
 
