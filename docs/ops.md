@@ -63,7 +63,9 @@
 cd backend && npm run preflight
 
 # 인증 설정 (가입·로그인·재설정이 실제로 되는가)
-cd backend && npx tsx src/check-auth-config.ts
+# ⚠️ OWNER_SIGNUP_MODE를 빼면 "확인메일 ON인데 SMTP 없음"으로 가짜 🔴이 뜬다.
+#    크론은 repo variable로 이 값을 주고 있다 — 로컬에서도 똑같이 줘야 같은 결과가 나온다.
+cd backend && OWNER_SIGNUP_MODE=invite npx tsx src/check-auth-config.ts
 
 # 파일럿 사장님 초대 (메일 없이 계정 열기 → 카톡 안내문 출력)
 cd backend && npx tsx src/invite-owner.ts owner@example.com "쿵더쿵 사장님"
