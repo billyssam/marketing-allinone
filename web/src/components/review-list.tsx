@@ -22,17 +22,29 @@ const SENTIMENT: Record<string, { label: string; color: string; dot: string }> =
 
 type Filter = 'all' | 'pending' | 'negative';
 
-export function ReviewList({ reviews, placeId }: { reviews: ReviewRow[]; placeId: string | null }) {
-  const [filter, setFilter] = useState<Filter>('pending');
+/**
+ * 탭 숫자는 **매장 전체 기준**(count 쿼리)으로 받는다.
+ * 목록은 렌더 비용 때문에 최근 100건만 내려오는데, 그 배열에서 다시 세면
+ * 같은 화면에서 "부정 미답 40건"(KPI) 옆에 "부정 33"(탭)이 뜬다 — 리뷰 120건에서 실측.
+ * 요약 KPI는 이미 전체 기준으로 고쳤으면서 탭만 남아 있던 자리다.
+ */
+export interface ReviewTotals {
+  all: number;
+  pending: number;
+  negative: number;
+}
 
-  const counts = useMemo(
-    () => ({
-      all: reviews.length,
-      pending: reviews.filter((r) => !r.replySentAt && r.replyDraft).length,
-      negative: reviews.filter((r) => r.sentiment === 'negative').length,
-    }),
-    [reviews],
-  );
+export function ReviewList({
+  reviews,
+  placeId,
+  totals,
+}: {
+  reviews: ReviewRow[];
+  placeId: string | null;
+  totals: ReviewTotals;
+}) {
+  const [filter, setFilter] = useState<Filter>('pending');
+  const counts = totals;
 
   const shown = useMemo(() => {
     const list =
@@ -77,11 +89,14 @@ export function ReviewList({ reviews, placeId }: { reviews: ReviewRow[]; placeId
       {shown.length === 0 ? (
         <div className="panel rounded-[var(--radius-lg)] p-10 text-center">
           <p className="text-[14px] text-[var(--color-fg-2)]">
-            {filter === 'pending'
-              ? '답글 대기 중인 리뷰가 없습니다. 모두 처리되었어요.'
-              : filter === 'negative'
-                ? '부정 리뷰가 없습니다. 좋은 신호예요.'
-                : '아직 수집된 리뷰가 없습니다. 리뷰는 매일 자동으로 수집됩니다.'}
+            {/* 전체 수치는 있는데 목록에 없다면 "없다"고 말하면 안 된다 — 최근 100건 밖이라는 뜻이다 */}
+            {counts[filter] > 0
+              ? '해당하는 리뷰가 최근 100건 밖에 있어요. 네이버 플레이스에서 확인해 주세요.'
+              : filter === 'pending'
+                ? '답글 대기 중인 리뷰가 없습니다. 모두 처리되었어요.'
+                : filter === 'negative'
+                  ? '부정 리뷰가 없습니다. 좋은 신호예요.'
+                  : '아직 수집된 리뷰가 없습니다. 리뷰는 매일 자동으로 수집됩니다.'}
           </p>
         </div>
       ) : (
@@ -89,6 +104,12 @@ export function ReviewList({ reviews, placeId }: { reviews: ReviewRow[]; placeId
           {shown.map((r) => (
             <ReviewCard key={r.id} review={r} placeId={placeId} />
           ))}
+          {shown.length < counts[filter] && (
+            <p className="py-2 text-center text-[12.5px] text-[var(--color-fg-3)]">
+              답글이 필요한 리뷰부터 {shown.length.toLocaleString()}건을 보여드리고 있어요.
+              나머지 {(counts[filter] - shown.length).toLocaleString()}건도 위 요약에는 모두 반영돼 있습니다.
+            </p>
+          )}
         </div>
       )}
     </div>

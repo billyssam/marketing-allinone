@@ -76,7 +76,7 @@ export function seasonalContext(nowMs: number): Seasonal {
 
   const hint = occasion
     ? `지금은 ${month}월, ${season}이고 곧 ${withJosa(occasion, '이에요예요')}. 이 시기·분위기를 자연스럽게 살려주세요(억지 홍보 X).`
-    : `지금은 ${month}월, ${season}이에요. 이 계절 분위기를 자연스럽게 살려주세요.`;
+    : `지금은 ${month}월, ${withJosa(season, '이에요예요')}. 이 계절 분위기를 자연스럽게 살려주세요.`;
 
   return { month, season, occasion, hint };
 }

@@ -154,12 +154,9 @@ export default async function ReviewsPage() {
         )}
 
         <section className="mt-6">
-          <ReviewList reviews={reviews} placeId={placeId} />
-          {hiddenCount > 0 && (
-            <p className="mt-4 text-center text-[12.5px] text-[var(--color-fg-3)]">
-              답글이 필요한 리뷰부터 {reviews.length.toLocaleString()}건을 보여드리고 있어요. 나머지 {hiddenCount.toLocaleString()}건도 위 요약에는 모두 반영돼 있습니다.
-            </p>
-          )}
+          {/* 잘림 안내는 리스트 안에서 한다 — 어떤 탭을 보고 있는지는 리스트만 안다.
+              페이지에서 한 번 더 알리면 같은 화면에 비슷한 문장이 두 개가 된다. */}
+          <ReviewList reviews={reviews} placeId={placeId} totals={{ all: total, pending, negative: neg }} />
         </section>
       </main>
     </div>

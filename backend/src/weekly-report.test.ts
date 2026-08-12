@@ -84,6 +84,29 @@ test('부정 리뷰 미답변은 급한 항목으로 올라온다', () => {
   assert.ok(r.todos.some((t) => !t.urgent && t.text.includes('답글 안 단 리뷰 1건')), JSON.stringify(r.todos));
 });
 
+test("'새 리뷰'는 손님이 남긴 날 기준 — 늦게 긁어온 과거 리뷰를 이번 주로 세지 않는다", () => {
+  // 실측(2026-08-12 스타일링룸): 실제 이번 주 2건인데 12건으로 보고되고 있었다.
+  // 첫 크롤에서 과거 리뷰가 전부 crawled_at=오늘로 들어오기 때문. 그 숫자가 카톡으로 나간다.
+  const reviews: ReportReview[] = [
+    { posted_at: ago(1), crawled_at: ago(0), sentiment: 'positive' },
+    { posted_at: ago(3), crawled_at: ago(0), sentiment: 'positive' },
+    { posted_at: ago(20), crawled_at: ago(0), sentiment: 'negative' }, // 20일 전 글을 오늘 수집
+    { posted_at: ago(43), crawled_at: ago(0), sentiment: 'positive' },
+  ];
+  const r = buildWeeklyReport('가게', [], reviews, NOW);
+  assert.equal(r.stats.find((s) => s.label === '새 리뷰')?.value, '2', '이번 주에 올라온 2건만');
+  assert.ok(!/이번 주 리뷰 4건/.test(r.headline), `과거 리뷰를 이번 주로 세면 안 된다: ${r.headline}`);
+});
+
+test('posted_at이 없으면 crawled_at으로 떨어진다(구 데이터 호환)', () => {
+  const reviews: ReportReview[] = [
+    { crawled_at: ago(1), sentiment: 'positive' },
+    { crawled_at: ago(9), sentiment: 'negative' },
+  ];
+  const r = buildWeeklyReport('가게', [], reviews, NOW);
+  assert.equal(r.stats.find((s) => s.label === '새 리뷰')?.value, '1');
+});
+
 test('긍정 비율은 이번 주 리뷰 기준으로 계산된다', () => {
   const reviews: ReportReview[] = [
     { crawled_at: ago(1), sentiment: 'positive' },

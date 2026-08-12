@@ -93,7 +93,12 @@ export function buildWeeklyReport(
   // 이걸 안 보여주면 "준비 28 / 안 올린 글 4"만 남아 24개가 발행된 것처럼 읽힌다(실측).
   const expired = weekPosts.filter((p) => p.status === 'archived' && !p.published_at);
 
-  const weekReviews = reviews.filter((r) => inWindow(r.crawled_at ?? r.posted_at));
+  // "새 리뷰"는 **손님이 이번 주에 남긴** 리뷰다. 우리가 언제 긁어왔는지가 아니다.
+  // crawled_at을 앞에 두면 첫 크롤에서 과거 리뷰가 전부 '이번 주'로 잡힌다 —
+  // 스타일링룸 실측: 실제 2건인데 12건으로 보고되고 있었다(최대 43일 전 글까지).
+  // 그 숫자가 월요일 다이제스트로 사장님 카톡에 그대로 간다.
+  // posted_at은 운영 21건 전부 채워져 있고 이상값 0이라 이쪽을 우선한다(없을 때만 crawled_at).
+  const weekReviews = reviews.filter((r) => inWindow(r.posted_at ?? r.crawled_at));
   const positive = weekReviews.filter((r) => r.sentiment === 'positive');
   const negative = weekReviews.filter((r) => r.sentiment === 'negative');
   const unreplied = reviews.filter((r) => !r.reply_sent_at);
