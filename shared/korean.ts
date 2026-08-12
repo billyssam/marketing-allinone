@@ -6,7 +6,7 @@
  * 고정 조사를 쓰면 **손님에게 나가는 글의 절반이 틀린다.** 티가 확 나는 종류의 오류다.
  */
 
-type JosaPair = '은는' | '이가' | '을를' | '과와' | '이에요예요' | '으로로' | '아야';
+type JosaPair = '은는' | '이가' | '을를' | '과와' | '이에요예요' | '으로로' | '아야' | '이라라';
 
 const PAIRS: Record<JosaPair, [withBatchim: string, withoutBatchim: string]> = {
   은는: ['은', '는'],
@@ -16,6 +16,8 @@ const PAIRS: Record<JosaPair, [withBatchim: string, withoutBatchim: string]> = {
   이에요예요: ['이에요', '예요'],
   으로로: ['으로', '로'],
   아야: ['아', '야'],
+  // 절기·이벤트 이름에 붙는다("곧 크리스마스라", "곧 어린이날이라")
+  이라라: ['이라', '라'],
 };
 
 /**

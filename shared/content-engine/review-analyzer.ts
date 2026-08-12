@@ -170,14 +170,15 @@ export function draftReply(ctx: ReplyContext, sentiment: Sentiment): string {
     ];
     const closers = [
       `다음에 다시 기회를 주신다면 더 좋은 모습으로 보답하겠습니다. — ${store} 드림`,
-      `기회를 주시면 달라진 ${store}로 꼭 보여드리겠습니다.`,
+      `기회를 주시면 달라진 ${withJosa(store, '으로로')} 꼭 보여드리겠습니다.`,
       `언제든 다시 찾아주시면 정성껏 모시겠습니다. — ${store}`,
     ];
     return `${pick(openers, seed)} ${pick(bodies, seed + 'b')} ${pick(closers, seed + 'c')}`;
   }
 
   if (sentiment === 'positive') {
-    const focus = detail ? `"${detail}"라고 해주신 말씀` : kw ? `${kw}라고 느껴주신 마음` : '따뜻한 후기';
+    // 따옴표 뒤는 관례상 '라고'로 고정, 맨몸 키워드는 받침을 봐야 한다("친절이라고" / "커피라고")
+    const focus = detail ? `"${detail}"라고 해주신 말씀` : kw ? `${withJosa(kw, '이라라')}고 느껴주신 마음` : '따뜻한 후기';
     const openers = [
       `${who}, ${focus} 정말 감사합니다.`,
       `${who}, ${focus}에 저희가 더 힘이 났어요.`,

@@ -168,6 +168,24 @@ export function businessTypesByGroup(group: BizGroup): BusinessType[] {
   return BUSINESS_TYPES.filter((b) => b.group === group);
 }
 
+/** 손님이 찾아오는 주소가 없어 네이버 플레이스에 등록되지 않는 업종 */
+const NO_PLACE_PAGE = new Set(['online_seller', 'freelancer', 'tutoring']);
+
+/**
+ * 이 사업이 네이버 플레이스 페이지를 가질 만한가 — 플레이스 연결을 권할지 판단.
+ *
+ * ⚠️ `saleModes.includes('offline')`로 판단하면 안 된다. saleModes는 **어떻게 파는가**이지
+ * 물리적 매장 유무가 아니다. 미용실·헬스장·병원·학원·펜션은 전부 `['reservation']`이라
+ * offline이 false다 — 그래서 43업종 중 32곳이 플레이스 연결 안내를 **한 번도 못 받았다**
+ * (2026-08-12 실측). 정작 그 안내가 콘텐츠 품질 격차의 최대 원인이다.
+ *
+ * 그래서 기본을 '있다'로 두고, 진짜 없는 쪽만 예외로 적는다.
+ * 출장 서비스(이사·청소·수리)도 한국에서는 업체로 플레이스에 등록된다.
+ */
+export function hasPlacePage(biz: BusinessType): boolean {
+  return !NO_PLACE_PAGE.has(biz.id);
+}
+
 /**
  * 이 사업에 맞는 추천 채널 세트를 유도.
  * 업종을 하드코딩하지 않고 offering·saleModes·group에서 파생 → 새 업종도 자동 대응.

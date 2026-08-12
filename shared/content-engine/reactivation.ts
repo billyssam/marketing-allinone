@@ -54,7 +54,7 @@ export function draftReactivation(input: ReactivationInput): string {
 
   const openers = occasion
     ? [
-        `${who}, 오랜만이에요. 곧 ${occasion}이라 문득 생각났어요. ${store}입니다.`,
+        `${who}, 오랜만이에요. 곧 ${withJosa(occasion, '이라라')} 문득 생각났어요. ${store}입니다.`,
         `${who}, ${occasion} 앞두고 안부 전해요. ${withJosa(store, '이에요예요')}.`,
       ]
     : [

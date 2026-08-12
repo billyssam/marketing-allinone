@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { updateStore } from '@/app/settings/actions';
 import { BIZ_GROUPS, businessTypesByGroup, resolveBusinessType, type BizGroup } from '@shared/business/taxonomy';
 import type { StoreOffering } from '@shared/content-engine/types';
+import { withJosa } from '@shared/korean';
 
 const BIZ_GROUP_ORDER: BizGroup[] = [
   'food', 'retail', 'beauty', 'health', 'medical', 'education', 'lifestyle', 'professional', 'hospitality',
@@ -118,7 +119,7 @@ export function SettingsForm({ store }: { store: StoreForm }) {
         <div className="space-y-2">
           {f.offerings.length === 0 && (
             <p className="rounded-xl border border-dashed border-[var(--color-hair-strong)] px-4 py-3 text-[13px] text-[var(--color-fg-3)]">
-              아직 등록된 {offeringUi.label}이 없어요. 추가하면 글에 실제 이름·가격이 들어갑니다.
+              아직 등록된 {withJosa(offeringUi.label, '이가')} 없어요. 추가하면 글에 실제 이름·가격이 들어갑니다.
             </p>
           )}
           {f.offerings.map((o, i) => (

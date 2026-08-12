@@ -12,6 +12,7 @@ import {
   type BizGroup,
 } from '@shared/business/taxonomy';
 import { offeringNoun } from '@shared/content-engine/offerings';
+import { withJosa } from '@shared/korean';
 import type { StoreOffering } from '@shared/content-engine/types';
 
 const GROUP_ORDER: ChannelGroup[] = ['acquire', 'sell', 'retain'];
@@ -223,7 +224,7 @@ export function OnboardingWizard() {
       )}
 
       {step === 2 && (
-        <Step title={`어떤 ${offeringWord}${offeringWord === '메뉴' ? '를' : '을'} 파세요?`} desc={`두세 개만 적어두면 첫 글부터 실제 이름·가격이 들어가요. 건너뛰어도 괜찮아요.`}>
+        <Step title={`어떤 ${withJosa(offeringWord, '을를')} 파세요?`} desc={`두세 개만 적어두면 첫 글부터 실제 이름·가격이 들어가요. 건너뛰어도 괜찮아요.`}>
           <div className="space-y-2">
             {offerings.map((o, i) => (
               <div key={i} className="flex items-center gap-2">

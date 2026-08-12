@@ -14,8 +14,10 @@ import { POST_CHANNEL_LABEL, POST_CHANNEL_COLOR, POST_STATUS_LABEL, postDisplayT
 import { isReactivationTarget, daysSince } from '@shared/content-engine/reactivation';
 import { buildWeekly, buildFeed } from '@/lib/activity';
 import { DashboardStats, type StatStripData } from '@/components/dashboard-stats';
-import { resolveBusinessType, marketingFocusFor } from '@shared/business/taxonomy';
+import { resolveBusinessType, marketingFocusFor, hasPlacePage } from '@shared/business/taxonomy';
 import { resolveOfferings, offeringNoun } from '@shared/content-engine/offerings';
+import { withJosa } from '@shared/korean';
+import { pickNudge } from '@shared/nudge';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
 import { anglesForOffering, weekPlan } from '@shared/content-engine/angles';
 import { WeekPlan } from '@/components/week-plan';
@@ -110,6 +112,12 @@ export default async function DashboardPage() {
   const offerings = resolveOfferings(store.brand_tone, placeFromBrandTone(store.brand_tone));
   // 이번 주 콘텐츠 계획(각도 로테이션이 결정적 → 미리보기)
   const plan = weekPlan(business.offering, store.id, offerings.map((o) => o.name), Date.now(), 5);
+  // 지금 이 사장님에게 효과 큰 한 가지(플레이스 > 판매 항목). 둘 다 띄우지 않는다
+  const nudge = pickNudge({
+    hasPlaceUrl: !!store.naver_place_url,
+    offeringCount: offerings.length,
+    canHavePlace: hasPlacePage(business),
+  });
 
   // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
   const justOnboarded =
@@ -250,11 +258,24 @@ export default async function DashboardPage() {
         {/* 플레이스 연결 넛지 — 미연결이면 리뷰 수집·매장 사실 주입이 영영 시작되지 않음
             (온보딩에서 가장 흔히 건너뛰는 단계 = 콘텐츠 품질 격차의 최대 원인).
             오프라인 매장이 있는 업종에만 — 온라인 셀러 등엔 플레이스가 없을 수 있음(범용성) */}
-        {!store.naver_place_url && business.saleModes.includes('offline') && (
+        {nudge === 'place' && (
           <Link href="/settings" className="mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 transition hover:border-[var(--color-hair-strong)]">
             <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
               <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-amber)]" />
               <span><b className="text-[var(--color-fg)]">네이버 플레이스를 연결</b>하면 리뷰가 매일 자동 수집되고, 글에 실제 {offeringNoun(business.offering)}·영업시간이 들어가요</span>
+            </span>
+            <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">매장 설정 →</span>
+          </Link>
+        )}
+
+        {/* 판매 항목 넛지 — 플레이스가 없거나 크롤이 비었을 때 사실을 채우는 유일한 길.
+            온라인 전용 사업엔 플레이스 자체가 없으므로 여기가 **유일한 안내**다.
+            KPI 타일에 0이 뜨긴 하나 클릭할 수 없어 갈 곳이 없었다(2026-08-12 실측). */}
+        {nudge === 'offering' && (
+          <Link href="/settings" className="mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 transition hover:border-[var(--color-hair-strong)]">
+            <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-amber)]" />
+              <span><b className="text-[var(--color-fg)]">{withJosa(offeringNoun(business.offering), '을를')} 두세 개만</b> 적어두면 글에 실제 이름·가격이 들어가요</span>
             </span>
             <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">매장 설정 →</span>
           </Link>
