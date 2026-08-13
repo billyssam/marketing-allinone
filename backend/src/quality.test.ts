@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkPosts, targetLength } from '../../shared/content-engine/quality.js';
+import { hasConcreteFact } from '../../shared/content-engine/channel-native.js';
 
 const ok = (channel: string, bodyPlain: string, title?: string) => ({ channel, bodyPlain, title });
 
@@ -77,4 +78,34 @@ test('제목이 상호로 시작하는 틀을 잡는다', () => {
   // 상호가 뒤에 오면 정상
   const okTitle = checkPosts([ok('blog', '본문 '.repeat(400), '버터 향 번지는 오후, 옥천 쿵더쿵에서')], '쿵더쿵');
   assert.ok(!okTitle.some((i) => i.rule === 'title-prefix'));
+});
+
+/**
+ * 사실 판정은 생성(channel-native)과 점검(quality)이 **한 벌**이어야 한다.
+ * 두 벌이면 생성은 통과시키고 점검만 잡는(또는 반대) 어긋남이 생긴다.
+ */
+test('사실 판정 잣대가 생성 쪽과 같다', () => {
+  const yes = ['수제대추차 5,800원', '20:00에 라스트오더', '저녁 8시까지', '043-733-6616'];
+  const no = ['분위기 좋은 공간입니다', '따뜻한 위로를 드려요', '깊고 진한 풍미'];
+  for (const s of yes) assert.equal(hasConcreteFact(s), true, s);
+  for (const s of no) assert.equal(hasConcreteFact(s), false, s);
+});
+
+test('정보 채널에 사실이 없으면 점검이 잡는다(2026-08-13 실측 문장 그대로)', () => {
+  // 실제로 나갔던 플레이스 소식 — 가격도 시간도 없다
+  const body =
+    '한여름 옥천의 쨍한 햇살에 지칠 때, 쿵더쿵의 수제대추차 한 잔으로 위로받으세요. ' +
+    '땀 흘리는 여름날에도 마음을 차분하게 가라앉히는 깊은 풍미와 따뜻한 기운이 몸속 깊이 퍼져 편안함을 선사합니다. ' +
+    '붉고 진한 빛깔, 은은한 대추향, 묵직하면서도 깔끔한 여운까지. 시판 대추차와는 비교할 수 없는 진한 추억과 위로를 선사하는 쿵더쿵 수제대추차를 지금 만나보세요.';
+  const issues = checkPosts([{ channel: 'naver_place', title: null, bodyPlain: body }], '쿵더쿵', {
+    storeHasFacts: true,
+  });
+  assert.ok(issues.some((i) => i.rule === 'no-facts'), `잡아야 한다: ${JSON.stringify(issues)}`);
+
+  // 가격 한 줄만 붙어도 통과 — 보정의 마지막 방어선이 실제로 통과시키는지 확인
+  const repaired = `${body}\n\n수제대추차 5,800원 · 20:00에 라스트오더`;
+  const after = checkPosts([{ channel: 'naver_place', title: null, bodyPlain: repaired }], '쿵더쿵', {
+    storeHasFacts: true,
+  });
+  assert.ok(!after.some((i) => i.rule === 'no-facts'), `보정 후엔 통과해야: ${JSON.stringify(after)}`);
 });

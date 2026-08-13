@@ -18,6 +18,19 @@ export interface NativeVersion {
   tags?: string[];
 }
 
+/** 구체적 사실(가격·전화·시각)이 문장에 하나라도 있는가 — 품질 점검과 **같은 잣대**를 쓴다 */
+export const CONCRETE_FACT_RE = /[\d,]{3,}\s*원|\d{2,3}-\d{3,4}-\d{4}|\d{1,2}\s*시|\d{1,2}:\d{2}/;
+export function hasConcreteFact(body: string): boolean {
+  return CONCRETE_FACT_RE.test(body);
+}
+
+/**
+ * 사실이 반드시 들어가야 하는 채널 — 손님이 "갈지 말지"를 여기서 정한다.
+ * 프롬프트 규칙 4가 이미 "최소 1개"를 명시하는데도 빠진 적이 있어(2026-08-13 플레이스 소식),
+ * **지시문이 아니라 코드로** 보장한다. 채널 분할 때와 같은 교훈이다.
+ */
+const FACT_REQUIRED: ChannelId[] = ['naver_place', 'google_business'];
+
 /**
  * 매장 실제 사실을 재작성 프롬프트에 직접 주입.
  *
@@ -26,6 +39,75 @@ export interface NativeVersion {
  * 그 결과 마스터는 사실 9종을 담는데 단문 채널은 0~1종만 남았다
  * (플레이스 소식은 "정보 중심" 브리프인데 정작 정보가 없었다).
  */
+/**
+ * 정보 채널에 사실이 없으면 그 채널만 다시 쓴다. 그래도 없으면 한 줄을 덧붙인다.
+ *
+ * 왜 재작성부터인가: 덧붙인 문장은 티가 난다. 본문에 녹아든 게 낫다.
+ * 왜 덧붙이기까지 두는가: 사장님이 매일 붙여넣는 결과물이라 "그날은 없었다"가 없어야 한다.
+ * 비용: 네이티브 재작성은 flash-lite(별도 쿼터 ~1000/일)라 한 채널 재시도는 무시할 수준.
+ */
+async function repairFactlessChannels(
+  out: Partial<Record<ChannelId, NativeVersion>>,
+  targets: ChannelId[],
+  input: DraftInput,
+  genAI: GoogleGenerativeAI,
+  model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+  configuredModel?: string,
+): Promise<void> {
+  const broken = targets.filter((c) => FACT_REQUIRED.includes(c) && out[c] && !hasConcreteFact(out[c]!.bodyPlain));
+  if (!broken.length) return;
+
+  const facts = factBlock(input);
+  for (const c of broken) {
+    const brief = CHANNEL_BRIEF[c];
+    console.warn(`[native] ${c}: 사실 없음 → 해당 채널만 재작성`);
+    try {
+      const res = await generateWithRetry(
+        genAI,
+        model,
+        `아래 글을 다시 써라. 내용·톤은 그대로 두되 **아래 사실 중 최소 하나(가격 또는 영업시간)를**
+문장 안에 자연스럽게 넣어라. 억지로 덧붙이지 말고 문맥에 녹인다. 숫자는 문자 그대로 옮긴다.
+
+${facts}
+## 채널 지침
+${brief ?? ''}
+
+## 원문
+${out[c]!.bodyPlain}
+
+## 출력 (JSON)
+{ "bodyPlain": "..." }`,
+        configuredModel,
+      );
+      const body = String(JSON.parse(res.response.text())?.bodyPlain ?? '');
+      if (body && hasConcreteFact(body)) {
+        out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, body) };
+        continue;
+      }
+    } catch (e) {
+      console.warn(`[native] ${c} 재작성 실패: ${(e as Error).message?.slice(0, 120)}`);
+    }
+
+    // 마지막 방어선 — 사실 한 줄을 덧붙인다. 없는 것보다 낫다.
+    const tail = factTail(input);
+    if (tail) {
+      out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, `${out[c]!.bodyPlain}\n\n${tail}`) };
+      console.warn(`[native] ${c}: 재작성도 사실 없음 → 안내 한 줄 덧붙임`);
+    } else {
+      console.warn(`[native] ${c}: 붙일 사실 자체가 매장에 없음(플레이스 미연결·항목 0)`);
+    }
+  }
+}
+
+/** 덧붙일 사실 한 줄 — 대표 항목 가격, 없으면 영업시간 */
+function factTail(input: DraftInput): string | undefined {
+  const top = resolveOfferings(input.store.brandTone, input.place).find((o) => o.price);
+  const parts: string[] = [];
+  if (top?.price) parts.push(`${top.name} ${top.price.toLocaleString()}원`);
+  if (input.place?.hours) parts.push(input.place.hours);
+  return parts.length ? parts.join(' · ') : undefined;
+}
+
 function factBlock(input: DraftInput): string {
   const p = input.place;
   const lines: string[] = [];
@@ -251,8 +333,12 @@ tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머
       if (parsed[c]?.bodyPlain) {
         // 플랫폼 하드 리밋으로 안전 트림 — flash-lite가 권장 길이를 넘겨도 발행이 깨지지 않게
         const bodyPlain = clampForChannel(c, String(parsed[c].bodyPlain));
-        // 사실 날조 조기 경보(차단 X, 로그) — 주소·가격 숫자가 원본과 달라지면 손님이 못 찾아온다
-        const madeUp = fabricatedNumbers(plain + ' ' + master.title, bodyPlain);
+        // 사실 날조 조기 경보(차단 X, 로그) — 주소·가격 숫자가 원본과 달라지면 손님이 못 찾아온다.
+        // 비교 대상에 **주입한 사실 블록도 포함**한다. 블로그 발췌(앞 1,400자)에 없어도
+        // 우리가 프롬프트로 넘긴 가격·영업시간은 정당한 출처다 —
+        // 빼놓으면 눈꽃빙수 12,000원 같은 실제 메뉴가가 매번 날조로 찍혀,
+        // 진짜 날조가 그 소음에 묻힌다(2026-08-13 실측: 3개 채널이 동시에 오탐).
+        const madeUp = fabricatedNumbers(`${plain} ${master.title} ${facts}`, bodyPlain);
         if (madeUp.length) console.warn(`[native] ${c}: 원본에 없는 숫자 ${madeUp.join(', ')} — 사실 확인 필요`);
         // 인스타 해시태그: 과다는 스팸 신호 → 최대 20개로 하드 캡(중복·빈 값 제거)
         const rawTags: unknown[] | undefined = Array.isArray(parsed[c].tags) ? parsed[c].tags : undefined;
@@ -265,6 +351,7 @@ tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머
     if (!Object.keys(out).length) {
       console.warn(`[native] 응답에 유효 채널이 없음(요청 ${targets.join(',')}) — 규칙 폴백으로 진행`);
     }
+    await repairFactlessChannels(out, targets, input, genAI, model, config?.model);
     return out;
   } catch (e) {
     // 폴백은 유지하되 반드시 흔적을 남긴다 — 캡션이 조용히 블로그 자르기로 나가는 걸 막기 위해

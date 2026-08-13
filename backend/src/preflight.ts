@@ -92,6 +92,9 @@ async function checkStores() {
       .select('channel,title,body_plain')
       .eq('store_id', s.id)
       .gte('created_at', todayStart)
+      // 보관된 초안은 사장님 화면에 없다 — 이걸 같이 검사하면 재생성 뒤에 옛 글 때문에
+      // 게이트가 빨간불로 남는다(2026-08-13 실측). 오탐 나는 게이트는 아무도 안 본다.
+      .neq('status', 'archived')
       .contains('metadata', { auto: 'daily' });
 
     const joinedToday = Date.parse((s.onboarded_at as string) ?? '') >= Date.parse(todayStart);

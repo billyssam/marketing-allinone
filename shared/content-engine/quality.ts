@@ -1,4 +1,4 @@
-import { CHANNEL_BRIEF } from './channel-native';
+import { CHANNEL_BRIEF, hasConcreteFact } from './channel-native';
 import { CHANNELS, channelIdOfPost } from '../channels/registry';
 import { hasBatchim } from '../korean';
 
@@ -36,8 +36,8 @@ export function targetLength(channelId: string): [number, number] | null {
   return m ? [Number(m[1]), Number(m[2])] : null;
 }
 
-/** 숫자 사실(가격·시간·전화)이 하나라도 인용됐는가 */
-const FACT_RE = /[\d,]{3,}\s*원|\d{2,3}-\d{3,4}-\d{4}|\d{1,2}\s*시|\d{1,2}:\d{2}/;
+// 사실 판정은 생성 쪽(channel-native)의 `hasConcreteFact`와 **같은 잣대**를 쓴다.
+// 두 벌로 두면 생성은 통과시키고 점검은 잡는(또는 그 반대) 어긋남이 생긴다.
 
 /**
  * @param storeName 조사 검사에 쓴다(상호 뒤 조사가 틀리면 매장마다 절반이 틀린다)
@@ -77,7 +77,7 @@ export function checkPosts(
     }
 
     // 3) 정보 채널인데 사실이 하나도 없음
-    if (cid && mustHaveFacts.has(cid) && !FACT_RE.test(body)) {
+    if (cid && mustHaveFacts.has(cid) && !hasConcreteFact(body)) {
       issues.push({ channel: label, rule: 'no-facts', detail: '가격·영업시간이 하나도 없음' });
     }
 

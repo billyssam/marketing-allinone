@@ -72,6 +72,8 @@ async function main() {
       .select('channel, title, body_plain')
       .eq('store_id', s.id)
       .gte('created_at', todayStart)
+      // 보관분 제외 — 사장님 화면에 없는 글로 SLA를 판정하면 오탐이 난다(2026-08-13 실측)
+      .neq('status', 'archived')
       .contains('metadata', { auto: 'daily' });
     if (!todays?.length) {
       missing.push(s.name);
