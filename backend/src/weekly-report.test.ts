@@ -18,26 +18,71 @@ test('빈 데이터: 성과를 지어내지 않고 다음 행동을 안내한다
   assert.ok(!/\d+개를 올리셨/.test(r.headline), '없는 발행을 말하면 안 됨');
   assert.ok(r.headline.includes('아직'), '없으면 없다고 말해야');
   assert.equal(r.wins.length, 0, '칭찬할 게 없으면 비어야');
-  assert.ok(r.stats.every((s) => s.value === '0'), '모든 수치 0');
+  assert.equal(r.stats.find((s) => s.label === '올린 글')?.value, '0');
+  assert.equal(r.stats.find((s) => s.label === '준비된 글')?.value, '0');
 });
 
-test('발행이 있으면 준비·발행 수를 정확히 말한다', () => {
+/**
+ * 성과 단위는 **올린 날**이다.
+ * 우리는 채널마다 매일 한 개를 만들어 두고 "하루 하나만 올리면 된다"고 약속했다.
+ * 만들어 둔 개수를 분모로 쓰면 약속대로 한 사장님이 "7/56 · 지나간 글 42"를 받는다.
+ */
+test('약속대로 매일 하나씩 올린 사장님을 실패로 적지 않는다', () => {
+  const posts: ReportPost[] = [];
+  for (let d = 0; d < 7; d++) {
+    for (let c = 0; c < 8; c++) {
+      const pub = c === 0;
+      posts.push({
+        created_at: ago(d),
+        channel: `ch${c}`,
+        published_at: pub ? ago(d) : undefined,
+        status: pub ? 'published' : d === 0 ? 'draft' : 'archived',
+      });
+    }
+  }
+  const r = buildWeeklyReport('가게', posts, [], NOW);
+  assert.equal(r.stats.find((s) => s.label === '올린 날')?.value, '7/7');
+  assert.ok(/내내|완벽/.test(r.headline), `완주를 완주라고 말해야: ${r.headline}`);
+  assert.ok(!r.stats.some((s) => s.label === '지나간 글'), '공급량을 방치로 세지 않는다');
+  assert.ok(
+    !r.todos.some((t) => /안 올린 글/.test(t.text)),
+    `하나만 하면 된다고 해놓고 나머지를 빚으로 돌려주면 안 된다: ${JSON.stringify(r.todos)}`,
+  );
+});
+
+test('올린 날이 모자라면 정직하게 적되 개수로 몰아세우지 않는다', () => {
+  const posts: ReportPost[] = [];
+  for (let d = 0; d < 7; d++) {
+    for (let c = 0; c < 8; c++) {
+      const pub = c === 0 && [1, 3, 5].includes(d);
+      posts.push({
+        created_at: ago(d),
+        channel: `ch${c}`,
+        published_at: pub ? ago(d) : undefined,
+        status: pub ? 'published' : d === 0 ? 'draft' : 'archived',
+      });
+    }
+  }
+  const r = buildWeeklyReport('가게', posts, [], NOW);
+  assert.equal(r.stats.find((s) => s.label === '올린 날')?.value, '3/7');
+  assert.ok(r.headline.includes('3일'), `며칠 했는지 말해야: ${r.headline}`);
+  const nudge = r.todos.find((t) => t.text.includes('하나만'));
+  assert.ok(nudge, `오늘 안 올렸으면 하나를 권해야: ${JSON.stringify(r.todos)}`);
+  assert.ok(!/\d+개/.test(nudge!.text), `남은 개수를 들이밀지 않는다: ${nudge!.text}`);
+});
+
+test('오늘 이미 올렸으면 더 올리라고 하지 않는다', () => {
   const posts: ReportPost[] = [
-    { created_at: ago(1), channel: 'blog', published_at: ago(1), status: 'published' },
-    { created_at: ago(2), channel: 'instagram', status: 'draft' },
-    { created_at: ago(3), channel: 'blog', status: 'draft' },
+    { created_at: ago(0), channel: 'blog', published_at: ago(0), status: 'published' },
+    { created_at: ago(0), channel: 'instagram', status: 'draft' },
+    { created_at: ago(0), channel: 'threads', status: 'draft' },
   ];
   const r = buildWeeklyReport('가게', posts, [], NOW);
-  assert.ok(r.headline.includes('3개'), `준비 3: ${r.headline}`);
-  assert.ok(r.headline.includes('1개'), `발행 1: ${r.headline}`);
-  assert.equal(r.stats.find((s) => s.label === '준비된 글')?.value, '3');
-  assert.equal(r.stats.find((s) => s.label === '올린 글')?.value, '1');
-  assert.ok(r.todos.some((t) => t.text.includes('안 올린 글 2')), `미발행 2건 안내: ${JSON.stringify(r.todos)}`);
+  assert.ok(!r.todos.some((t) => t.text.includes('하나만')), `오늘 몫은 끝났다: ${JSON.stringify(r.todos)}`);
 });
 
-test('안 올려서 지나간 글을 숨기지 않는다', () => {
-  // 크론이 어제치 미발행 초안을 매일 보관 처리한다. 이걸 안 보여주면
-  // "준비 5 / 안 올린 글 1"만 남아 4개가 발행된 것처럼 읽힌다(실측에서 나온 문제).
+test('부풀림 방지: 준비된 개수와 올린 개수를 함께 보여준다', () => {
+  // 예전 문제 — "준비 5 / 안 올린 글 1"만 남으면 4개가 발행된 것처럼 읽힌다.
   const posts: ReportPost[] = [
     { created_at: ago(0), channel: 'blog', status: 'draft' },
     { created_at: ago(1), channel: 'blog', status: 'archived' },
@@ -46,14 +91,10 @@ test('안 올려서 지나간 글을 숨기지 않는다', () => {
     { created_at: ago(4), channel: 'blog', status: 'archived' },
   ];
   const r = buildWeeklyReport('가게', posts, [], NOW);
-  const expired = r.stats.find((s) => s.label === '지나간 글');
-  assert.ok(expired, `지나간 글이 표시돼야: ${JSON.stringify(r.stats)}`);
-  assert.equal(expired!.value, '4');
+  assert.equal(r.stats.find((s) => s.label === '준비된 글')?.value, '5');
   assert.equal(r.stats.find((s) => s.label === '올린 글')?.value, '0');
-  // 발행된 글은 "지나간 글"에 포함되면 안 된다
-  const withPub: ReportPost[] = [{ created_at: ago(1), channel: 'blog', status: 'archived', published_at: ago(1) }];
-  const r2 = buildWeeklyReport('가게', withPub, [], NOW);
-  assert.ok(!r2.stats.some((s) => s.label === '지나간 글'), '발행된 글은 지나간 게 아니다');
+  assert.equal(r.stats.find((s) => s.label === '올린 날')?.value, '0/7');
+  assert.ok(!/올리셨어요/.test(r.headline), `안 올렸으면 올렸다고 하면 안 된다: ${r.headline}`);
 });
 
 test('7일 윈도우: 8일 전 데이터는 이번 주에 안 들어간다', () => {
@@ -63,8 +104,6 @@ test('7일 윈도우: 8일 전 데이터는 이번 주에 안 들어간다', () 
   ];
   const r = buildWeeklyReport('가게', posts, [], NOW);
   assert.equal(r.stats.find((s) => s.label === '준비된 글')?.value, '1', '이번 주만 집계');
-  // 다만 "안 올린 글"은 기간과 무관하게 쌓인 전체가 행동 대상이다
-  assert.ok(r.todos.some((t) => t.text.includes('안 올린 글 2')), '미발행은 누적 기준');
 });
 
 test('부정 리뷰 미답변은 급한 항목으로 올라온다', () => {

@@ -61,7 +61,8 @@ function scoreOf(c: FocusCandidate, nowMs: number): { score: number; reason: str
     // 한 번도 안 올린 채널이 가장 아깝다 — 첫 글이 있어야 검색에 잡히기 시작한다
     return {
       score: weight + 15,
-      reason: `아직 한 번도 안 올리셨어요. 첫 글이 있어야 검색에 잡히기 시작해요`,
+      // '이 채널엔'을 빼면 매일 올린 사장님이 "아직 한 번도 안 올리셨어요"를 보고 당황한다
+      reason: `이 채널엔 아직 한 번도 안 올리셨어요. 첫 글이 있어야 검색에 잡히기 시작해요`,
     };
   }
   const days = Math.floor((nowMs - Date.parse(c.lastPublishedAt)) / DAY);

@@ -45,10 +45,11 @@ export function DashboardStats({ data }: { data: StatStripData }) {
       accent: data.totalReviews > 0 && data.posRate >= 80 ? 'var(--color-good)' : undefined,
     },
     {
+      // 초안 개수가 아니라 "오늘 올렸나(0/1) + 답글 대기". 끝낼 수 있는 숫자여야 한다
       label: '오늘 할 일',
       value: data.todo.toLocaleString(),
       unit: '건',
-      sub: data.todo > 0 ? '붙여넣기·답글 대기' : '모두 끝냈어요',
+      sub: data.todo > 0 ? '오늘 하나 + 답글' : '오늘 몫은 끝났어요',
       accent: data.todo > 0 ? 'var(--color-amber)' : 'var(--color-good)',
       dot: data.todo > 0 ? 'var(--color-amber)' : undefined,
     },

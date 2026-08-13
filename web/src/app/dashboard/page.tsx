@@ -168,7 +168,24 @@ export default async function DashboardPage() {
     href: '/reviews',
   }));
 
-  // 총 할 일 개수(KPI용)는 글+리뷰 합계를 유지한다
+  /**
+   * "오늘 할 일"은 **끝낼 수 있는 숫자**여야 한다.
+   *
+   * 초안 개수를 그대로 세면 8채널 매장은 매일 7~8건이 남는다. 우리는 "하루 하나만 올리면 된다"고
+   * 해놓고, 오늘 몫을 다 한 사장님에게도 영원히 0이 되지 않는 빚을 보여주고 있었다
+   * (2026-08-13 실측: 7일 내내 올린 매장에 "오늘 할 일 7건").
+   * 끝낼 수 없는 카운터는 며칠이면 쳐다보지 않게 된다.
+   *
+   * 그래서 글은 **오늘 올렸는지 여부(0 또는 1)**로만 센다. 답글은 하나하나가 진짜 할 일이라 그대로.
+   */
+  const kstDay = (iso: string) => new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(0, 10);
+  const todayKst = new Date(nowMs + 9 * 3_600_000).toISOString().slice(0, 10);
+  const publishedToday = (publishedHistory.data ?? []).some(
+    (r) => r.published_at && kstDay(r.published_at as string) === todayKst,
+  );
+  const postTodo = publishedToday ? 0 : (todoPosts?.length ?? 0) > 0 ? 1 : 0;
+
+  // 브리핑 목록 자체는 전부 보여준다 — 고를 수 있어야 하므로(세는 방식만 다르다)
   const briefingItems: BriefingItem[] = [
     ...(todoPosts ?? []).map((p) => ({
       key: `post-${p.id}`,
@@ -190,7 +207,7 @@ export default async function DashboardPage() {
     weekPosts,
     totalReviews: perfData.totalReviews,
     posRate: perfData.totalReviews ? Math.round((perfData.positive / perfData.totalReviews) * 100) : 0,
-    todo: briefingItems.length,
+    todo: postTodo + (pendingReviews?.length ?? 0),
   };
 
   return (
