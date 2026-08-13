@@ -135,6 +135,19 @@ async function main() {
         skipped++;
         continue;
       }
+    } else {
+      // --force는 '재생성'이다. 옛것을 두면 채널마다 2건이 남아 사장님 화면이 겹치고
+      // "오늘 하나만"이 낡은 초안을 고를 수도 있다(2026-08-13 실측: 쿵더쿵 8채널 전부 2건).
+      // 지우지 않고 보관 처리 — 발행한 글은 건드리지 않는다.
+      const { data: replaced } = await supabase
+        .from('posts')
+        .update({ status: 'archived' })
+        .eq('store_id', s.id)
+        .gte('created_at', todayStart)
+        .eq('status', 'draft')
+        .contains('metadata', { auto: 'daily' })
+        .select('id');
+      if (replaced?.length) console.log(`[${s.name}] 🗂  오늘 초안 ${replaced.length}건 보관 후 재생성`);
     }
 
     // 오늘의 방향 = 각도 로테이션 + 시점 + 중심 소재 로테이션(모두 반복 방지)

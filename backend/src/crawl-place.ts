@@ -11,7 +11,7 @@ import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { crawlNaverPlace, extractPlaceId } from '../../shared/content-engine/place-crawler.js';
-import { normalizeHours, cleanDirections } from '../../shared/content-engine/place-facts.js';
+import { normalizeHours, cleanDirections, normalizePhone } from '../../shared/content-engine/place-facts.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
 loadEnv();
@@ -78,7 +78,7 @@ async function main() {
       const place_facts = {
         name: info.name,
         address: info.address,
-        phone: info.phone ?? null,
+        phone: normalizePhone(info.phone) ?? null,
         // 크롤 시점 정제 — 네이버 DOM이 상태·라스트오더를 붙여 뱉는 깨진 hours 교정
         hours: normalizeHours(info.hours) ?? null,
         categories: info.categories,

@@ -49,11 +49,64 @@ export function normalizeHours(raw?: string | null): string | undefined {
   s = s.replace(/([가-힣])(\d)/g, '$1 $2');
   // 2) 크롤 시각에 따라 바뀌는 실시간 상태 접두사 제거(에버그린 콘텐츠엔 부적합)
   s = s.replace(/^(영업\s*중|영업\s*종료|곧\s*영업\s*(종료|시작)|브레이크\s*타임|영업\s*전)\s*/g, '');
-  // 3) 같은 라스트오더 정보가 두 포맷으로 중복되는 네이버 패턴 → 첫 것만
-  //    "20:00에 라스트오더 20시 0분에 라스트오더 - X" → "20:00에 라스트오더 - X"
-  s = s.replace(/(\d{1,2}\s*:\s*\d{2}에\s*라스트오더)\s*\d{1,2}\s*시\s*\d{1,2}\s*분에\s*라스트오더/g, '$1');
+  // 3) 같은 정보가 두 포맷으로 중복되는 네이버 패턴 → 첫 것만.
+  //    "20:00에 라스트오더 20시 0분에 라스트오더" · "21:00에 영업 종료 21시 0분에 영업 종료"
+  //    (라스트오더만 잡다가 '영업 종료' 중복이 그대로 나갔다 — 2026-08-13 실측)
+  s = s.replace(
+    /(\d{1,2}\s*:\s*\d{2}에\s*(라스트오더|영업\s*종료|영업\s*시작))\s*\d{1,2}\s*시\s*\d{1,2}\s*분에\s*\2/g,
+    '$1',
+  );
   // 4) 이모티콘·꼬리 정리
   s = s.replace(/[:;]-?[)(]+/g, '').replace(/\s*-\s*$/, '').replace(/\s{2,}/g, ' ').trim();
+  return s || undefined;
+}
+
+const SEASON_CLAUSES: { re: RegExp; season: '겨울' | '여름' }[] = [
+  { re: /동절기|겨울\s*철?|겨울에는/, season: '겨울' },
+  { re: /하절기|여름\s*철?|여름에는/, season: '여름' },
+];
+
+/**
+ * 지금 계절에 맞지 않는 조건절을 떼어낸다. **읽는 시점에만** 부른다 —
+ * 저장분에는 원문을 남겨야 겨울이 오면 겨울 안내가 다시 살아난다.
+ *
+ * 왜(실측 2026-08-13): 쿵더쿵 영업시간이
+ *   "20:00에 라스트오더 - 동절기에는 저녁 8시까지 영업합니다."
+ * 인데, 프롬프트가 이걸 "**정확한** 영업시간"으로 넘기니 모델이 시킨 대로 따랐다.
+ * 8월 13일 글 4개 채널에 "동절기에는 저녁 8시까지 영업하며"가 나갔고
+ * 카카오는 "오늘 저녁 8시 라스트오더"라고 **오늘 시간으로 단정**했다.
+ * 여름 영업시간이 다르면 손님에게 틀린 정보가 나가고, 사장님 신뢰는 한 번에 깨진다.
+ *
+ * 조건절을 떼고 남는 게 없으면 undefined — 모르는 영업시간은 **말하지 않는 게 맞다**
+ * (프롬프트 절대규칙 2: 값이 비면 본문에서 아예 언급하지 않는다).
+ */
+export function hoursForNow(hours?: string | null, nowMs: number = Date.now()): string | undefined {
+  if (!hours) return undefined;
+  const month = new Date(nowMs + 9 * 3_600_000).getUTCMonth() + 1; // KST 기준 월
+  const season = month === 12 || month <= 2 ? '겨울' : month >= 6 && month <= 8 ? '여름' : null;
+  const parts = hours.split(/\s*[-–—]\s+|\.\s+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) {
+    // 조건절이 따로 없다 — 통째로 계절 조건이면 지금 계절이 아닐 때 말하지 않는다
+    const only = SEASON_CLAUSES.find((c) => c.re.test(hours));
+    return only && only.season !== season ? undefined : hours;
+  }
+  const kept = parts.filter((p) => {
+    const hit = SEASON_CLAUSES.find((c) => c.re.test(p));
+    return hit ? hit.season === season : true;
+  });
+  if (!kept.length) return undefined;
+  return kept.length === parts.length ? hours : kept.join(' - ');
+}
+
+/**
+ * 전화번호 정제 — 네이버가 안내 배지 텍스트를 번호에 붙여 뱉는다.
+ * 실측: "0507-1318-0645안내" → 블로그 안내 블록에 그대로 실렸다.
+ */
+export function normalizePhone(raw?: string | null): string | undefined {
+  if (!raw) return undefined;
+  const m = String(raw).replace(/\s+/g, ' ').match(/\+?\d[\d\s\-().]{6,}\d/);
+  if (!m) return undefined;
+  const s = m[0].replace(/[()\s.]/g, '').replace(/-+$/, '').trim();
   return s || undefined;
 }
 
@@ -72,7 +125,11 @@ export function cleanDirections(raw?: string | null): string | undefined {
  * placeFactSection이 이 값을 프롬프트에 박아 메뉴·가격·영업시간을 지어내지 않는 글을 만든다.
  * (crawl-place.ts가 저장, 여기는 순수 변환 — playwright 의존 없음이라 web에서도 안전)
  */
-export function placeFromBrandTone(tone: BrandTone | Record<string, unknown> | null | undefined): PlaceInfo | undefined {
+export function placeFromBrandTone(
+  tone: BrandTone | Record<string, unknown> | null | undefined,
+  /** 계절 조건 판정 기준 시각. 테스트에서 고정하려고 주입한다(안 주면 지금). */
+  nowMs: number = Date.now(),
+): PlaceInfo | undefined {
   const pf = (tone as Record<string, unknown> | null | undefined)?.place_facts as
     | {
         name?: string;
@@ -88,9 +145,10 @@ export function placeFromBrandTone(tone: BrandTone | Record<string, unknown> | n
   return {
     name: pf.name,
     address: pf.address ?? '',
-    phone: pf.phone ?? undefined,
-    // 읽기 시점 정제: 기존에 깨진 채 저장된 값도 여기서 걸러진다(재크롤 없이도 개선)
-    hours: normalizeHours(pf.hours),
+    // 읽기 시점 정제: 기존에 깨진 채 저장된 값도 여기서 걸러진다(재크롤 없이도 개선).
+    // 계절 조건은 '지금'을 봐야 하므로 저장 시점이 아니라 **읽는 시점**에 판정한다.
+    phone: normalizePhone(pf.phone),
+    hours: hoursForNow(normalizeHours(pf.hours), nowMs),
     categories: pf.categories ?? [],
     descriptionRaw: cleanDirections(pf.descriptionRaw),
     menu: pf.menu ?? [],
