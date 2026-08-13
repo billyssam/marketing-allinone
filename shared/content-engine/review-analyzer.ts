@@ -143,11 +143,20 @@ function pick<T>(arr: T[], seed: string): T {
   return arr[h % arr.length];
 }
 
-/** 본문에서 언급할 만한 짧은 조각(첫 명사구 근처) 추출 — 답글 개인화용 */
+/**
+ * 본문에서 인용할 첫 문장 추출 — 답글 개인화용.
+ *
+ * 상한이 24자였는데 실측 21건 중 **7건(33%)만** 창에 들어왔다. 나머지는 키워드 태그로 떨어지고,
+ * 태그는 손님들이 같은 걸 고르니 스타일링룸 답글 12건 중 8건이 같은 문구를 인용했다.
+ * 공개 답글이 그렇게 반복되면 봇으로 읽힌다.
+ *
+ * ⚠️ 문장을 **중간에서 자르지 않는다.** "친절했지만 대기가 길었어요"를 "친절했지만"으로 자르면
+ * 손님이 하지 않은 말이 된다. 문장 단위로만 넓힌다(24 → 35자, 33% → 52%).
+ */
 function firstDetail(content: string): string {
   const clean = content.replace(/[^가-힣a-zA-Z0-9 ~!.,]/g, ' ').replace(/\s+/g, ' ').trim();
   const sentence = clean.split(/[.!~]/)[0]?.trim() ?? '';
-  return sentence.length > 4 && sentence.length <= 24 ? sentence : '';
+  return sentence.length > 4 && sentence.length <= 35 ? sentence : '';
 }
 
 export function draftReply(ctx: ReplyContext, sentiment: Sentiment): string {
@@ -177,8 +186,22 @@ export function draftReply(ctx: ReplyContext, sentiment: Sentiment): string {
   }
 
   if (sentiment === 'positive') {
-    // 따옴표 뒤는 관례상 '라고'로 고정, 맨몸 키워드는 받침을 봐야 한다("친절이라고" / "커피라고")
-    const focus = detail ? `"${detail}"라고 해주신 말씀` : kw ? `${withJosa(kw, '이라라')}고 느껴주신 마음` : '따뜻한 후기';
+    // 따옴표 뒤는 관례상 '라고'로 고정, 맨몸 키워드는 받침을 봐야 한다("친절이라고" / "커피라고").
+    // 키워드(손님이 네이버에서 고른 태그)는 여러 손님이 같은 걸 고르므로 문구를 돌려 쓴다 —
+    // 안 그러면 답글 12건 중 8건이 똑같은 절을 품는다(실측). 공개 답글이 반복되면 봇으로 읽힌다.
+    const kwFrames = kw
+      ? [
+          `${withJosa(kw, '이라라')}고 느껴주신 마음`,
+          `${withJosa(kw, '이라라')}고 남겨주신 한마디`,
+          `${withJosa(kw, '이라라')}고 봐주신 점`,
+          `${kw} 부분을 짚어주신 것`,
+        ]
+      : [];
+    const focus = detail
+      ? `"${detail}"라고 해주신 말씀`
+      : kw
+        ? pick(kwFrames, seed + 'f')
+        : '따뜻한 후기';
     const openers = [
       `${who}, ${focus} 정말 감사합니다.`,
       `${who}, ${focus}에 저희가 더 힘이 났어요.`,

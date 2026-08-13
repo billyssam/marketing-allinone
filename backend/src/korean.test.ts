@@ -102,10 +102,15 @@ test("답글의 '으로/로' — 받침 있는 상호에 '로'가 붙으면 안 
 });
 
 test("긍정 답글의 '이라고/라고' — 키워드 받침을 본다", () => {
-  const pairs: [string, string][] = [['친절', '친절이라고'], ['맛', '맛이라고'], ['커피', '커피라고'], ['분위기', '분위기라고']];
-  for (const [kw, expect] of pairs) {
-    // detail이 잡히면 따옴표 분기로 새니, 본문을 짧게 줘서 키워드 분기를 태운다
-    const r = draftReply({ author: '손님', content: '굿', keywords: [kw], storeName: '카페' }, 'positive');
-    assert.ok(r.includes(expect), `키워드 조사 오류(${kw}): ${r}`);
+  // 인용 문구는 여러 개를 돌려 쓰므로(반복 방지) 특정 문장을 기대하지 않는다.
+  // "틀린 형태가 하나도 없는가"로 본다 — 있는 것을 세지 말고 없어야 할 것을 찾는다.
+  for (const kw of ['친절', '맛', '커피', '분위기', '가성비', '청결']) {
+    const batchim = hasBatchim(kw);
+    const wrong = batchim ? `${kw}라고` : `${kw}이라고`;
+    for (let i = 0; i < 12; i++) {
+      // detail이 잡히면 따옴표 분기로 새니, 본문을 짧게 줘서 키워드 분기를 태운다
+      const r = draftReply({ author: `손님${i}`, content: '굿', keywords: [kw], storeName: '카페' }, 'positive');
+      assert.ok(!r.includes(wrong), `키워드 조사 오류(${kw}): ${r}`);
+    }
   }
 });

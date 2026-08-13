@@ -109,3 +109,41 @@ test('결정적: 같은 리뷰는 항상 같은 답글 (재크롤 시 답글 안
   assert.equal(a.replyDraft, b.replyDraft);
   assert.equal(a.sentiment, b.sentiment);
 });
+
+/**
+ * 공개 답글이 반복되면 봇으로 읽힌다 — 손님이 다음에 올지를 이 페이지에서 정한다.
+ * 실측(2026-08-13): 스타일링룸 답글 12건 중 **8건**이 "원하는 스타일로 잘해줘요"를 같은 문구로 인용했다.
+ * 원인은 두 가지 — 리뷰 원문 인용 창이 좁아 67%가 키워드 태그로 떨어졌고, 태그 인용 문구가 하나뿐이었다.
+ */
+test('같은 키워드라도 답글의 인용 문구가 반복되지 않는다', () => {
+  const frames = new Set<string>();
+  for (let i = 0; i < 12; i++) {
+    // 본문이 길어 원문 인용이 안 되는 상황(= 태그로 떨어지는 경로)을 강제
+    const r = draftReply(
+      {
+        author: `손님${i}`,
+        content: '오늘도 정말 만족스러웠고 다음에도 또 방문할 생각입니다 직원분들도 너무 친절하셨어요 감사합니다',
+        keywords: ['원하는 스타일로 잘해줘요'],
+        storeName: '스타일링룸',
+      },
+      'positive',
+    );
+    const m = r.match(/원하는 스타일로 잘해줘요[^,.]*/);
+    if (m) frames.add(m[0].trim());
+  }
+  assert.ok(frames.size >= 3, `인용 문구가 돌아가야 한다(실제 ${frames.size}종): ${[...frames].join(' | ')}`);
+});
+
+test('리뷰 원문 인용 창 — 문장을 중간에서 자르지 않는다', () => {
+  // 25~35자 첫 문장은 이제 그대로 인용된다(예전 상한 24자에서는 태그로 떨어졌다)
+  const r = draftReply(
+    { author: '손님', content: '옥천에 요렇게 아기자기하고 정겨운 카페가 있었네요. 또 올게요', keywords: ['분위기'], storeName: '쿵더쿵' },
+    'positive',
+  );
+  assert.ok(r.includes('"옥천에 요렇게 아기자기하고 정겨운 카페가 있었네요"'), r);
+
+  // 너무 긴 첫 문장은 잘라서 인용하지 않는다 — "친절했지만"만 남으면 손님이 안 한 말이 된다
+  const long = '친절하게 응대해주셨지만 대기 시간이 조금 길어서 아쉬웠고 그래도 결과물은 만족스러웠습니다';
+  const r2 = draftReply({ author: '손님', content: long, keywords: ['친절'], storeName: '쿵더쿵' }, 'positive');
+  assert.ok(!r2.includes('친절하게 응대해주셨지만'), `문장을 잘라 인용하면 안 된다: ${r2}`);
+});
