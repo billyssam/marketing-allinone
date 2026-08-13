@@ -8,7 +8,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkPosts, targetLength } from '../../shared/content-engine/quality.js';
-import { hasConcreteFact } from '../../shared/content-engine/channel-native.js';
+import {
+  hasConcreteFact,
+  notOwnerVoice,
+  dropFabricatedRegionTags,
+} from '../../shared/content-engine/channel-native.js';
 
 const ok = (channel: string, bodyPlain: string, title?: string) => ({ channel, bodyPlain, title });
 
@@ -108,4 +112,41 @@ test('정보 채널에 사실이 없으면 점검이 잡는다(2026-08-13 실측
     storeHasFacts: true,
   });
   assert.ok(!after.some((i) => i.rule === 'no-facts'), `보정 후엔 통과해야: ${JSON.stringify(after)}`);
+});
+
+/**
+ * 화자 — 사장님이 자기 가게 계정으로 올리는 글이다.
+ * 손님·이웃이 추천하는 말투가 나가면 바이럴 조작으로 읽혀 계정이 위험해진다.
+ * 규칙을 좁게 잡았다: 본인 소감("…이더라구요")은 정상이고 전언만 잡는다.
+ * 운영 203건 실측에서 2건 적중·오탐 0으로 확인하고 채택했다.
+ */
+test('사장님 말투가 아닌 것만 잡는다(실측 문장 그대로)', () => {
+  // 실제로 나갔던 것들
+  // 자기 가게를 "동네의 어떤 가게"로 소개 — 상호를 넘겨야 정확히 잡힌다
+  assert.ok(notOwnerVoice("저희 동네 '햇살공방'에서 반지 만들기 원데이클래스를 하고 있더라구요!", '햇살공방'));
+  // 상호가 없으면 "우리 동네"만으로는 잡지 않는다 — 사장님이 흔히 쓰는 정상 표현이다
+  assert.equal(notOwnerVoice('우리 동네 이웃 여러분, 오늘도 문 열었습니다!', '햇살공방'), undefined);
+  assert.ok(notOwnerVoice('요기 아메리카노(3,500원)가 그렇게 시원하고 맛있대요.'));
+  assert.ok(notOwnerVoice('45,000원에 특별한 추억을 만들 수 있다니 솔깃하네요!'));
+  assert.ok(notOwnerVoice('은수저 각인 클래스(62,000원)도 있대요.'));
+
+  // 사장님 본인 소감·정상 홍보는 건드리지 않는다
+  assert.equal(notOwnerVoice('아메리카노에 갓 구운 크로플을 곁들이니 이게 바로 여름날의 행복이더라구요.'), undefined);
+  assert.equal(notOwnerVoice('대추의 깊고 진한 풍미가 마음까지 편안하게 해주더라구요.'), undefined);
+  assert.equal(notOwnerVoice('저희 쿵더쿵입니다. 오늘은 수제대추차를 준비했어요.'), undefined);
+  assert.equal(notOwnerVoice('안녕하세요, 안내면 주민 여러분! 쿵더쿵에서 여름 저녁 휴식을 즐겨보세요.'), undefined);
+  assert.equal(notOwnerVoice('배달은 요기요에서도 주문하실 수 있어요.'), undefined);
+});
+
+test('주소에 없는 지역 해시태그는 뺀다(주소 없는 공방에 #서울공방이 붙었다)', () => {
+  const tags = ['햇살공방', '반지만들기', '서울공방', '원데이클래스'];
+  // 주소 자체가 없는 매장 — 지역 태그는 전부 지어낸 것이다
+  assert.deepEqual(dropFabricatedRegionTags(tags, null), ['햇살공방', '반지만들기', '원데이클래스']);
+  // 주소에 있는 지역은 남긴다
+  assert.deepEqual(dropFabricatedRegionTags(tags, '서울 강남구 테헤란로 101'), tags);
+  // 다른 지역이면 뺀다
+  assert.deepEqual(
+    dropFabricatedRegionTags(['부산맛집', '옥천카페'], '충북 옥천군 안내면 현리3길 16'),
+    ['옥천카페'],
+  );
 });

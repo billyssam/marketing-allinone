@@ -32,6 +32,59 @@ export function hasConcreteFact(body: string): boolean {
 const FACT_REQUIRED: ChannelId[] = ['naver_place', 'google_business'];
 
 /**
+ * 사장님이 자기 가게에 대해 쓸 리 없는 말투 — 손님·이웃이 추천하는 목소리.
+ *
+ * 실측(2026-08-13): 당근 "저희 동네 '햇살공방'에서 …하고 있더라구요 … 솔깃하네요",
+ * 스레드 "요기 아메리카노가 그렇게 맛있대요". 사장님 계정에서 나가면 바이럴 조작으로 읽힌다.
+ *
+ * ⚠️ 규칙을 좁게 잡은 이유: "만들어보니 행복이**더라구요**"는 사장님 본인 소감이라 정상이다.
+ * 넓게 잡으면 정상 글을 계속 흔들게 된다. 운영 203건에 돌려 **2건 적중·오탐 0**을 확인하고 채택했다.
+ * ('하더라구요'는 남의 행동 전언이라 잡고, '이더라구요·주더라구요'는 본인 소감이라 안 잡는다)
+ */
+const NOT_OWNER_VOICE: RegExp[] = [
+  /(있|한|온|간|좋|맛있|친절)대요/, // 전언 — 자기 가게를 전해 들을 수는 없다
+  /하더라(구|고)요/, // 남의 행동 전언
+  /솔깃/,
+  /(^|[\s,.!?])요기[\s가는를이]/, // 방문객 지시어
+];
+export function notOwnerVoice(body: string, storeName?: string): string | undefined {
+  const hit = NOT_OWNER_VOICE.find((re) => re.test(body));
+  if (hit) return (body.match(hit)?.[0] ?? '').trim();
+  // 자기 가게를 "동네의 어떤 가게"로 소개하는 형태. 상호를 알아야만 정확히 잡힌다 —
+  // "우리 동네 이웃 여러분"은 사장님이 흔히 쓰는 정상 표현이라 '동네'만으로는 잡으면 안 된다.
+  if (storeName) {
+    const esc = storeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(저희|우리)\\s*동네\\s*['"‘’“”]?\\s*${esc}`);
+    const m = body.match(re);
+    if (m) return m[0].trim();
+  }
+  return undefined;
+}
+
+/** 광역 지자체명 — 해시태그에 지역을 지어냈는지 판정할 때만 쓴다(짧고 안 변하는 목록) */
+const REGIONS = [
+  '서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종',
+  '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주',
+];
+
+/**
+ * 매장 주소에 없는 지역명이 붙은 해시태그를 걸러낸다.
+ *
+ * 실측(2026-08-13): 주소가 **아예 없는** 공방에 `#서울공방`이 붙었다.
+ * 손님이 엉뚱한 동네에서 찾게 되는 종류의 오류인데, 숫자 날조 경보(fabricatedNumbers)는
+ * 숫자만 보므로 지명은 그냥 통과한다.
+ *
+ * 주소가 있으면 그 주소에 나오는 지역만 허용하고, 없으면 지역 태그를 전부 뺀다.
+ */
+export function dropFabricatedRegionTags(tags: string[], address?: string | null): string[] {
+  const addr = address ?? '';
+  return tags.filter((t) => {
+    const bad = REGIONS.find((r) => t.includes(r));
+    return !bad || addr.includes(bad);
+  });
+}
+
+/**
  * 매장 실제 사실을 재작성 프롬프트에 직접 주입.
  *
  * 왜 필요한가(실측): 원본 블로그는 앞 1,400자만 잘라서 넘기는데, 주소·전화·영업시간은
@@ -54,19 +107,35 @@ async function repairFactlessChannels(
   model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
   configuredModel?: string,
 ): Promise<void> {
-  const broken = targets.filter((c) => FACT_REQUIRED.includes(c) && out[c] && !hasConcreteFact(out[c]!.bodyPlain));
-  if (!broken.length) return;
+  type Problem = { c: ChannelId; kind: 'voice' | 'fact'; detail: string };
+  const problems = targets.flatMap<Problem>((c) => {
+    const body = out[c]?.bodyPlain;
+    if (!body) return [];
+    const voice = notOwnerVoice(body, input.store.name);
+    if (voice) return [{ c, kind: 'voice', detail: `사장님 말투가 아님("${voice}")` }];
+    if (FACT_REQUIRED.includes(c) && !hasConcreteFact(body)) {
+      return [{ c, kind: 'fact', detail: '가격·영업시간이 하나도 없음' }];
+    }
+    return [];
+  });
+  if (!problems.length) return;
 
   const facts = factBlock(input);
-  for (const c of broken) {
+  for (const { c, kind, detail } of problems) {
     const brief = CHANNEL_BRIEF[c];
-    console.warn(`[native] ${c}: 사실 없음 → 해당 채널만 재작성`);
+    console.warn(`[native] ${c}: ${detail} → 해당 채널만 재작성`);
+    const instruction =
+      kind === 'fact'
+        ? `내용·톤은 그대로 두되 **아래 사실 중 최소 하나(가격 또는 영업시간)를** 문장 안에 자연스럽게 넣어라.
+억지로 덧붙이지 말고 문맥에 녹인다. 숫자는 문자 그대로 옮긴다.`
+        : `이 글은 **사장님이 자기 가게 계정으로** 올린다. 지금 원문은 손님·이웃이 추천하는 말투다.
+"…있대요/…하더라구요/솔깃하네요/요기 …" 같은 전언·방문객 말투를 **사장님 1인칭**으로 바꿔라.
+("저희 ○○입니다", "오늘은 …준비했어요", "…들러보세요") 내용·분량·사실은 그대로 둔다.`;
     try {
       const res = await generateWithRetry(
         genAI,
         model,
-        `아래 글을 다시 써라. 내용·톤은 그대로 두되 **아래 사실 중 최소 하나(가격 또는 영업시간)를**
-문장 안에 자연스럽게 넣어라. 억지로 덧붙이지 말고 문맥에 녹인다. 숫자는 문자 그대로 옮긴다.
+        `아래 글을 다시 써라. ${instruction}
 
 ${facts}
 ## 채널 지침
@@ -80,7 +149,9 @@ ${out[c]!.bodyPlain}
         configuredModel,
       );
       const body = String(JSON.parse(res.response.text())?.bodyPlain ?? '');
-      if (body && hasConcreteFact(body)) {
+      const fixed =
+        kind === 'fact' ? body && hasConcreteFact(body) : body && !notOwnerVoice(body, input.store.name);
+      if (fixed) {
         out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, body) };
         continue;
       }
@@ -88,13 +159,18 @@ ${out[c]!.bodyPlain}
       console.warn(`[native] ${c} 재작성 실패: ${(e as Error).message?.slice(0, 120)}`);
     }
 
-    // 마지막 방어선 — 사실 한 줄을 덧붙인다. 없는 것보다 낫다.
-    const tail = factTail(input);
-    if (tail) {
-      out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, `${out[c]!.bodyPlain}\n\n${tail}`) };
-      console.warn(`[native] ${c}: 재작성도 사실 없음 → 안내 한 줄 덧붙임`);
+    if (kind === 'fact') {
+      // 마지막 방어선 — 사실 한 줄을 덧붙인다. 없는 것보다 낫다.
+      const tail = factTail(input);
+      if (tail) {
+        out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, `${out[c]!.bodyPlain}\n\n${tail}`) };
+        console.warn(`[native] ${c}: 재작성도 사실 없음 → 안내 한 줄 덧붙임`);
+      } else {
+        console.warn(`[native] ${c}: 붙일 사실 자체가 매장에 없음(플레이스 미연결·항목 0)`);
+      }
     } else {
-      console.warn(`[native] ${c}: 붙일 사실 자체가 매장에 없음(플레이스 미연결·항목 0)`);
+      // 말투는 기계적으로 못 고친다 — 고쳐 쓰다 뜻이 바뀌면 더 나쁘다. 흔적만 남긴다.
+      console.warn(`[native] ${c}: 재작성 후에도 말투 문제 — 그대로 두고 기록만 남김`);
     }
   }
 }
@@ -149,7 +225,10 @@ export const CHANNEL_BRIEF: Record<string, string> = {
     '네이버 플레이스 소식. 정보 중심·간결. 지금 방문할 이유(새 메뉴·상품·시술, 시즌, 영업정보) 하나를 골라 강조. ' +
       '주소·전화번호는 쓰지 말 것(매장 페이지 안에 이미 표시된다). 이모지 최소. **150~250자**.',
   danggeun:
-    '당근마켓 동네 홍보. 옆집 이웃에게 말하듯 친근하고 담백하게. 과장·광고티 배제. "우리 동네" 정서. **250~400자**.',
+    // "이웃에게 말하듯"이 "이웃처럼 말하라"로 읽혀 사장님이 자기 가게를 3인칭으로 소개했다(실측).
+    // 화자를 브리프에도 한 번 더 못박는다.
+    '당근마켓 동네 홍보. **사장님이 이웃에게 말 거는** 톤으로 친근하고 담백하게(이웃인 척 X). ' +
+      '과장·광고티 배제. "우리 가게가 이 동네에 있다" 정서. **250~400자**.',
   threads:
     // ⚠️ "짧고"라는 표현이 하한과 충돌해 실제로 144자짜리가 나왔다(실측 3/7 미달) →
     //    "문장은 짧게 끊되 전체 분량은 채운다"로 분리해서 지시한다.
@@ -279,6 +358,16 @@ export async function nativizeShortForm(
 블로그를 자르지 말고, 채널 성격에 맞게 새로 쓴다.
 말투 원칙: ${STANDARD_LANGUAGE_RULE}
 
+## 화자 (모든 채널 공통 — 어기면 실패)
+이 글은 **사장님이 자기 가게 계정으로** 올린다. 손님이나 이웃이 쓰는 글이 아니다.
+- 금지: "저희 동네 ○○에서 …하고 있더라구요", "…라고 하네요", "…있대요", "솔깃하네요",
+  "요기 ○○가 맛있대요", "주문하면 바로 구워주는데" 처럼 **남의 가게를 소개하는 말투**.
+  당근·스레드처럼 대화체를 요구하는 채널에서 실제로 이렇게 나왔다(2026-08-13 실측).
+  사장님 계정에서 이런 글이 나가면 바이럴 조작으로 읽혀 계정이 위험해진다.
+- 맞는 말투: "저희 ○○입니다", "오늘은 …준비했어요", "…한번 들러보세요".
+  친근한 대화체는 **이웃에게 말 거는 사장님**이지, 이웃인 척하는 게 아니다.
+- 사장님 본인의 소감("만들어보니 …이더라구요")은 괜찮다. 전해 들은 말투가 문제다.
+
 ## ⚠️ 사실 보존 (절대 규칙 — 어기면 실패)
 1. 주소·전화번호·가격·영업시간은 아래 "매장 실제 사실"에 있는 **문자 그대로** 옮긴다. 숫자를 바꾸거나
    반올림하거나 비슷한 값으로 대체하는 것 절대 금지(실측 사고: "…로 123"을 "…로 2330"으로 변형).
@@ -343,7 +432,10 @@ tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머
         // 인스타 해시태그: 과다는 스팸 신호 → 최대 20개로 하드 캡(중복·빈 값 제거)
         const rawTags: unknown[] | undefined = Array.isArray(parsed[c].tags) ? parsed[c].tags : undefined;
         const tags: string[] | undefined = rawTags
-          ? [...new Set(rawTags.map((t) => String(t).replace(/^#/, '').trim()).filter((t): t is string => t.length > 0))].slice(0, 20)
+          ? dropFabricatedRegionTags(
+              [...new Set(rawTags.map((t) => String(t).replace(/^#/, '').trim()).filter((t): t is string => t.length > 0))],
+              input.place?.address || input.store.address,
+            ).slice(0, 20)
           : undefined;
         out[c] = { bodyPlain, tags };
       }
