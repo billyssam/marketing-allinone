@@ -89,7 +89,7 @@ async function checkStores() {
     // 오늘 초안 + 품질
     const { data: todays } = await supabase
       .from('posts')
-      .select('channel,title,body_plain')
+      .select('channel,title,body_plain,metadata')
       .eq('store_id', s.id)
       .gte('created_at', todayStart)
       // 보관된 초안은 사장님 화면에 없다 — 이걸 같이 검사하면 재생성 뒤에 옛 글 때문에
@@ -103,7 +103,12 @@ async function checkStores() {
       else add('block', `매장 · ${s.name}`, '오늘 자동 초안 없음');
     } else {
       const issues = checkPosts(
-        todays.map((p) => ({ channel: p.channel as string, title: p.title as string | null, bodyPlain: p.body_plain as string | null })),
+        todays.map((p) => ({
+          channel: p.channel as string,
+          title: p.title as string | null,
+          bodyPlain: p.body_plain as string | null,
+          titleStyle: (p.metadata as { titleStyle?: string } | null)?.titleStyle ?? null,
+        })),
         s.name as string,
         { storeHasFacts: facts > 0 },
       );

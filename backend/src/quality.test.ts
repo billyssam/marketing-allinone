@@ -12,6 +12,7 @@ import {
   hasConcreteFact,
   notOwnerVoice,
   dropFabricatedRegionTags,
+  CHANNEL_BRIEF,
 } from '../../shared/content-engine/channel-native.js';
 
 const ok = (channel: string, bodyPlain: string, title?: string) => ({ channel, bodyPlain, title });
@@ -20,6 +21,23 @@ test('목표 분량을 브리프에서 파싱한다(별도 표를 두지 않는�
   assert.deepEqual(targetLength('naver_place'), [150, 250]);
   assert.deepEqual(targetLength('kakao_channel'), [120, 250]);
   assert.equal(targetLength('없는채널'), null);
+});
+
+/**
+ * **브리프가 있는 채널은 전부 목표 분량이 잡혀야 한다.**
+ *
+ * 예전 정규식은 `**150~250자**`처럼 별표 바로 뒤 숫자만 인식했다. 그래서
+ * "**전체 200~350자를 채울 것**"이라고 쓴 스레드는 목표가 null이 되어
+ * **분량 검사를 아예 안 받고 있었다.** 남은 것만 세면 통째로 빠진 항목이 '통과'로 찍힌다.
+ */
+test('전수: 브리프가 있는 모든 채널에 목표 분량이 잡힌다', () => {
+  const missing: string[] = [];
+  for (const id of Object.keys(CHANNEL_BRIEF)) {
+    const r = targetLength(id);
+    if (!r) missing.push(id);
+    else assert.ok(r[0] > 0 && r[1] > r[0], `${id} 범위가 이상하다: ${r.join('~')}`);
+  }
+  assert.deepEqual(missing, [], `목표 분량이 안 잡히는 채널: ${missing.join(', ')}`);
 });
 
 test('정상 글은 아무것도 잡지 않는다(오탐 방지)', () => {
@@ -149,4 +167,26 @@ test('주소에 없는 지역 해시태그는 뺀다(주소 없는 공방에 #�
     dropFabricatedRegionTags(['부산맛집', '옥천카페'], '충북 옥천군 안내면 현리3길 16'),
     ['옥천카페'],
   );
+});
+
+/**
+ * 생성 규칙과 점검 규칙이 서로 모순이면 매일 가짜 결함이 뜬다.
+ * angles.ts의 'plain' 스타일은 **상호를 앞에 두어도 되는** 제목인데 점검이 그걸 몰라서,
+ * 로테이션이 그 스타일을 고른 날 5개 채널이 통째로 결함으로 찍혔다(2026-08-15 무인 크론).
+ */
+test("제목 스타일 'plain'인 날은 상호로 시작해도 잡지 않는다(실측 제목 그대로)", () => {
+  const title = '옥천 쿵더쿵, 8월의 열기 식히는 초콜릿과 빙수';
+  const body = '본문 '.repeat(400);
+
+  // 스타일을 모르면 예전처럼 엄격하게 — 기본 동작은 그대로 둔다
+  const strict = checkPosts([{ channel: 'blog', title, bodyPlain: body }], '쿵더쿵');
+  assert.ok(strict.some((i) => i.rule === 'title-prefix'), JSON.stringify(strict));
+
+  // 'plain'을 고른 날은 의도된 형태다
+  const allowed = checkPosts([{ channel: 'blog', title, bodyPlain: body, titleStyle: 'plain' }], '쿵더쿵');
+  assert.ok(!allowed.some((i) => i.rule === 'title-prefix'), JSON.stringify(allowed));
+
+  // 다른 스타일인데 상호로 시작하면 여전히 잡는다 — 지시를 안 지킨 것이다
+  const other = checkPosts([{ channel: 'blog', title, bodyPlain: body, titleStyle: 'situation' }], '쿵더쿵');
+  assert.ok(other.some((i) => i.rule === 'title-prefix'), JSON.stringify(other));
 });

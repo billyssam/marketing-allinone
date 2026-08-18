@@ -32,6 +32,22 @@ export function hasConcreteFact(body: string): boolean {
 const FACT_REQUIRED: ChannelId[] = ['naver_place', 'google_business'];
 
 /**
+ * 브리프에서 목표 분량 범위를 뽑는다 — 생성·점검이 같은 값을 본다.
+ *
+ * ⚠️ 예전엔 `**150~250자**`처럼 **바로 뒤에 숫자가 오는 형태만** 인식했다.
+ * 그래서 "**전체 200~350자를 채울 것**"이라고 쓴 스레드는 목표가 null이 되어
+ * **분량 검사를 아예 안 받고 있었다**(조용히 빠져 있었고 아무도 몰랐다).
+ * 문구를 조금 바꿨다고 검사가 사라지면 안 되므로 범위 표기를 문장 어디서든 찾는다.
+ * (브리프에 분량 말고 다른 숫자 범위를 쓰지 않는다 — 아래 전수 테스트가 지킨다)
+ */
+export function targetLength(channelId: string): [number, number] | null {
+  const brief = CHANNEL_BRIEF[channelId];
+  if (!brief) return null;
+  const m = brief.match(/(\d{2,4})\s*~\s*(\d{2,4})\s*자/);
+  return m ? [Number(m[1]), Number(m[2])] : null;
+}
+
+/**
  * 사장님이 자기 가게에 대해 쓸 리 없는 말투 — 손님·이웃이 추천하는 목소리.
  *
  * 실측(2026-08-13): 당근 "저희 동네 '햇살공방'에서 …하고 있더라구요 … 솔깃하네요",
@@ -107,7 +123,7 @@ async function repairFactlessChannels(
   model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
   configuredModel?: string,
 ): Promise<void> {
-  type Problem = { c: ChannelId; kind: 'voice' | 'fact'; detail: string };
+  type Problem = { c: ChannelId; kind: 'voice' | 'fact' | 'short'; detail: string };
   const problems = targets.flatMap<Problem>((c) => {
     const body = out[c]?.bodyPlain;
     if (!body) return [];
@@ -115,6 +131,13 @@ async function repairFactlessChannels(
     if (voice) return [{ c, kind: 'voice', detail: `사장님 말투가 아님("${voice}")` }];
     if (FACT_REQUIRED.includes(c) && !hasConcreteFact(body)) {
       return [{ c, kind: 'fact', detail: '가격·영업시간이 하나도 없음' }];
+    }
+    // 분량 미달 — 아침 검증이 잡는 것과 **같은 기준**(하한 ×0.8)으로 여기서 먼저 고친다.
+    // 예전엔 알림만 울리고 아무도 안 고쳤다: 08:30 재시도는 멱등이라 스킵하니
+    // 사장님은 목표 150자짜리 플레이스 소식을 113자로 그대로 받았다(2026-08-16 실측).
+    const range = targetLength(c);
+    if (range && body.length < range[0] * 0.8) {
+      return [{ c, kind: 'short', detail: `${body.length}자 (목표 ${range[0]}~${range[1]})` }];
     }
     return [];
   });
@@ -124,11 +147,16 @@ async function repairFactlessChannels(
   for (const { c, kind, detail } of problems) {
     const brief = CHANNEL_BRIEF[c];
     console.warn(`[native] ${c}: ${detail} → 해당 채널만 재작성`);
+    const range = targetLength(c);
     const instruction =
       kind === 'fact'
         ? `내용·톤은 그대로 두되 **아래 사실 중 최소 하나(가격 또는 영업시간)를** 문장 안에 자연스럽게 넣어라.
 억지로 덧붙이지 말고 문맥에 녹인다. 숫자는 문자 그대로 옮긴다.`
-        : `이 글은 **사장님이 자기 가게 계정으로** 올린다. 지금 원문은 손님·이웃이 추천하는 말투다.
+        : kind === 'short'
+          ? `지금 원문이 **${out[c]!.bodyPlain.length}자로 너무 짧다.** 목표는 ${range?.[0]}~${range?.[1]}자다.
+같은 소재로 **더 길게** 써라 — 새 사실을 지어내지 말고, 이미 있는 소재를
+"왜 지금 이걸 권하는지"·"어떤 순간에 좋은지"로 풀어서 채운다. 말줄임·나열로 늘리지 말 것.`
+          : `이 글은 **사장님이 자기 가게 계정으로** 올린다. 지금 원문은 손님·이웃이 추천하는 말투다.
 "…있대요/…하더라구요/솔깃하네요/요기 …" 같은 전언·방문객 말투를 **사장님 1인칭**으로 바꿔라.
 ("저희 ○○입니다", "오늘은 …준비했어요", "…들러보세요") 내용·분량·사실은 그대로 둔다.`;
     try {
@@ -149,10 +177,21 @@ ${out[c]!.bodyPlain}
         configuredModel,
       );
       const body = String(JSON.parse(res.response.text())?.bodyPlain ?? '');
-      const fixed =
-        kind === 'fact' ? body && hasConcreteFact(body) : body && !notOwnerVoice(body, input.store.name);
+      const fixed = !body
+        ? false
+        : kind === 'fact'
+          ? hasConcreteFact(body)
+          : kind === 'short'
+            ? !range || body.length >= range[0] * 0.8
+            : !notOwnerVoice(body, input.store.name);
       if (fixed) {
         out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, body) };
+        continue;
+      }
+      // 짧은 걸 고치려다 더 짧아지면 원문을 지킨다(둘 중 나은 쪽)
+      if (kind === 'short' && body.length > out[c]!.bodyPlain.length) {
+        out[c] = { ...out[c]!, bodyPlain: clampForChannel(c, body) };
+        console.warn(`[native] ${c}: 재작성해도 목표 미달이나 ${body.length}자로 늘어 채택`);
         continue;
       }
     } catch (e) {
@@ -169,8 +208,9 @@ ${out[c]!.bodyPlain}
         console.warn(`[native] ${c}: 붙일 사실 자체가 매장에 없음(플레이스 미연결·항목 0)`);
       }
     } else {
-      // 말투는 기계적으로 못 고친다 — 고쳐 쓰다 뜻이 바뀌면 더 나쁘다. 흔적만 남긴다.
-      console.warn(`[native] ${c}: 재작성 후에도 말투 문제 — 그대로 두고 기록만 남김`);
+      // 말투·분량은 기계적으로 못 채운다 — 억지로 늘리거나 고쳐 쓰면 오히려 나쁜 글이 된다.
+      // 흔적만 남기고 아침 검증이 잡게 둔다(조용히 넘어가지 않는 게 핵심).
+      console.warn(`[native] ${c}: 재작성 후에도 ${kind === 'short' ? '분량 미달' : '말투 문제'} — 기록만 남김`);
     }
   }
 }
@@ -222,8 +262,12 @@ export const CHANNEL_BRIEF: Record<string, string> = {
   naver_place:
     // 업종 무관 — "신메뉴"라고 못박으면 미용실·헬스장 소식이 남의 옷을 입는다
     // 주소·전화 반복 금지 — 이 글은 매장 페이지 **안에** 뜨는 소식이라 이미 화면에 있다(실측: 덤프가 됐다)
-    '네이버 플레이스 소식. 정보 중심·간결. 지금 방문할 이유(새 메뉴·상품·시술, 시즌, 영업정보) 하나를 골라 강조. ' +
-      '주소·전화번호는 쓰지 말 것(매장 페이지 안에 이미 표시된다). 이모지 최소. **150~250자**.',
+    // ⚠️ "간결"이 하한과 충돌해 매일 하한 근처로 나왔다(8/16 113자로 미달, 8/18 123자).
+    //    스레드에서 이미 겪은 것과 같은 형태 — **문장은 간결하게, 분량은 채운다**로 분리해 지시한다.
+    '네이버 플레이스 소식. 정보 중심. 지금 방문할 이유(새 메뉴·상품·시술, 시즌, 영업정보) 하나를 골라 강조. ' +
+      '문장은 군더더기 없이 간결하게 쓰되, **전체 150~250자를 반드시 채울 것** ' +
+      '(고른 이유 하나를 "왜 지금 좋은지"까지 풀어 쓰면 자연스럽게 채워진다. 짧게 끝내면 성의 없어 보인다). ' +
+      '주소·전화번호는 쓰지 말 것(매장 페이지 안에 이미 표시된다). 이모지 최소.',
   danggeun:
     // "이웃에게 말하듯"이 "이웃처럼 말하라"로 읽혀 사장님이 자기 가게를 3인칭으로 소개했다(실측).
     // 화자를 브리프에도 한 번 더 못박는다.

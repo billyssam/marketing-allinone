@@ -69,7 +69,7 @@ async function main() {
     checked++;
     const { data: todays } = await supabase
       .from('posts')
-      .select('channel, title, body_plain')
+      .select('channel, title, body_plain, metadata')
       .eq('store_id', s.id)
       .gte('created_at', todayStart)
       // 보관분 제외 — 사장님 화면에 없는 글로 SLA를 판정하면 오탐이 난다(2026-08-13 실측)
@@ -90,7 +90,12 @@ async function main() {
       (tone.place_facts?.menu?.length ?? 0) > 0 || (tone.offerings?.length ?? 0) > 0;
 
     const issues = checkPosts(
-      todays.map((p) => ({ channel: p.channel as string, title: p.title as string | null, bodyPlain: p.body_plain as string | null })),
+      todays.map((p) => ({
+        channel: p.channel as string,
+        title: p.title as string | null,
+        bodyPlain: p.body_plain as string | null,
+        titleStyle: (p.metadata as { titleStyle?: string } | null)?.titleStyle ?? null,
+      })),
       s.name,
       { storeHasFacts },
     );

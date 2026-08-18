@@ -1,4 +1,4 @@
-import { CHANNEL_BRIEF, hasConcreteFact } from './channel-native';
+import { CHANNEL_BRIEF, hasConcreteFact, targetLength } from './channel-native';
 import { CHANNELS, channelIdOfPost } from '../channels/registry';
 import { hasBatchim } from '../korean';
 
@@ -20,6 +20,11 @@ export interface PostForCheck {
   channel: string;
   title?: string | null;
   bodyPlain?: string | null;
+  /**
+   * 생성 때 고른 제목 스타일(`metadata.titleStyle`).
+   * 'plain'은 **상호를 앞에 두어도 되는** 스타일이라 title-prefix를 면제한다 — 아래 설명 참고.
+   */
+  titleStyle?: string | null;
 }
 
 export interface QualityIssue {
@@ -28,13 +33,8 @@ export interface QualityIssue {
   detail: string;
 }
 
-/** 브리프 문자열의 `**150~250자**`에서 목표 범위를 뽑는다 */
-export function targetLength(channelId: string): [number, number] | null {
-  const brief = CHANNEL_BRIEF[channelId];
-  if (!brief) return null;
-  const m = brief.match(/\*\*(\d{2,4})\s*~\s*(\d{2,4})자/);
-  return m ? [Number(m[1]), Number(m[2])] : null;
-}
+// 목표 분량도 브리프가 있는 쪽(channel-native)이 단일 원천이다 — 생성과 점검이 같은 값을 봐야 한다.
+export { targetLength };
 
 // 사실 판정은 생성 쪽(channel-native)의 `hasConcreteFact`와 **같은 잣대**를 쓴다.
 // 두 벌로 두면 생성은 통과시키고 점검은 잡는(또는 그 반대) 어긋남이 생긴다.
@@ -88,9 +88,19 @@ export function checkPosts(
     const hit = wrong.find((w) => body.includes(w) || (p.title ?? '').includes(w));
     if (hit) issues.push({ channel: label, rule: 'josa', detail: `조사 오류: "${hit}"` });
 
-    // 5) 제목이 "지역명 상호," 틀로 시작 — 이 틀로 시작하면 실패한 제목이라고 못박아 뒀다
+    // 5) 제목이 "지역명 상호," 틀로 시작 — 매일 이 틀이면 광고 전단처럼 읽힌다.
+    //
+    // ⚠️ 단, 제목 스타일 'plain'은 angles.ts가 **의도적으로 허용**하는 형태다
+    //    ("상호를 앞에 두어도 되는 제목. 단 뒤 문구는 최근 제목과 완전히 다른 어휘로").
+    //    이걸 모르고 무조건 잡는 바람에 로테이션이 plain을 고른 날 5개 채널이 통째로 결함으로 찍혔다
+    //    (2026-08-15 무인 크론). **생성 규칙과 점검 규칙이 서로 모순이었다.**
+    //    metadata.titleStyle을 넘겨주면 그날만 면제한다 — 넘어오지 않으면 예전처럼 엄격하게 본다.
     const title = (p.title ?? '').trim();
-    if (title && new RegExp(`^\\S*\\s*${escapeRe(storeName)}\\s*[,·]`).test(title)) {
+    if (
+      title &&
+      p.titleStyle !== 'plain' &&
+      new RegExp(`^\\S*\\s*${escapeRe(storeName)}\\s*[,·]`).test(title)
+    ) {
       issues.push({ channel: label, rule: 'title-prefix', detail: `제목이 상호로 시작: "${title.slice(0, 30)}"` });
     }
   }

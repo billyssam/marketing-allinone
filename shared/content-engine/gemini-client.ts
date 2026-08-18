@@ -6,12 +6,35 @@ import { resolveOfferings, offeringLabel, formatOffering } from './offerings';
 import { resolveBusinessType } from '../business/taxonomy';
 import type { DraftInput, DraftOutput } from './types';
 
-const draftOutputSchema = z.object({
+/** 태그를 배열로 정규화 — 모델이 "a, b, c" 문자열로 줄 때가 있다 */
+function toStringArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x).replace(/^#/, '').trim()).filter(Boolean);
+  if (typeof v === 'string') {
+    return v
+      .split(/[,#\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * 부가 필드(tags·사진 순서)는 **형태가 틀려도 글을 버리지 않는다.**
+ *
+ * 실측(2026-08-16 무인 크론): 모델이 tags를 배열이 아닌 값으로 줬고 zod가 throw →
+ * **스타일링룸 하루치 초안이 통째로 0**이 됐다. 사장님이 아침에 빈 화면을 본다.
+ * 해시태그 몇 개 때문에 본문까지 버리는 건 값이 안 맞는 거래다.
+ * 필수는 제목·본문뿐이고, 나머지는 정규화하거나 비워서 통과시킨다.
+ */
+export const draftOutputSchema = z.object({
   title: z.string().min(1).max(120),
   bodyHtml: z.string().min(50),
-  tags: z.array(z.string()).min(3).max(15),
-  suggestedPhotoOrder: z.array(z.number().int().min(0)),
-  qualityNotes: z.array(z.string()).optional(),
+  tags: z.preprocess(toStringArray, z.array(z.string()).max(15)),
+  suggestedPhotoOrder: z.preprocess(
+    (v) => (Array.isArray(v) ? v.filter((n) => Number.isInteger(n) && (n as number) >= 0) : []),
+    z.array(z.number().int().min(0)),
+  ),
+  qualityNotes: z.preprocess((v) => (Array.isArray(v) ? v.map(String) : undefined), z.array(z.string()).optional()),
 });
 
 export interface GeminiClientConfig {
@@ -101,17 +124,23 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
         industry.writingTemplate(plan, input),
       );
 
+      // 재생성은 **총 1회**. 파싱이든 스키마든 한 번만 더 시도한다(쿼터·지연을 아낀다).
+      const regenerate = () =>
+        callWithFallback(
+          writingModelName, systemInstruction,
+          { temperature, responseMimeType: 'application/json' },
+          industry.writingTemplate(plan, input),
+        );
+
       let parsed: unknown;
+      let retried = false;
       try {
         parsed = JSON.parse(raw);
       } catch {
         // 간헐적 출력 절단(특히 flash-lite) → 본문 1회 재생성으로 흡수
         console.warn('[gemini] JSON 절단/파싱 실패 → 본문 재생성 1회');
-        const retry = await callWithFallback(
-          writingModelName, systemInstruction,
-          { temperature, responseMimeType: 'application/json' },
-          industry.writingTemplate(plan, input),
-        );
+        retried = true;
+        const retry = await regenerate();
         try {
           parsed = JSON.parse(retry);
         } catch (err2) {
@@ -121,7 +150,25 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
         }
       }
 
-      return draftOutputSchema.parse(parsed);
+      let result = draftOutputSchema.safeParse(parsed);
+      if (!result.success && !retried) {
+        // 여기까지 오면 제목·본문이 빠졌다는 뜻(부가 필드는 위에서 정규화된다)
+        const why = result.error.issues.map((i) => `${i.path.join('.') || '(root)'}:${i.code}`).join(', ');
+        console.warn(`[gemini] 스키마 불일치(${why}) → 본문 재생성 1회`);
+        try {
+          result = draftOutputSchema.safeParse(JSON.parse(await regenerate()));
+        } catch {
+          /* 재시도 파싱 실패는 아래 공통 처리 */
+        }
+      }
+      if (!result.success) {
+        throw new Error(
+          `Gemini 응답 스키마 불일치(재시도 포함): ${result.error.issues
+            .map((i) => `${i.path.join('.') || '(root)'} — ${i.message}`)
+            .join(' / ')}`,
+        );
+      }
+      return result.data;
     },
   };
 }
