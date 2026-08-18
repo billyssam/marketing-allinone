@@ -106,7 +106,6 @@ async function main() {
 
   // 적체 방지: 지난 '자동 데일리' 초안은 보관 처리.
   // 마케팅 글은 시의성이 생명이라 어제 것을 오늘 브리핑에 남기면 무덤이 됨.
-  // (사장님이 직접 만든 초안(auto!=daily)은 손대지 않음 — 의도적으로 요청한 것)
   {
     const { data: archived, error: arcErr } = await supabase
       .from('posts')
@@ -117,6 +116,22 @@ async function main() {
       .select('id');
     if (arcErr) console.log(`⚠️ 지난 초안 보관 실패(무시하고 진행): ${arcErr.message}`);
     else if (archived?.length) console.log(`🗂  지난 자동 초안 ${archived.length}건 보관 처리\n`);
+  }
+
+  // 사장님이 직접 만든 초안·웰컴 초안은 **의도가 있으니 유예를 준다.** 다만 무한은 아니다.
+  // 예전엔 아예 제외해서, 쿵더쿵에 7/14 초안이 8/18까지 '대기 중'으로 남아 있었다 —
+  // 8월에 "가을빛 물든 …" 제목이 사장님 화면에 떠 있었다(2026-08-18 실측).
+  // 의도적으로 남긴 게 아니라 그냥 썩은 것이다. 14일이면 어떤 마케팅 글도 시의성을 잃는다.
+  {
+    const cutoff = new Date(Date.now() - 14 * 86_400_000).toISOString();
+    const { data: archived, error } = await supabase
+      .from('posts')
+      .update({ status: 'archived' })
+      .eq('status', 'draft')
+      .lt('created_at', cutoff)
+      .select('id');
+    if (error) console.log(`⚠️ 오래된 초안 보관 실패(무시하고 진행): ${error.message}`);
+    else if (archived?.length) console.log(`🗂  14일 넘은 초안 ${archived.length}건 보관 처리\n`);
   }
 
   let made = 0, skipped = 0, failed = 0, degraded = 0;

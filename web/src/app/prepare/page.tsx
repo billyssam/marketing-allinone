@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { withJosa } from '@shared/korean';
+import { updatePostDraft } from '@/app/posts/actions';
 
 type Step = 'title' | 'body' | 'tags' | 'done';
 
@@ -66,6 +67,31 @@ function PrepareInner() {
     tone: 'wait',
     msg: '초안을 불러오는 중…',
   });
+  /** 손보기 — 초안이 마음에 안 들 때 그대로 올리게 두지 않는다(파일럿 첫날 확실히 나올 요구) */
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editErr, setEditErr] = useState('');
+
+  async function saveEdit() {
+    if (!draft || !postId) return;
+    const text = editText.trim();
+    if (!text) return;
+    setSaving(true);
+    setEditErr('');
+    const patch = step === 'title' ? { title: text } : { bodyPlain: text };
+    const res = await updatePostDraft(postId, patch).catch((e: Error) => ({ ok: false, error: e.message }));
+    setSaving(false);
+    if (!res.ok) {
+      setEditErr(res.error ?? '저장하지 못했어요');
+      return;
+    }
+    // 화면·클립보드를 고친 내용으로 즉시 맞춘다 — 저장만 되고 옛 글이 복사되면 최악이다
+    const next = step === 'title' ? { ...draft, title: text } : { ...draft, bodyPlain: text };
+    setDraft(next);
+    setEditing(false);
+    await copyCurrent(step, next);
+  }
 
   // 현재 단계에서 붙여넣을 전체 텍스트
   function contentFor(s: Step, d: Draft | null): string {
@@ -193,7 +219,7 @@ function PrepareInner() {
           )}
 
           {/* 붙여넣을 내용 — 탭하면 다시 복사 (클립보드 유실 대비 핵심 안전장치) */}
-          {draft && (
+          {draft && !editing && (
             <button
               type="button"
               onClick={() => copyCurrent(step, draft)}
@@ -210,6 +236,55 @@ function PrepareInner() {
               <p className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-fg-2)]">
                 {previewClamped}
               </p>
+            </button>
+          )}
+
+          {/* 손보기 — 마음에 안 드는 글을 그대로 올리게 두지 않는다.
+              태그 단계는 목록이라 편집 대상에서 뺀다(제목·본문만). */}
+          {draft && editing && (
+            <div className="panel mt-4 rounded-[var(--radius-lg)] p-4">
+              <div className="mb-2 flex items-center gap-2.5">
+                <span className="eyebrow" style={{ color: 'var(--color-amber)' }}>{stepLabel} 고치기</span>
+                <span className="h-px flex-1 bg-[var(--color-hair)]" />
+              </div>
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                rows={step === 'title' ? 2 : 12}
+                className="w-full resize-y rounded-[var(--radius)] border border-[var(--color-hair-strong)] bg-[var(--color-bg)] p-3 text-[13px] leading-relaxed text-[var(--color-fg)] outline-none focus:border-[var(--color-amber)]"
+              />
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={saving || !editText.trim()}
+                  className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40"
+                >
+                  {saving ? '저장 중…' : '저장하고 복사'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="rounded-full border border-[var(--color-hair-strong)] px-5 text-[14px] text-[var(--color-fg-2)]"
+                >
+                  취소
+                </button>
+              </div>
+              {editErr && <p className="mt-2 text-[12.5px] text-[var(--color-bad)]">{editErr}</p>}
+            </div>
+          )}
+
+          {draft && !editing && step !== 'tags' && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditErr('');
+                setEditText(step === 'title' ? (draft.title ?? '') : (draft.bodyPlain ?? ''));
+                setEditing(true);
+              }}
+              className="mt-2 w-full rounded-full border border-[var(--color-hair)] py-2 text-[12.5px] text-[var(--color-fg-3)] transition hover:text-[var(--color-fg)]"
+            >
+              마음에 안 들면 · 고쳐서 쓰기
             </button>
           )}
         </div>
