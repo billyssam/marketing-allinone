@@ -44,6 +44,22 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: npx tsx src/generate-daily.ts
 
+      # 글이 준비돼도 **사장님이 앱을 열어야만** 안다. 열지 않으면 그날 글은 그냥 지나간다.
+      # 카톡 알림톡은 사업자 등록 + 템플릿 심사 2주 + 건당 과금이라 지금 못 쓴다 →
+      # 웹 푸시(VAPID 자체 발급, 무료·심사 없음)로 먼저 부른다.
+      # 생성이 실패해도 이건 돌려본다 — 어제 초안이라도 있으면 알릴 값어치가 있다.
+      - name: 아침 알림 발송 (웹 푸시)
+        if: ${{ !cancelled() }}
+        continue-on-error: true # 알림 실패가 콘텐츠 생성 성공을 덮지 않게
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ vars.VAPID_SUBJECT }}
+        run: npx tsx src/send-morning-push.ts
+
       # 24/7 무인 운영: 실패하면 GitHub 이슈 생성 → 소유자에게 이메일 알림.
       # 같은 날 중복 이슈는 만들지 않는다(재시도 크론과 공존).
       - name: 실패 알림 — 이슈 생성

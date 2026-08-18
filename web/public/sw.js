@@ -71,3 +71,47 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+/**
+ * 웹 푸시 — 카톡봇이 하려던 "매일 아침 폰으로 찌르기"를 심사·비용 없이 대신한다.
+ *
+ * 왜 이걸로 시작하나: 알림톡은 사업자 등록 + 템플릿 심사 2주 + 건당 8~15원이고,
+ * 챗봇·친구톡은 카카오 비즈니스 채널 개설이 선행이라 **지금 동작 확인이 불가능**하다.
+ * 웹 푸시는 VAPID 자체 발급이라 무료·심사 없음. 안드로이드 크롬에서 바로 되고,
+ * iOS는 홈 화면에 추가한 경우(16.4+) 된다 — 그래서 설치 유도가 먼저다.
+ */
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : '' };
+  }
+  const title = payload.title || '마케팅올인원';
+  const options = {
+    body: payload.body || '오늘 글이 준비됐어요.',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    // 같은 태그면 알림이 쌓이지 않고 갱신된다 — 하루 여러 번 울려도 목록이 지저분해지지 않게
+    tag: payload.tag || 'daily',
+    renotify: true,
+    data: { url: payload.url || '/dashboard' },
+    // 사장님은 주방·매장에서 폰을 본다. 진동으로 한 번 알리고 끝.
+    requireInteraction: false,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      // 이미 열려 있는 탭이 있으면 그걸 쓴다 — 탭이 계속 늘어나면 사장님이 헷갈린다
+      for (const c of list) {
+        if (c.url.includes(url) && 'focus' in c) return c.focus();
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
+});

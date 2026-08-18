@@ -22,6 +22,7 @@ import { contentChannelsFor, CHANNEL_TO_POST } from '../../shared/channels/regis
 import { resolveBusinessType } from '../../shared/business/taxonomy.js';
 import { dailyDirective, repeatedTitleWords, titleDirective, recentFirstWords } from '../../shared/content-engine/angles.js';
 import { seasonalContext } from '../../shared/content-engine/seasonal.js';
+import { checkPosts, criticalOf } from '../../shared/content-engine/quality.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -134,7 +135,7 @@ async function main() {
     else if (archived?.length) console.log(`🗂  14일 넘은 초안 ${archived.length}건 보관 처리\n`);
   }
 
-  let made = 0, skipped = 0, failed = 0, degraded = 0;
+  let made = 0, skipped = 0, failed = 0, degraded = 0, blocked = 0;
   for (const s of stores) {
     // 멱등: 오늘 데일리 초안이 이미 있으면 스킵
     if (!FORCE) {
@@ -251,6 +252,30 @@ async function main() {
         .filter((r): r is NonNullable<typeof r> => r !== null);
       if (!rows.length) throw new Error('생성된 드래프트 없음');
 
+      // ── 저장 직전 게이트 ──────────────────────────────────────────────
+      // 지금까지 checkPosts는 **다음 날 아침 검증**에서만 돌았다. 즉 나쁜 글이 하루를 살고
+      // 사장님 화면에 먼저 도착했다. 여기서 한 번 통과시켜 같은 사실을 그 자리에서 안다.
+      //
+      // 왜 저장을 막지 않는가: 사장님은 이걸 매일 붙여넣는다 — "그날은 없었다"가 있으면 안 된다.
+      // 그래서 초안은 살리고, 치명적 결함은 **붙여넣기 전에 보이도록** 알림 맨 앞에 세운다.
+      // 발행을 실제로 막는 것은 아침 검증(check-morning-ready)과 preflight의 몫이다.
+      const tone = (s.brand_tone ?? {}) as { place_facts?: { menu?: unknown[] }; offerings?: unknown[] };
+      const critical = criticalOf(
+        checkPosts(
+          rows.map((r) => ({
+            channel: r.channel,
+            title: r.title,
+            bodyPlain: r.body_plain,
+            titleStyle: daily.titleStyle.key,
+          })),
+          s.name,
+          {
+            storeHasFacts:
+              (tone.place_facts?.menu?.length ?? 0) > 0 || (tone.offerings?.length ?? 0) > 0,
+          },
+        ),
+      );
+
       let { data: inserted, error: insErr } = await supabase
         .from('posts')
         .insert(rows)
@@ -277,8 +302,20 @@ async function main() {
       console.log(
         `[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')})${bundle.degraded ? ' ⚠️품질강등(lite)' : ''} · 각도:${angle.label}: ${bundle.master.title}`,
       );
+      if (critical.length) {
+        blocked++;
+        console.log(
+          `[${s.name}] ⛔ 그대로 내보내면 안 되는 결함 ${critical.length}건: ${critical.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`,
+        );
+      }
+      // 결함은 초안 링크보다 **앞에** 둔다. 뒤에 붙이면 링크를 먼저 눌러 그대로 붙여넣는다.
+      const warnBlock = critical.length
+        ? `⛔ <b>붙여넣기 전에 고쳐주세요</b> (${critical.length}건)\n` +
+          critical.map((i) => `· [${i.channel}] ${i.detail}`).join('\n') +
+          '\n\n'
+        : '';
       await sendTelegram(
-        `☀️ <b>${s.name}</b> 오늘의 초안 ${inserted?.length}건이 준비됐어요 (${inserted?.map((p) => p.channel).join('·')})\n${bundle.master.title}\n${APP_URL}/prepare?post=${blogPost?.id}`,
+        `${warnBlock}☀️ <b>${s.name}</b> 오늘의 초안 ${inserted?.length}건이 준비됐어요 (${inserted?.map((p) => p.channel).join('·')})\n${bundle.master.title}\n${APP_URL}/prepare?post=${blogPost?.id}`,
       );
     } catch (e) {
       failed++;

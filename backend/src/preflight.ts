@@ -12,7 +12,7 @@ import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
-import { checkPosts } from '../../shared/content-engine/quality';
+import { checkPosts, criticalOf } from '../../shared/content-engine/quality';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local'), quiet: true });
 loadEnv({ quiet: true });
@@ -112,8 +112,17 @@ async function checkStores() {
         s.name as string,
         { storeHasFacts: facts > 0 },
       );
-      if (issues.length) add('block', `매장 · ${s.name}`, `품질 이상 ${issues.length}건: ${issues.map((i) => `${i.rule}`).join(',')}`);
-      else add('ok', `매장 · ${s.name}`, `채널 ${channels.length} · 오늘 초안 ${todays.length} · 품질 통과`);
+      // 무게를 구분한다 — preflight는 사람이 보면서 파일럿 준비를 판단하는 화면이라
+      // '지금 막아야 할 것'과 '고쳐두면 좋은 것'이 같은 빨간불이면 우선순위가 사라진다.
+      const crit = criticalOf(issues);
+      const warns = issues.filter((i) => i.severity === 'warn');
+      if (crit.length) {
+        add('block', `매장 · ${s.name}`, `그대로 내보내면 안 되는 결함 ${crit.length}건: ${crit.map((i) => `${i.rule}`).join(',')}`);
+      }
+      if (warns.length) {
+        add('warn', `매장 · ${s.name}`, `고쳐야 할 것 ${warns.length}건: ${warns.map((i) => `${i.rule}`).join(',')}`);
+      }
+      if (!issues.length) add('ok', `매장 · ${s.name}`, `채널 ${channels.length} · 오늘 초안 ${todays.length} · 품질 통과`);
     }
 
     if (!s.naver_place_url) add('warn', `매장 · ${s.name}`, '플레이스 미연결 — 리뷰 수집·사실 주입 불가');

@@ -18,6 +18,7 @@ import { resolveBusinessType, marketingFocusFor, hasPlacePage } from '@shared/bu
 import { resolveOfferings, offeringNoun } from '@shared/content-engine/offerings';
 import { withJosa } from '@shared/korean';
 import { pickNudge } from '@shared/nudge';
+import { PushToggle } from '@/components/push-toggle';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
 import { anglesForOffering, weekPlan } from '@shared/content-engine/angles';
 import { WeekPlan } from '@/components/week-plan';
@@ -297,6 +298,9 @@ export default async function DashboardPage() {
             <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">매장 설정 →</span>
           </Link>
         )}
+
+        {/* 아침 알림 — 글이 준비돼도 앱을 안 열면 그날 글은 그냥 지나간다 */}
+        <PushToggle publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY} />
 
         {/* 재방문 유도 넛지 (끊긴 단골 있을 때) */}
         {reactivationTargets > 0 && (

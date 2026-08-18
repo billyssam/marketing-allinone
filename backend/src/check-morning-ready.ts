@@ -12,7 +12,7 @@ import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
-import { checkPosts } from '../../shared/content-engine/quality';
+import { checkPosts, criticalOf } from '../../shared/content-engine/quality';
 
 // 로컬 수동 실행 지원 — 다른 운영 스크립트와 동일한 경로에서 env 로드.
 // (CI는 워크플로가 env를 주입하므로 크론은 이전에도 정상이었지만, docs/ops.md가
@@ -47,6 +47,9 @@ async function main() {
   let checked = 0;
   const missing: string[] = [];
   const badQuality: string[] = [];
+  // 무게를 나눠 담는다 — 조사 오류 한 건과 화자 붕괴 한 건이 같은 줄에 섞여 있으면
+  // 매일 목록만 길어지고 무엇을 먼저 봐야 하는지 사라진다.
+  const blocking: string[] = [];
 
   for (const s of stores) {
     // 콘텐츠 채널이 하나라도 연결된 매장만 SLA 대상 (연결 = 행 존재, generate-daily와 동일 기준)
@@ -100,20 +103,33 @@ async function main() {
       { storeHasFacts },
     );
     if (issues.length) {
-      badQuality.push(`${s.name}: ${issues.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`);
+      const fmt = (list: typeof issues) =>
+        `${s.name}: ${list.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`;
+      const crit = criticalOf(issues);
+      const warns = issues.filter((i) => i.severity === 'warn');
+      if (crit.length) blocking.push(fmt(crit));
+      if (warns.length) badQuality.push(fmt(warns));
     }
   }
 
-  console.log(`검증 매장 ${checked} · 오늘 초안 누락 ${missing.length} · 품질 이상 ${badQuality.length}`);
+  console.log(
+    `검증 매장 ${checked} · 오늘 초안 누락 ${missing.length} · 그대로 내보내면 안 되는 것 ${blocking.length} · 고쳐야 할 것 ${badQuality.length}`,
+  );
+  // 치명적인 것을 맨 위에 — 목록이 길어지면 아래는 안 읽힌다.
+  if (blocking.length) {
+    console.error('⛔ 그대로 내보내면 안 되는 결함:');
+    for (const b of blocking) console.error(`   ${b}`);
+  }
   if (missing.length) {
     console.error(`❌ 오늘 자동 초안이 없는 매장: ${missing.join(', ')}`);
   }
   if (badQuality.length) {
-    console.error('❌ 초안 품질 이상:');
+    console.error('⚠️ 고쳐서 내보내야 할 것:');
     for (const b of badQuality) console.error(`   ${b}`);
   }
   // 누락과 품질을 **함께** 판단한다 — 하나만 먼저 exit하면 나머지가 가려진다
-  if (missing.length || badQuality.length) process.exit(1);
+  // warn도 계속 실패로 둔다 — 무인 운영의 유일한 눈이라 기준을 낮추면 조용히 나빠진다.
+  if (missing.length || blocking.length || badQuality.length) process.exit(1);
   console.log('✅ 모든 연결 매장에 오늘 초안 준비됨 (품질 점검 통과)');
 }
 
