@@ -9,14 +9,20 @@ import type { DailyFocus } from '@shared/content-engine/daily-focus';
  * 하나를 크게 세우고 이유·소요시간을 붙여 "그 정도면 하지" 상태를 만든다.
  * 나머지는 숨기지 않고 접어둔다 — 다 하고 싶은 사장님을 막으면 안 된다.
  */
-export function DailyFocusCard({ focus }: { focus: DailyFocus }) {
+export function DailyFocusCard({ focus, doneToday }: { focus: DailyFocus; doneToday?: boolean }) {
   const { primary, secondary, rest } = focus;
   if (!primary) return null;
 
   return (
     <div className="panel rounded-[var(--radius-lg)] p-4 sm:p-5">
       <div className="flex items-center gap-2">
-        <span className="eyebrow">오늘 하나만 한다면</span>
+        {/*
+          이미 올린 날에 "오늘 하나만 한다면"이 그대로 있으면 앞뒤가 안 맞는다 —
+          바로 위 KPI는 "오늘 몫은 끝났어요"라고 말하는데 아래선 또 하라고 한다
+          (2026-08-18 사장님 시뮬레이션에서 실측).
+          카드를 없애지는 않는다. 더 하고 싶은 사장님도 있으니 **권유의 무게만** 낮춘다.
+        */}
+        <span className="eyebrow">{doneToday ? '더 하고 싶으시면' : '오늘 하나만 한다면'}</span>
         <span className="mono text-[11px] text-[var(--color-fg-3)]">{primary.effort}</span>
       </div>
 

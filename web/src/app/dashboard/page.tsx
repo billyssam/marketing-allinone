@@ -261,7 +261,7 @@ export default async function DashboardPage() {
           ) : focus.primary ? (
             <>
               {/* 글은 우선순위 카드로 — 같은 글이 아래 브리핑에도 뜨면 중복이라 리뷰만 넘긴다 */}
-              <DailyFocusCard focus={focus} />
+              <DailyFocusCard focus={focus} doneToday={publishedToday} />
               {reviewItems.length > 0 && (
                 <div className="mt-3">
                   <DashboardBriefing items={reviewItems} />
