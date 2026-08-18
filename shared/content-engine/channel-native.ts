@@ -5,6 +5,7 @@ import { htmlToPlain } from './channel-formatter';
 import { STANDARD_LANGUAGE_RULE } from './prompts/base';
 import { clampForChannel, fabricatedNumbers } from './caption';
 import { resolveOfferings, offeringLabel } from './offerings';
+import { dropFabricatedRegionTags } from './place-facts';
 import { resolveBusinessType } from '../business/taxonomy';
 
 /**
@@ -77,28 +78,8 @@ export function notOwnerVoice(body: string, storeName?: string): string | undefi
   return undefined;
 }
 
-/** 광역 지자체명 — 해시태그에 지역을 지어냈는지 판정할 때만 쓴다(짧고 안 변하는 목록) */
-const REGIONS = [
-  '서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종',
-  '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주',
-];
-
-/**
- * 매장 주소에 없는 지역명이 붙은 해시태그를 걸러낸다.
- *
- * 실측(2026-08-13): 주소가 **아예 없는** 공방에 `#서울공방`이 붙었다.
- * 손님이 엉뚱한 동네에서 찾게 되는 종류의 오류인데, 숫자 날조 경보(fabricatedNumbers)는
- * 숫자만 보므로 지명은 그냥 통과한다.
- *
- * 주소가 있으면 그 주소에 나오는 지역만 허용하고, 없으면 지역 태그를 전부 뺀다.
- */
-export function dropFabricatedRegionTags(tags: string[], address?: string | null): string[] {
-  const addr = address ?? '';
-  return tags.filter((t) => {
-    const bad = REGIONS.find((r) => t.includes(r));
-    return !bad || addr.includes(bad);
-  });
-}
+// 지역 태그 필터는 주소를 다루는 place-facts가 원천 — 여기선 재수출만 한다(기존 import 유지)
+export { dropFabricatedRegionTags };
 
 /**
  * 매장 실제 사실을 재작성 프롬프트에 직접 주입.

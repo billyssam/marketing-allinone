@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { BASE_SYSTEM_PROMPT } from './prompts/base';
 import { getIndustryPrompt } from './registry';
 import { resolveOfferings, offeringLabel, formatOffering } from './offerings';
+import { dropFabricatedRegionTags } from './place-facts';
 import { resolveBusinessType } from '../business/taxonomy';
 import type { DraftInput, DraftOutput } from './types';
 
@@ -168,7 +169,17 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
             .join(' / ')}`,
         );
       }
-      return result.data;
+
+      // 지어낸 지역 태그를 여기서 뺀다 — **마스터가 만들어지는 유일한 지점**이라
+      // 크론·웹 컴포저·웰컴 초안이 전부 이 필터를 지난다.
+      // 예전엔 단문 재작성 쪽에만 걸려 있어서 블로그 태그의 `#강남수학`이 그대로 나갔다(반쪽 수정).
+      const address = input.place?.address || input.store.address;
+      const tags = dropFabricatedRegionTags(result.data.tags, address);
+      if (tags.length !== result.data.tags.length) {
+        const dropped = result.data.tags.filter((t) => !tags.includes(t));
+        console.warn(`[gemini] 주소에 없는 지역 태그 제거: ${dropped.join(', ')} (주소: ${address || '없음'})`);
+      }
+      return { ...result.data, tags };
     },
   };
 }
@@ -232,5 +243,12 @@ function placeFactSection(input: DraftInput): string {
       `5. **주소가 없으므로 오프라인 공간 묘사 절대 금지** — "골목길에 자리한", "매장에 들어서면", 인테리어·향기·방문 장면 등을 지어내지 말 것(온라인 판매자일 수 있음). 경험담은 상품·서비스 자체의 사용 경험으로만 쓸 것.`,
     );
   }
+  // 태그는 본문 규칙 밖이라 그냥 빠져나갔다 — 주소 없는 학원에 `#강남수학`·`#역삼수학`(2026-08-18 실측).
+  // 모델은 업종마다 정해진 동네를 기본값처럼 뱉는다. 손님이 엉뚱한 동네에서 찾게 된다.
+  facts.push(
+    address
+      ? `6. **해시태그의 지역명은 위 주소에 나온 지역만** 쓸 것. 다른 동네·상권 이름을 붙이지 말 것.`
+      : `6. **해시태그에 지역명을 쓰지 말 것** — 주소를 모르므로 어떤 동네도 사실이 아니다. 업종·소재 태그만 쓴다.`,
+  );
   return facts.join('\n');
 }
