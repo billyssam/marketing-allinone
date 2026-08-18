@@ -268,7 +268,35 @@ async function main() {
     }
     const waited = Math.round((Date.now() - t0) / 1000);
     saw('첫 글까지', drafts > 0 ? `${waited}초 · ${drafts}건` : `${waited}초 기다렸는데 0건`);
-    if (drafts === 0) stuck('첫 글이 안 왔다 — 가입 첫날 빈 화면을 본다');
+
+    // 안 왔을 때 **사장님이 스스로 빠져나올 수 있는가**가 진짜 질문이다.
+    // 웰컴 초안은 응답 뒤 백그라운드(after)로 도는데, 배포 직후처럼 인스턴스가 바뀌면 날아간다 —
+    // 파일럿 첫날에도 일어날 수 있다. 그때 화면에 자가복구 버튼이 실제로 뜨는지, 눌러서 되는지 본다.
+    if (drafts === 0) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      const recover = page.getByRole('button', { name: /첫 글 만들기|지금 만들기/ }).first();
+      if (!(await recover.count())) {
+        stuck('첫 글이 안 왔는데 되살릴 버튼도 없다 — 사장님은 빈 화면에 갇힌다');
+      } else {
+        saw('자가복구 버튼', '있음 → 눌러본다');
+        await recover.click();
+        let recovered = 0;
+        for (let i = 0; i < 18; i++) {
+          const { data: s } = await supabase.from('stores').select('id').eq('name', STORE).maybeSingle();
+          if (s) {
+            const { count } = await supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', s.id);
+            recovered = count ?? 0;
+            if (recovered > 0) break;
+          }
+          await page.waitForTimeout(5000);
+        }
+        drafts = recovered;
+        if (recovered > 0) saw('자가복구 결과', `${recovered}건 생성됨 — 사장님이 스스로 빠져나올 수 있다`);
+        else stuck('자가복구 버튼을 눌러도 글이 안 만들어진다');
+      }
+    }
+    if (drafts === 0) stuck('첫 글이 끝내 안 왔다 — 가입 첫날 빈 화면을 본다');
 
     // ── 6. 붙여넣기 ────────────────────────────────────────────────────
     step('6. 붙여넣기 — 실제로 올릴 수 있는가');
