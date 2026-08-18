@@ -32,9 +32,16 @@ export function PushToggle({ publicKey }: { publicKey?: string }) {
       (window.navigator as { standalone?: boolean }).standalone === true;
     const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
+    // ⚠️ iOS 판정이 **차단 판정보다 먼저**여야 한다.
+    // 순서를 바꿨더니 아이폰 사장님에게 "브라우저 주소창의 자물쇠를 누르세요"가 떴다 —
+    // 아이폰엔 그런 UI가 없다(2026-08-18 사장님 시뮬레이션, iOS UA로 실측).
+    // 홈 화면에 추가하기 전엔 무슨 안내를 해도 소용이 없으므로 그것부터 말한다.
+    if (isIos && !isStandalone) {
+      setState('ios-needs-install');
+      return;
+    }
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      // iOS Safari는 홈 화면 추가 전엔 PushManager 자체가 없다 — '미지원'이 아니라 '설치 먼저'다
-      setState(isIos && !isStandalone ? 'ios-needs-install' : 'unsupported');
+      setState('unsupported');
       return;
     }
     if (Notification.permission === 'denied') {

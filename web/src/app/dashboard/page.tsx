@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { DashboardPerformance, type PerfData } from '@/components/dashboard-performance';
 import { AppHeader } from '@/components/app-header';
-import { CHANNELS, AUTOMATION_LABEL, channelIdOfPost, type ChannelId } from '@shared/channels/registry';
+import { CHANNELS, automationLabelFor, channelIdOfPost, type ChannelId } from '@shared/channels/registry';
 import { pickDailyFocus } from '@shared/content-engine/daily-focus';
 import { DailyFocusCard } from '@/components/daily-focus-card';
 import { InstallPrompt } from '@/components/install-prompt';
@@ -326,7 +326,7 @@ export default async function DashboardPage() {
               {connected.map((id) => {
                 const ch = CHANNELS.find((c) => c.id === id);
                 if (!ch) return null;
-                const au = AUTOMATION_LABEL[ch.automation];
+                const au = automationLabelFor(ch);
                 const st = CONN_STATUS[connStatus.get(id) ?? 'pending'] ?? CONN_STATUS.pending;
                 return (
                   <div key={id} className="panel rounded-[var(--radius)] p-3.5">

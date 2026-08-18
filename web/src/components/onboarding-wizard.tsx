@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { completeOnboarding } from '@/app/onboarding/actions';
-import { CHANNELS, AUTOMATION_LABEL, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
+import { CHANNELS, automationLabelFor, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
 import {
   BIZ_GROUPS,
   businessTypesByGroup,
@@ -266,7 +266,7 @@ export function OnboardingWizard() {
                     {chans.map((c) => {
                       const on = effectiveChannels.has(c.id);
                       const rec = recommended.includes(c.id);
-                      const au = AUTOMATION_LABEL[c.automation];
+                      const au = automationLabelFor(c);
                       return (
                         <button key={c.id} onClick={() => toggleChannel(c.id)}
                           className={`flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)]'}`}>

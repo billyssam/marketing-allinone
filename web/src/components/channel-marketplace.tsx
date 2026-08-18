@@ -1,4 +1,4 @@
-import { GROUPS, AUTOMATION_LABEL, channelsByGroup, CHANNELS, type ChannelGroup } from '@shared/channels/registry';
+import { GROUPS, AUTOMATION_LABEL, automationLabelFor, channelsByGroup, CHANNELS, type ChannelGroup } from '@shared/channels/registry';
 
 const ORDER: ChannelGroup[] = ['acquire', 'sell', 'retain', 'reputation', 'ads'];
 
@@ -37,7 +37,7 @@ export function ChannelMarketplace() {
               </div>
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
                 {chans.map((c) => {
-                  const au = AUTOMATION_LABEL[c.automation];
+                  const au = automationLabelFor(c);
                   return (
                     <div key={c.id} className="spot panel rounded-[var(--radius)] p-3.5">
                       <div className="flex items-center justify-between">

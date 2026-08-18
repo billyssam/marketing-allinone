@@ -59,6 +59,29 @@ export const AUTOMATION_LABEL: Record<Automation, { label: string; color: string
   beta: { label: '준비중', color: '#86847d' },
 };
 
+/**
+ * 화면에 보여줄 등급 — **아직 안 되는 걸 된다고 말하지 않는다.**
+ *
+ * `automation`은 그 채널이 **어떻게 될 계획인지**이고, `status`가 **지금 되는지**다.
+ * 둘을 안 합쳐서, 구현이 하나도 없는 카카오 알림톡이 사장님 대시보드에
+ * **"완전 자동"**으로 떠 있었다(2026-08-18 사장님 시뮬레이션에서 실측).
+ * auto인데 live가 아닌 채널이 **15개**였다 — 알림톡·스마트스토어·쿠팡·광고 전부.
+ *
+ * 사장님은 이걸 보고 "알림톡이 자동으로 나가는구나"라고 믿는다. 안 나간다.
+ * 파일럿에서 이런 약속은 한 번만 어긋나도 전체를 못 믿게 만든다.
+ */
+export function automationLabelFor(c: { automation: Automation; status: ChannelStatus }): {
+  label: string;
+  color: string;
+} {
+  if (c.status === 'live') return AUTOMATION_LABEL[c.automation];
+  const suffix = AUTOMATION_LABEL[c.automation].label;
+  return {
+    label: c.status === 'wip' ? `준비중 · ${suffix} 예정` : `${suffix} 예정`,
+    color: AUTOMATION_LABEL.beta.color,
+  };
+}
+
 export const CHANNELS: ChannelDef[] = [
   // ===== 유입 =====
   { id: 'naver_place', name: '네이버 플레이스', group: 'acquire', color: '#16d66a', automation: 'assisted', status: 'live', connect: 'extension', priority: 1,

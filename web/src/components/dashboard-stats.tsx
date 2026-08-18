@@ -45,11 +45,18 @@ export function DashboardStats({ data }: { data: StatStripData }) {
       accent: data.totalReviews > 0 && data.posRate >= 80 ? 'var(--color-good)' : undefined,
     },
     {
-      // 초안 개수가 아니라 "오늘 올렸나(0/1) + 답글 대기". 끝낼 수 있는 숫자여야 한다
+      // 초안 개수가 아니라 "오늘 올렸나(0/1) + 답글 대기". 끝낼 수 있는 숫자여야 한다.
+      // ⚠️ 글이 아직 하나도 없는 매장(가입 1분차)에 "끝났어요"라고 하면 안 된다 —
+      //    아무것도 안 했는데 다 했다고 하는 셈이다(2026-08-18 사장님 시뮬레이션에서 실측).
       label: '오늘 할 일',
       value: data.todo.toLocaleString(),
       unit: '건',
-      sub: data.todo > 0 ? '오늘 하나 + 답글' : '오늘 몫은 끝났어요',
+      sub:
+        data.todo > 0
+          ? '오늘 하나 + 답글'
+          : data.totalPosts === 0
+            ? '첫 글을 준비하고 있어요'
+            : '오늘 몫은 끝났어요',
       accent: data.todo > 0 ? 'var(--color-amber)' : 'var(--color-good)',
       dot: data.todo > 0 ? 'var(--color-amber)' : undefined,
     },

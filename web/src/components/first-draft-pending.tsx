@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 /**
- * 온보딩 직후 웰컴 드래프트(백그라운드 생성, 10~20초) 대기 표시.
+ * 온보딩 직후 웰컴 드래프트(백그라운드 생성) 대기 표시. 실측 31초 — 안내는 실제보다 짧게 말하지 않는다.
  * 5초 간격으로 새로고침 — 초안이 생기면 서버컴포넌트가 이 컴포넌트 대신 브리핑을 렌더.
  *
  * 🔴 자가복구: 웰컴 드래프트가 실패(Gemini 오류·키 없음)하면 백그라운드가 조용히 삼켜
@@ -80,7 +80,7 @@ export function FirstDraftPending() {
             disabled={loading}
             className="btn-primary rounded-full px-5 py-2.5 text-[13px] font-medium disabled:opacity-60"
           >
-            {loading ? '만드는 중… (10~20초)' : '지금 첫 글 만들기'}
+            {loading ? '만드는 중… (30초쯤)' : '지금 첫 글 만들기'}
           </button>
           <button
             type="button"
@@ -101,7 +101,7 @@ export function FirstDraftPending() {
         <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--color-amber)]" />
         <span className="text-[14px] font-medium">첫 블로그 초안을 만들고 있어요</span>
       </div>
-      <p className="mt-2 text-[12.5px] text-[var(--color-fg-3)]">10~20초쯤 걸려요. 완성되면 여기에 나타납니다.</p>
+      <p className="mt-2 text-[12.5px] text-[var(--color-fg-3)]">보통 30초 안에 나타나요. 조금 늦어도 기다려 주세요.</p>
     </div>
   );
 }

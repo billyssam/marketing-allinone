@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import {
   CHANNELS,
   GROUPS,
-  AUTOMATION_LABEL,
+  automationLabelFor,
   type ChannelGroup,
   type ChannelId,
 } from '@shared/channels/registry';
@@ -96,7 +96,7 @@ export function ChannelCenter({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {chans.map((c) => {
-                    const au = AUTOMATION_LABEL[c.automation];
+                    const au = automationLabelFor(c);
                     const isOn = connected.has(c.id);
                     const canConnect = c.status !== 'planned';
                     const isBusy = busy === c.id;
