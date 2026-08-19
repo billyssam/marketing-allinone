@@ -15,6 +15,8 @@ export interface StoreForReview {
   name: string;
   naver_place_url?: string | null;
   place_id?: string | null;
+  /** 부정 리뷰를 사장님 폰으로 보낼 때 필요(웹 푸시 구독은 사용자에 붙어 있다) */
+  owner_id?: string | null;
 }
 
 export interface SyncReviewsResult {

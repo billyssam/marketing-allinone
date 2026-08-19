@@ -16,6 +16,12 @@ import { resolve } from 'node:path';
 import { crawlNaverPlaceReviews } from '../../shared/content-engine/review-crawler.js';
 import { analyzeReview } from '../../shared/content-engine/review-analyzer.js';
 import { syncStoreReviews, markNegativesNotified, type StoreForReview } from './reviews.js';
+import { configurePush, pushToOwner } from './push.js';
+
+/** 알림 클릭 시 열 주소 — 리뷰 화면으로 바로 보낸다 */
+const APP_URL = process.env.PILOT_APP_URL ?? 'https://marketing-allinone.vercel.app';
+/** VAPID 키가 없으면 사장님 알림은 건너뛴다(텔레그램·대시보드 경고는 그대로) */
+const pushReady = configurePush();
 
 // web/.env.local 재사용 (백엔드 자체 .env 없어도 동작)
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -72,7 +78,8 @@ async function liveRun() {
 
   const { data: stores, error } = await supabase
     .from('stores')
-    .select('id, name, naver_place_url')
+    // owner_id — 부정 리뷰를 **사장님 폰으로** 보내려면 필요하다(아래 설명 참고)
+    .select('id, name, naver_place_url, owner_id')
     .not('naver_place_url', 'is', null);
   if (error) {
     console.error('❌ stores 조회 실패:', error.message);
@@ -110,7 +117,19 @@ async function liveRun() {
         `알림대기 부정 ${r.pendingNegatives.length}`,
     );
 
-    // 부정 리뷰 텔레그램 알림 → 성공 시 통보 마킹
+    /**
+     * 부정 리뷰 알림.
+     *
+     * 예전엔 **운영자 텔레그램·GitHub 이슈로만** 갔다. 사장님은 대시보드를 열어야 알았고,
+     * 그러면 크롤을 아무리 자주 돌려도 "알림 지연"은 줄지 않는다 —
+     * 실제로 저녁 리뷰가 다음날 아침까지 15시간 방치됐다(2026-08-19 실측).
+     * 그래서 **사장님 폰으로 직접** 보낸다(웹 푸시). 텔레그램은 운영자 보조로 남긴다.
+     *
+     * `owner_notified_at`은 이름 그대로 **사장님에게 알린 시각**이어야 한다 →
+     * 푸시가 갔으면 그걸로 마킹한다. 구독이 아직 없으면(초기엔 대부분) 예전처럼
+     * 텔레그램 성공을 기준으로 마킹한다 — 운영자가 카톡으로 전달하는 전제다.
+     * 둘 다 실패하면 마킹하지 않고 다음 회차가 다시 시도한다(조용히 사라지지 않게).
+     */
     if (r.pendingNegatives.length > 0) {
       const lines = r.pendingNegatives
         .slice(0, 5)
@@ -122,12 +141,34 @@ async function liveRun() {
         `⚠️ <b>${r.storeName}</b> 부정 리뷰 ${r.pendingNegatives.length}건 감지\n\n` +
         lines.join('\n\n') +
         `\n\n대시보드에서 답글 확인 →`;
+
+      let notified = false;
+
+      if (pushReady && s.owner_id) {
+        const n = r.pendingNegatives.length;
+        const first = r.pendingNegatives[0];
+        const res = await pushToOwner(supabase, s.owner_id, {
+          title: `${r.storeName} · 아쉬운 리뷰 ${n}건`,
+          // 원문을 조금 보여준다 — 열어보게 만드는 건 숫자가 아니라 손님의 말이다
+          body: n === 1 ? `"${first.content.slice(0, 60)}" 답글 초안이 준비돼 있어요.` : `답글 초안이 준비돼 있어요. 빨리 답할수록 좋습니다.`,
+          tag: 'negative-review',
+          url: `${APP_URL}/reviews`,
+        });
+        if (res.sent > 0) {
+          notified = true;
+          console.log(`   📱 사장님 알림 발송 ${res.sent}건${res.gone ? ` (만료 구독 ${res.gone}건 정리)` : ''}`);
+        } else if (res.failed > 0) {
+          console.log(`   ⚠️ 사장님 알림 실패 ${res.failed}건 — 다음 회차 재시도`);
+        }
+      }
+
       const sent = await sendTelegram(msg);
-      if (sent) {
+      if (sent) console.log('   ✅ 운영자 텔레그램 발송');
+      if (notified || sent) {
         await markNegativesNotified(supabase, r.pendingNegatives.map((n) => n.id));
-        console.log(`   ✅ 텔레그램 알림 발송 + 통보 마킹`);
+        console.log('   ✅ 통보 마킹');
       } else {
-        console.log(`   ℹ️ 텔레그램 미설정(TELEGRAM_BOT_TOKEN/CHAT_ID) — 알림 생략, 다음 실행에 재시도`);
+        console.log('   ℹ️ 사장님 구독·텔레그램 모두 없음 — 알림 생략, 다음 회차 재시도(대시보드 경고는 계속 뜸)');
       }
       totalNeg += r.pendingNegatives.length;
     }
