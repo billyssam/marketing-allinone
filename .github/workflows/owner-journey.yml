@@ -1,0 +1,101 @@
+name: 사장님 여정 검증
+
+# 매일 한 번, **사장님이 실제로 쓸 수 있는지**를 끝까지 걸어가서 확인한다.
+#
+# 왜 필요한가: 아침 검증(morning-ready)은 "초안이 DB에 있는가"만 본다.
+# 초안이 멀쩡해도 초대 링크가 죽거나, 온보딩 버튼이 안 눌리거나, 붙여넣기가 막히면
+# 사장님은 아무것도 못 한다 — 그리고 **지금까지 그걸 사람이 손으로 돌려야만 알 수 있었다.**
+# 무인 기간(주말·연휴)에 여정이 깨지면 아무도 모르는 채로 며칠이 간다.
+#
+# 비용: 실행마다 매장 하나를 만들고 지운다 → 웰컴 초안 생성에 Gemini flash 2회.
+# 그래서 데일리 크론(07:30·08:30)과 아침 검증(09:30·10:30)이 끝난 뒤에 돈다.
+# 쿼터가 소진돼 lite로 강등돼도 이 검증의 목적(여정이 막히는가)에는 지장이 없다.
+on:
+  schedule:
+    - cron: '0 4 * * *' # 13:00 KST
+  workflow_dispatch: {}
+
+concurrency:
+  group: owner-journey
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: 의존성 설치 (워크스페이스)
+        run: npm install
+
+      # 리뷰 크롤과 같은 캐시 키 — 브라우저를 두 번 받지 않는다
+      - name: Playwright 브라우저 캐시
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Playwright Chromium 설치
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
+
+      - name: 여정 완주 검증 (초대 → 온보딩 → 첫 글 → 붙여넣기 → 답글 → 리포트)
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SIM_SUMMARY_FILE: /tmp/sim-summary.txt
+        # ⚠️ pipefail — tee를 거치면 종료코드가 tee의 것이 되어 막힌 여정이 성공으로 찍힌다
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx src/simulate-owner.ts --url=https://marketing-allinone.vercel.app 2>&1 | tee /tmp/journey.log
+
+      # 취소·타임아웃으로 스크립트의 finally가 안 돌았을 수 있다.
+      # 검증 매장이 남으면 **다음 아침 크론이 그 매장 글을 만들며 쿼터를 쓴다** → 반드시 지운다.
+      - name: 검증 계정 정리 (항상)
+        if: always()
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx src/simulate-owner.ts --cleanup-only
+
+      - name: 실패 알림 — 이슈 생성
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="🔴 사장님 여정이 막혔습니다 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SUMMARY=$(cat /tmp/sim-summary.txt 2>/dev/null || echo '(요약 파일 없음 — 스크립트가 시작도 못 했을 수 있음)')
+          BODY=$(printf '초대 링크부터 붙여넣기까지 실제 브라우저로 걸어간 결과, 사장님이 막히는 지점이 있습니다.\n\n```\n%s\n```\n\n초안이 멀쩡해도 여기서 막히면 사장님은 아무것도 못 합니다.\n재현: `cd backend && npx tsx src/simulate-owner.ts --url=https://marketing-allinone.vercel.app`\n\n로그: %s' "$SUMMARY" "$RUN_URL")
+          COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
+          if [ "$COUNT" = "0" ]; then
+            gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
+          fi
+
+      # 고쳐졌는데 빨간 이슈가 남아 있으면 다음부터 알림을 안 보게 된다(다른 워크플로와 같은 방식)
+      - name: 통과 시 지난 알림 닫기
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for N in $(gh issue list -R "${{ github.repository }}" --state open --search "\"사장님 여정이 막혔습니다\" in:title" --json number --jq '.[].number'); do
+            gh issue close "$N" -R "${{ github.repository }}" \
+              --comment "✅ 여정 완주 확인 — 초대부터 붙여넣기까지 막힘 없이 통과했습니다. 자동으로 닫습니다."
+          done

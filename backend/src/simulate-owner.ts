@@ -26,6 +26,13 @@ loadEnv({ quiet: true });
 
 const BASE = process.argv.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3500';
 const KEEP = process.argv.includes('--keep');
+/**
+ * 정리만 하고 끝낸다.
+ * 크론이 취소·타임아웃되면 `finally`가 안 돌아 검증 매장이 남고,
+ * 그러면 **다음 아침 크론이 그 매장 글을 만들며 Gemini 쿼터를 쓴다.**
+ * 워크플로에서 `if: always()`로 이걸 한 번 더 불러 확실히 지운다.
+ */
+const CLEANUP_ONLY = process.argv.includes('--cleanup-only');
 const EMAIL = 'sim-owner@example.com';
 const PASSWORD = 'SimOwner!2026';
 const STORE = '동네빵집 시뮬';
@@ -110,6 +117,11 @@ async function cleanup() {
 }
 
 async function main() {
+  if (CLEANUP_ONLY) {
+    await cleanup();
+    console.log('검증 계정·매장 정리 완료');
+    return;
+  }
   await cleanup(); // 이전 실행 잔재부터
 
   const browser = await chromium.launch();
@@ -419,6 +431,17 @@ async function main() {
       ...log,
     ].join('\n');
     console.log(`\n\n${'═'.repeat(64)}\n${out}\n`);
+
+    // 크론이 알림 본문에 넣을 요약 — 로그 전문을 이슈에 붙이면 아무도 안 읽는다.
+    // 막힌 지점만 뽑아 두고, 자세한 건 런 로그 링크로 보낸다.
+    if (process.env.SIM_SUMMARY_FILE) {
+      const { writeFileSync } = await import('node:fs');
+      writeFileSync(
+        process.env.SIM_SUMMARY_FILE,
+        friction.length ? friction.map((f) => `- ${f}`).join('\n') : '막힌 지점 없음',
+        'utf8',
+      );
+    }
     if (friction.length) process.exit(1);
   }
 }
