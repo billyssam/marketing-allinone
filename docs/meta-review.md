@@ -12,11 +12,25 @@
 |---|---|
 | 발행 어댑터 (`backend/src/channels/instagram.ts`) | ✅ 있음 (미디어 컨테이너 → publish 2단계) |
 | **OAuth 연결 흐름** | ❌ **없음** — 토큰을 받을 방법이 없어 발행을 시험조차 못 함 |
-| 데이터 삭제 콜백 | ✅ `/api/meta/data-deletion` (서명 검증 6종 테스트 통과) |
+| 데이터 삭제 콜백 | ✅ `/api/meta/data-deletion` — 단위 6종 + **로컬 실호출 검증** (아래) |
 | 삭제 확인 페이지 | ✅ `/legal/data-deletion` |
 | 개인정보처리방침 / 이용약관 | ✅ `/legal/privacy` · `/legal/terms` |
 
 OAuth 흐름은 **App ID·Secret이 있어야 만들고 시험할 수 있다** → 아래 1단계가 끝나면 바로 붙인다.
+
+### 삭제 콜백 실검증 (2026-08-19)
+
+시크릿을 넣고 실제로 호출해 본 결과:
+
+| 요청 | 결과 |
+|---|---|
+| 올바른 서명 | `200` + `{url, confirmation_code}` (Meta 규격) |
+| 다른 시크릿으로 위조 | `400 invalid_signed_request` |
+| `algorithm: none` 우회 시도 | `400` |
+| 깨진 입력 | `400` |
+
+운영에는 아직 `META_APP_SECRET`이 없어 **503**을 준다 — 키 없이 200을 주면
+"삭제했다"고 거짓말하는 셈이라 일부러 실패시킨다. 앱 시크릿을 Vercel 환경변수에 넣으면 바로 산다.
 
 ---
 
