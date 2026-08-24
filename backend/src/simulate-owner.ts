@@ -59,8 +59,23 @@ function stuck(why: string) {
   console.log(`  🔴 막힘: ${why}`);
 }
 
-async function text(page: Page): Promise<string> {
-  return (await page.locator('body').innerText()).replace(/\s+/g, ' ').trim();
+/**
+ * 화면 글자를 읽는다 — **내용이 그려질 때까지 기다렸다가.**
+ *
+ * 고정 대기 뒤에 바로 읽으면, 서버 컴포넌트 렌더가 늦게 오는 순간에 **빈 문자열**을 받는다.
+ * 그 상태로 판정하면 "안내가 없다"는 가짜 막힘이 난다(2026-08-22 무인 실행에서 실제로 터졌다).
+ * 대시보드 한 곳만 고쳤더니 나머지 6곳이 그대로였다 —
+ * 같은 유형은 **읽는 함수 하나**에서 막는다.
+ */
+async function text(page: Page, waitMs = 8000): Promise<string> {
+  const deadline = Date.now() + waitMs;
+  let out = '';
+  do {
+    out = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+    if (out.length > 50) return out;
+    await page.waitForTimeout(500);
+  } while (Date.now() < deadline);
+  return out; // 끝내 비면 그대로 돌려준다 — 호출부가 "안 그려졌다"로 판정한다
 }
 
 /**
@@ -259,15 +274,26 @@ async function main() {
 
     // ── 4. 첫 화면 ─────────────────────────────────────────────────────
     step('4. 대시보드 첫 인상 — 뭘 하라고 하는가');
-    await page.waitForTimeout(2000);
-    // 전환이 느린 날엔 아직 온보딩 화면일 수 있다 — 대시보드에 닿을 때까지 기다렸다가 읽는다.
-    // (예전엔 그 상태로 읽어서 "다음 행동이 안 보인다"는 **가짜 막힘**이 떴다)
+    /**
+     * **URL이 아니라 화면이 그려질 때까지** 기다린다.
+     *
+     * 8/18에 "대시보드 URL에 닿을 때까지 기다리기"로 고쳤는데 8/22 무인 실행에서 또 터졌다.
+     * 로그를 보니 전환은 4.0초로 성공했는데 **첫 화면 전문이 빈 문자열**이었다 —
+     * URL이 먼저 바뀌고 서버 컴포넌트 렌더가 아직 도착 전인 순간을 읽은 것이다.
+     *
+     * 그리고 그때 "다음 행동이 안 보인다"고 보고했다. 그건 **다른 결함**이다:
+     *   · 화면이 아예 안 그려짐  → 사장님은 빈 화면을 본다
+     *   · 그려졌는데 안내가 없음 → 사장님은 뭘 할지 모른다
+     * 둘을 같은 문장으로 보고하면 원인을 못 찾는다. 나눠서 판정한다.
+     */
     for (let i = 0; i < 12 && !page.url().includes('/dashboard'); i++) await page.waitForTimeout(1000);
-    const dash = await text(page);
-    saw('첫 화면 전문', dash.slice(0, 900));
-    // '첫 블로그 초안을 만들고 있어요'도 명백한 다음 안내인데 판정어에 없어서 오탐이 났다
-    if (!/붙여넣기|오늘 하나만|첫 글|초안을 만들고/.test(dash)) {
-      stuck('첫 화면에 다음 행동이 안 보인다');
+    const dash = await text(page, 20_000); // 첫 진입은 콜드스타트가 겹쳐 더 기다린다
+    saw('첫 화면 전문', dash ? dash.slice(0, 900) : '(비어 있음)');
+    if (!dash) {
+      stuck('대시보드가 20초 안에 안 그려졌다 — 사장님은 빈 화면을 본다');
+    } else if (!/붙여넣기|오늘 하나만|첫 글|초안을 만들고/.test(dash)) {
+      // '첫 블로그 초안을 만들고 있어요'도 명백한 다음 안내인데 판정어에 없어서 오탐이 난 적 있다
+      stuck('첫 화면은 떴는데 다음에 뭘 할지가 안 보인다');
     }
 
     // ── 5. 웰컴 초안이 오는가 ──────────────────────────────────────────
