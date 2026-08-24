@@ -34,6 +34,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true' # 공개 저장소 — 로그·이슈에 상호를 남기지 않는다
         # pipefail 없으면 tee의 종료코드가 스크립트 실패를 가려 실패가 성공으로 찍힌다
         run: |
           set -o pipefail

@@ -13,6 +13,7 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
 import { checkPosts, criticalOf } from '../../shared/content-engine/quality';
+import { storeLabel, isMasked } from './mask.js';
 
 // 로컬 수동 실행 지원 — 다른 운영 스크립트와 동일한 경로에서 env 로드.
 // (CI는 워크플로가 env를 주입하므로 크론은 이전에도 정상이었지만, docs/ops.md가
@@ -65,7 +66,7 @@ async function main() {
     // 이걸 빼지 않으면 파일럿 사장님이 가입하는 날마다 거짓 알림이 뜬다(실측).
     const joinedAt = (s.onboarded_at ?? s.created_at) as string | null;
     if (joinedAt && Date.parse(joinedAt) >= Date.parse(todayStart)) {
-      console.log(`[${s.name}] 오늘 가입 — 데일리 SLA 대상 아님(웰컴 초안이 담당)`);
+      console.log(`[${storeLabel(s)}] 오늘 가입 — 데일리 SLA 대상 아님(웰컴 초안이 담당)`);
       continue;
     }
 
@@ -79,7 +80,7 @@ async function main() {
       .neq('status', 'archived')
       .contains('metadata', { auto: 'daily' });
     if (!todays?.length) {
-      missing.push(s.name);
+      missing.push(storeLabel(s));
       continue;
     }
 
@@ -103,8 +104,12 @@ async function main() {
       { storeHasFacts },
     );
     if (issues.length) {
+      // detail에는 실제 제목·본문 조각이 들어간다(예: 제목이 상호로 시작: "옥천 쿵더쿵, …").
+      // 공개 로그에선 규칙 이름만 남기고 내용은 뺀다 — 자세한 건 로컬에서 다시 돌려 본다.
       const fmt = (list: typeof issues) =>
-        `${s.name}: ${list.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`;
+        isMasked
+          ? `${storeLabel(s)}: ${list.map((i) => `[${i.channel}] ${i.rule}`).join(' / ')}`
+          : `${s.name}: ${list.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`;
       const crit = criticalOf(issues);
       const warns = issues.filter((i) => i.severity === 'warn');
       if (crit.length) blocking.push(fmt(crit));

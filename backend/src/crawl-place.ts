@@ -12,6 +12,7 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { crawlNaverPlace, extractPlaceId } from '../../shared/content-engine/place-crawler.js';
 import { normalizeHours, cleanDirections, normalizePhone } from '../../shared/content-engine/place-facts.js';
+import { storeLabel } from './mask.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
 loadEnv();
@@ -49,16 +50,18 @@ async function main() {
   let ok = 0, skipped = 0, failed = 0;
 
   for (const s of stores) {
+    const label = storeLabel(s as { id: string; name?: string });
     const tone = (s.brand_tone ?? {}) as Record<string, unknown>;
     const prev = tone.place_facts as { crawled_at?: string } | undefined;
     if (!FORCE && prev?.crawled_at && Date.now() - Date.parse(prev.crawled_at) < STALE_MS) {
-      console.log(`[${s.name}] place_facts ${prev.crawled_at.slice(0, 10)} 크롤분 있음 → 스킵`);
+      console.log(`[${label}] place_facts ${prev.crawled_at.slice(0, 10)} 크롤분 있음 → 스킵`);
       skipped++;
       continue;
     }
     const placeId = extractPlaceId(s.naver_place_url as string);
     if (!placeId) {
-      console.log(`[${s.name}] ⚠️ place id 추출 실패: ${s.naver_place_url}`);
+      // ⚠️ URL도 마스킹 대상 — place id로 매장이 특정된다
+      console.log(`[${label}] ⚠️ place id 추출 실패`);
       failed++;
       continue;
     }
@@ -94,10 +97,10 @@ async function main() {
         .eq('id', s.id);
       if (upErr) throw new Error(upErr.message);
       ok++;
-      console.log(`[${s.name}] ✅ 저장 — 메뉴 ${place_facts.menu.length}종 · ${place_facts.hours ? '영업시간O' : '영업시간X'} · ${place_facts.phone ? '전화O' : '전화X'}`);
+      console.log(`[${label}] ✅ 저장 — 메뉴 ${place_facts.menu.length}종 · ${place_facts.hours ? '영업시간O' : '영업시간X'} · ${place_facts.phone ? '전화O' : '전화X'}`);
     } catch (e) {
       failed++;
-      console.log(`[${s.name}] ⚠️ 크롤 실패: ${(e as Error).message.slice(0, 120)}`);
+      console.log(`[${label}] ⚠️ 크롤 실패: ${(e as Error).message.slice(0, 120)}`);
     }
   }
 

@@ -2,10 +2,10 @@ name: 주간 다이제스트
 
 # 매주 월요일 09:00 KST(00:00 UTC 월) — 전 매장 주간 리포트를 이슈로 받는다.
 #
-# 왜 이슈인가: 사장님께 리포트를 전달하려면 알림톡·카톡 채널 credential이 필요한데
-# 아직 없다. 파일럿 규모(수 매장)에선 **운영자가 월요일에 카톡으로 복사해 보내는 것**이
-# 가장 확실하고, GitHub 이슈는 알림 메일이 바로 오므로 추가 설정 없이 그 경로가 된다.
-# (알림톡이 열리면 이 스크립트 출력을 그대로 발송으로 바꾸면 된다)
+# ⚠️ 저장소가 공개라서 **이슈·Actions 로그도 공개**다. 상호·발행 실적·미답변 리뷰 수는
+# 사장님 장사 정보라 거기 실으면 안 된다(2026-08-24 공개 전환 때 정리).
+# → 전문은 운영자 텔레그램(비공개)으로, 이슈에는 "도착했다"는 알림 껍데기만 남긴다.
+#   텔레그램 미설정이면 전문은 어디에도 안 남는다 — 로컬에서 weekly-digest.ts를 돌려 본다.
 on:
   schedule:
     - cron: '0 0 * * 1'
@@ -29,21 +29,27 @@ jobs:
       - name: 의존성 설치 (워크스페이스)
         run: npm install
 
-      - name: 매장별 주간 리포트 생성
+      - name: 매장별 주간 리포트 생성 (전문은 텔레그램으로)
         working-directory: backend
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MASK_STORE_NAMES: 'true'
         run: npx tsx src/weekly-digest.ts | tee /tmp/digest.txt
 
-      - name: 이슈로 전달
+      - name: 이슈로 알림 (내용 없음 — 공개 저장소)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="📬 주간 다이제스트 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
           {
-            echo '각 매장 블록의 평문을 그대로 사장님 카톡에 붙여넣으시면 됩니다.'
-            echo '🔴=부정 리뷰 미답변 · ⚠️=할 일 있음 · ✅=깨끗함'
+            echo '주간 다이제스트가 준비됐습니다.'
+            echo
+            echo '- 전문은 **운영자 텔레그램**으로 발송됩니다(설정된 경우).'
+            echo '- 직접 보려면 로컬에서: `cd backend && npx tsx src/weekly-digest.ts`'
+            echo '- 이 저장소는 공개라 매장 상호·실적은 이슈에 싣지 않습니다.'
             echo
             echo '```'
             cat /tmp/digest.txt

@@ -58,6 +58,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true' # 공개 저장소(시뮬 매장은 가짜지만 규칙을 통일)
           SIM_SUMMARY_FILE: /tmp/sim-summary.txt
         # ⚠️ pipefail — tee를 거치면 종료코드가 tee의 것이 되어 막힌 여정이 성공으로 찍힌다
         shell: bash
@@ -73,6 +74,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true' # 공개 저장소(시뮬 매장은 가짜지만 규칙을 통일)
         run: npx tsx src/simulate-owner.ts --cleanup-only
 
       - name: 실패 알림 — 이슈 생성

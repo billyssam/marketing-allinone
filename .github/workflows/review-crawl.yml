@@ -78,6 +78,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true' # 공개 저장소 — 로그에 상호를 남기지 않는다
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # 부정 리뷰를 **사장님 폰으로** 바로 보내기 위한 키(없으면 알림만 건너뛴다)
@@ -122,6 +123,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true' # 공개 저장소 — 로그에 상호를 남기지 않는다
         run: npx tsx src/crawl-place.ts
 
       # 24/7 무인 운영: 실패하면 GitHub 이슈 생성 → 소유자에게 이메일 알림.

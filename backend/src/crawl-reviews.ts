@@ -17,6 +17,7 @@ import { crawlNaverPlaceReviews } from '../../shared/content-engine/review-crawl
 import { analyzeReview } from '../../shared/content-engine/review-analyzer.js';
 import { syncStoreReviews, markNegativesNotified, type StoreForReview } from './reviews.js';
 import { configurePush, pushToOwner } from './push.js';
+import { storeLabel } from './mask.js';
 
 /** 알림 클릭 시 열 주소 — 리뷰 화면으로 바로 보낸다 */
 const APP_URL = process.env.PILOT_APP_URL ?? 'https://marketing-allinone.vercel.app';
@@ -103,16 +104,16 @@ async function liveRun() {
       r = await syncStoreReviews(supabase, s);
     } catch (e) {
       failed++;
-      console.log(`[${s.name}] ⚠️ 크롤 실패(건너뜀): ${e instanceof Error ? e.message : String(e)}`);
+      console.log(`[${storeLabel(s)}] ⚠️ 크롤 실패(건너뜀): ${e instanceof Error ? e.message : String(e)}`);
       continue;
     }
     if (r.error) {
       failed++;
-      console.log(`[${r.storeName}] ⚠️ ${r.error}`);
+      console.log(`[${storeLabel(s)}] ⚠️ ${r.error}`);
       continue;
     }
     console.log(
-      `[${r.storeName}] 크롤 ${r.crawled} · 저장 ${r.upserted} · ` +
+      `[${storeLabel(s)}] 크롤 ${r.crawled} · 저장 ${r.upserted} · ` +
         `긍정 ${r.bySentiment.positive}/중립 ${r.bySentiment.neutral}/부정 ${r.bySentiment.negative} · ` +
         `알림대기 부정 ${r.pendingNegatives.length}`,
     );

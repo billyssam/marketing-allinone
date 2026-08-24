@@ -23,6 +23,7 @@ import { resolveBusinessType } from '../../shared/business/taxonomy.js';
 import { dailyDirective, repeatedTitleWords, titleDirective, recentFirstWords } from '../../shared/content-engine/angles.js';
 import { seasonalContext } from '../../shared/content-engine/seasonal.js';
 import { checkPosts, criticalOf } from '../../shared/content-engine/quality.js';
+import { storeLabel, isMasked } from './mask.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
@@ -147,7 +148,7 @@ async function main() {
         .contains('metadata', { auto: 'daily' })
         .limit(1);
       if (existing?.length) {
-        console.log(`[${s.name}] 오늘 데일리 초안 이미 있음 → 스킵`);
+        console.log(`[${storeLabel(s)}] 오늘 데일리 초안 이미 있음 → 스킵`);
         skipped++;
         continue;
       }
@@ -163,7 +164,7 @@ async function main() {
         .eq('status', 'draft')
         .contains('metadata', { auto: 'daily' })
         .select('id');
-      if (replaced?.length) console.log(`[${s.name}] 🗂  오늘 초안 ${replaced.length}건 보관 후 재생성`);
+      if (replaced?.length) console.log(`[${storeLabel(s)}] 🗂  오늘 초안 ${replaced.length}건 보관 후 재생성`);
     }
 
     // 오늘의 방향 = 각도 로테이션 + 시점 + 중심 소재 로테이션(모두 반복 방지)
@@ -291,7 +292,7 @@ async function main() {
           else saved.push(r.data);
         }
         if (!saved.length) throw new Error(insErr.message);
-        if (skipped.length) console.log(`[${s.name}] ⚠️ 저장 스킵(DB 미지원 채널): ${skipped.join(', ')}`);
+        if (skipped.length) console.log(`[${storeLabel(s)}] ⚠️ 저장 스킵(DB 미지원 채널): ${skipped.join(', ')}`);
         inserted = saved;
         insErr = null;
       }
@@ -300,12 +301,14 @@ async function main() {
       if (bundle.degraded) degraded++;
       const blogPost = inserted?.find((p) => p.channel === 'blog') ?? inserted?.[0];
       console.log(
-        `[${s.name}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')})${bundle.degraded ? ' ⚠️품질강등(lite)' : ''} · 각도:${angle.label}: ${bundle.master.title}`,
+        // 제목에는 상호·지역이 그대로 들어간다("옥천 쿵더쿵, …") — 마스킹 중엔 제목도 뺀다
+        `[${storeLabel(s)}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')})${bundle.degraded ? ' ⚠️품질강등(lite)' : ''} · 각도:${angle.label}${isMasked ? '' : `: ${bundle.master.title}`}`,
       );
       if (critical.length) {
         blocked++;
         console.log(
-          `[${s.name}] ⛔ 그대로 내보내면 안 되는 결함 ${critical.length}건: ${critical.map((i) => `[${i.channel}] ${i.rule} — ${i.detail}`).join(' / ')}`,
+          // detail에 실제 제목·본문 조각이 들어간다 — 마스킹 중엔 규칙 이름만 남긴다
+          `[${storeLabel(s)}] ⛔ 그대로 내보내면 안 되는 결함 ${critical.length}건: ${critical.map((i) => (isMasked ? `[${i.channel}] ${i.rule}` : `[${i.channel}] ${i.rule} — ${i.detail}`)).join(' / ')}`,
         );
       }
       // 결함은 초안 링크보다 **앞에** 둔다. 뒤에 붙이면 링크를 먼저 눌러 그대로 붙여넣는다.
@@ -320,7 +323,7 @@ async function main() {
     } catch (e) {
       failed++;
       const msg = e instanceof Error ? e.message : String(e);
-      console.log(`[${s.name}] ⚠️ 실패: ${msg.slice(0, 140)}`);
+      console.log(`[${storeLabel(s)}] ⚠️ 실패: ${msg.slice(0, 140)}`);
       // 재시도까지 뚫린 429 = 진짜 일일(RPD) 한도 → 남은 매장 중단
       if (/429|quota|rate/i.test(msg)) {
         console.log('Gemini 일일 한도 도달(재시도 후에도 429) → 남은 매장 중단(내일 재시도)');

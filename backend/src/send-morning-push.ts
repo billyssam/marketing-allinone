@@ -17,6 +17,7 @@ import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
 // 발송·만료정리 규칙은 공용 모듈 하나만 쓴다 — 두 벌이면 한쪽만 고쳐지고 다른 쪽이 낡는다
 import { configurePush, pushToOwner } from './push.js';
+import { storeLabel } from './mask.js';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local'), quiet: true });
 loadEnv({ quiet: true });
@@ -66,14 +67,14 @@ async function main() {
       .eq('status', 'draft')
       .contains('metadata', { auto: 'daily' });
     if (!todays?.length) {
-      console.log(`[${s.name}] 오늘 초안 없음 → 알림 안 보냄`);
+      console.log(`[${storeLabel(s)}] 오늘 초안 없음 → 알림 안 보냄`);
       skipped++;
       continue;
     }
 
     const n = contentChannelsFor(todays.map((p) => p.channel as string)).length || todays.length;
     if (DRY) {
-      console.log(`[${s.name}] (dry) 채널 ${n}개 알림 대상`);
+      console.log(`[${storeLabel(s)}] (dry) 채널 ${n}개 알림 대상`);
       sent++;
       continue;
     }
@@ -89,10 +90,10 @@ async function main() {
     gone += res.gone;
     failed += res.failed;
     if (res.sent === 0 && res.failed === 0 && res.gone === 0) {
-      console.log(`[${s.name}] 구독 기기 없음(알림 미설정)`);
+      console.log(`[${storeLabel(s)}] 구독 기기 없음(알림 미설정)`);
       skipped++;
     } else {
-      console.log(`[${s.name}] 발송 ${res.sent}${res.gone ? ` · 만료정리 ${res.gone}` : ''}${res.failed ? ` · 실패 ${res.failed}` : ''}`);
+      console.log(`[${storeLabel(s)}] 발송 ${res.sent}${res.gone ? ` · 만료정리 ${res.gone}` : ''}${res.failed ? ` · 실패 ${res.failed}` : ''}`);
     }
   }
 
