@@ -136,7 +136,7 @@ async function main() {
     else if (archived?.length) console.log(`🗂  14일 넘은 초안 ${archived.length}건 보관 처리\n`);
   }
 
-  let made = 0, skipped = 0, failed = 0, degraded = 0, blocked = 0;
+  let made = 0, skipped = 0, failed = 0, degraded = 0, blocked = 0, salvaged = 0;
   for (const s of stores) {
     // 멱등: 오늘 데일리 초안이 이미 있으면 스킵
     if (!FORCE) {
@@ -247,7 +247,8 @@ async function main() {
             status: 'draft' as const,
             // titleStyle 기록 — 제목 규칙 준수 여부를 나중에 역산 없이 바로 진단하기 위해
             // degraded=true면 그날 flash 쿼터 소진으로 품질 낮은 lite가 쓰였다는 뜻(사후 추적용)
-            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key, titleStyle: daily.titleStyle.key, degraded: bundle.degraded },
+            // salvaged가 있으면 깨진 응답에서 건져낸 글이다 — 사후에 어느 글이 그랬는지 찾을 수 있게 남긴다
+            metadata: { engineChannel: ch, auto: 'daily', native: draft.meta?.native === true, angle: angle.key, titleStyle: daily.titleStyle.key, degraded: bundle.degraded, ...(bundle.salvaged ? { salvaged: bundle.salvaged } : {}) },
           };
         })
         .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -299,10 +300,11 @@ async function main() {
 
       made++;
       if (bundle.degraded) degraded++;
+      if (bundle.salvaged) salvaged++;
       const blogPost = inserted?.find((p) => p.channel === 'blog') ?? inserted?.[0];
       console.log(
         // 제목에는 상호·지역이 그대로 들어간다("옥천 쿵더쿵, …") — 마스킹 중엔 제목도 뺀다
-        `[${storeLabel(s)}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')})${bundle.degraded ? ' ⚠️품질강등(lite)' : ''} · 각도:${angle.label}${isMasked ? '' : `: ${bundle.master.title}`}`,
+        `[${storeLabel(s)}] ✅ 생성(${inserted?.map((p) => p.channel).join('+')})${bundle.degraded ? ' ⚠️품질강등(lite)' : ''}${bundle.salvaged ? ` ⚠️건져냄(${bundle.salvaged})` : ''} · 각도:${angle.label}${isMasked ? '' : `: ${bundle.master.title}`}`,
       );
       if (critical.length) {
         blocked++;
@@ -335,7 +337,15 @@ async function main() {
     if (stores.length > 1 && s !== stores[stores.length - 1]) await sleep(15_000);
   }
 
-  console.log(`\n완료 — 생성 ${made} · 스킵 ${skipped} · 실패 ${failed}${degraded ? ` · ⚠️품질강등 ${degraded}` : ''}`);
+  console.log(`\n완료 — 생성 ${made} · 스킵 ${skipped} · 실패 ${failed}${degraded ? ` · ⚠️품질강등 ${degraded}` : ''}${salvaged ? ` · ⚠️건져냄 ${salvaged}` : ''}`);
+  // 건진 글은 "실패는 면했지만 온전하지 않은" 상태다. 침묵하면 tags 빠지고 본문 잘린 글이
+  // 그대로 사장님께 간다 — 품질 강등과 같은 방식으로 드러낸다.
+  if (salvaged > 0) {
+    console.log(`⚠️ ${salvaged}건이 깨진 JSON에서 건져낸 글이다 — tags·사진순서가 비고 본문 끝이 잘렸을 수 있다`);
+    await sendTelegram(
+      `⚠️ 오늘 <b>${salvaged}건</b>이 AI 응답이 깨져 **건져낸 글**이에요.\n글은 나왔지만 해시태그가 비거나 끝이 잘렸을 수 있습니다 — 올리기 전 한 번 봐주세요.`,
+    );
+  }
   // 품질 강등은 "성공했지만 낮은 모델로 만들어진" 상태 → 실패로 처리하면 재시도가 무의미하고,
   // 침묵하면 파일럿 내내 사장님이 낮은 품질 글을 받는다. 그래서 별도 경보만 보낸다.
   if (degraded > 0) {

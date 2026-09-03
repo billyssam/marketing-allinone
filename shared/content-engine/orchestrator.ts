@@ -19,6 +19,13 @@ export interface ChannelDraftBundle {
    * 파일럿에서 매장이 늘면 품질이 조용히 강등되므로 저장·경보로 드러낸다.
    */
   degraded: boolean;
+  /**
+   * 마스터를 **깨진 JSON에서 건져냈는지**(2026-08-27 실측 실패 대응).
+   * 건진 글은 tags·사진 순서가 비고 본문 끝이 잘렸을 수 있다.
+   * 예전엔 여기서 그냥 던져서 **그 매장은 그날 글이 0건**이었다 —
+   * 부분 성공으로 바꾸되, 조용히 넘기지 않고 저장·경보로 드러낸다.
+   */
+  salvaged: 'truncated' | 'unescaped-quote' | null;
 }
 
 export async function generateChannelDrafts(
@@ -45,7 +52,7 @@ export async function generateChannelDrafts(
       meta: { ...base.meta, native: true },
     };
   }
-  return { master, perChannel, channels, degraded: gemini.usedFallback() };
+  return { master, perChannel, channels, degraded: gemini.usedFallback(), salvaged: gemini.salvagedAs() };
 }
 
 /** 이미 생성된 마스터가 있을 때(재발행·수정) — Gemini 호출 없이 재포맷만 */
@@ -54,6 +61,6 @@ export function reformat(
   channels: ChannelId[],
   images: MasterImage[] = [],
 ): ChannelDraftBundle {
-  // Gemini를 새로 호출하지 않으므로 품질 강등이 발생할 여지가 없다
-  return { master, perChannel: formatForChannels(master, channels, images), channels, degraded: false };
+  // Gemini를 새로 호출하지 않으므로 품질 강등·건지기가 발생할 여지가 없다
+  return { master, perChannel: formatForChannels(master, channels, images), channels, degraded: false, salvaged: null };
 }

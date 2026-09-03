@@ -4,6 +4,7 @@ import { BASE_SYSTEM_PROMPT } from './prompts/base';
 import { getIndustryPrompt } from './registry';
 import { resolveOfferings, offeringLabel, formatOffering } from './offerings';
 import { dropFabricatedRegionTags } from './place-facts';
+import { salvageDraftJson } from './salvage-json';
 import { resolveBusinessType } from '../business/taxonomy';
 import type { DraftInput, DraftOutput } from './types';
 
@@ -54,6 +55,12 @@ export interface GeminiClient {
    * 지금은 크론 로그에만 남아 아무도 모른다 → 호출부가 기록·경보할 수 있게 노출.
    */
   usedFallback(): boolean;
+  /**
+   * 직전 generate가 **깨진 JSON에서 건져낸** 글인지.
+   * 건진 글은 tags·사진 순서가 비고 본문이 잘렸을 수 있다 —
+   * 조용히 넘기면 품질 저하를 아무도 모른 채 사장님께 나간다(그래서 호출부가 기록·경보한다).
+   */
+  salvagedAs(): 'truncated' | 'unescaped-quote' | null;
 }
 
 export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClient {
@@ -81,6 +88,8 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
   const isRateLimited = (e: unknown) => /429|quota|rate/i.test(e instanceof Error ? e.message : String(e));
   // generate 1회 동안 폴백이 한 번이라도 쓰였는지(품질 추적용)
   let fellBack = false;
+  // 깨진 JSON에서 건져낸 글인지 — 조용히 넘어가면 품질 저하를 아무도 모른다
+  let wasSalvaged: 'truncated' | 'unescaped-quote' | null = null;
   async function callWithFallback(
     modelName: string,
     systemInstruction: string,
@@ -110,6 +119,8 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
 
     async generate(input) {
       fellBack = false; // 이번 호출 기준으로 초기화
+      wasSalvaged = null;
+      let salvaged: 'truncated' | 'unescaped-quote' | null = null;
       const industry = getIndustryPrompt(input.store.industryId);
       const systemInstruction = `${BASE_SYSTEM_PROMPT}\n\n${industry.systemPrompt}\n\n${brandToneSection(input)}\n\n${placeFactSection(input)}`;
 
@@ -145,9 +156,18 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
         try {
           parsed = JSON.parse(retry);
         } catch (err2) {
-          throw new Error(
-            `Gemini 응답 JSON 파싱 실패(재시도 포함): ${(err2 as Error).message}\n원문 앞 300자:\n${retry.slice(0, 300)}`,
-          );
+          // 재생성도 같은 방식으로 깨졌다. 여기서 던지면 **그 매장은 그날 글이 0건**이다.
+          // 8/27 데일리가 그렇게 죽었고, 9/2 여정 검증에선 가입 첫날 사장님이 빈 화면을 봤다.
+          // 필수는 title·bodyHtml 둘뿐이니 원문에서 그 둘만 건져 부분 성공으로 바꾼다.
+          const s = salvageDraftJson(retry) ?? salvageDraftJson(raw);
+          if (!s) {
+            throw new Error(
+              `Gemini 응답 JSON 파싱 실패(재시도·건지기 포함): ${(err2 as Error).message}\n원문 앞 300자:\n${retry.slice(0, 300)}`,
+            );
+          }
+          console.warn(`[gemini] 건져냄(${s.how}) — 제목 ${s.title.length}자 · 본문 ${s.bodyHtml.length}자`);
+          salvaged = s.how;
+          parsed = { title: s.title, bodyHtml: s.bodyHtml, tags: [], suggestedPhotoOrder: [] };
         }
       }
 
@@ -156,10 +176,20 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
         // 여기까지 오면 제목·본문이 빠졌다는 뜻(부가 필드는 위에서 정규화된다)
         const why = result.error.issues.map((i) => `${i.path.join('.') || '(root)'}:${i.code}`).join(', ');
         console.warn(`[gemini] 스키마 불일치(${why}) → 본문 재생성 1회`);
+        const again = await regenerate();
         try {
-          result = draftOutputSchema.safeParse(JSON.parse(await regenerate()));
+          result = draftOutputSchema.safeParse(JSON.parse(again));
         } catch {
-          /* 재시도 파싱 실패는 아래 공통 처리 */
+          // 재생성분이 이번엔 파싱조차 안 된다 — 파싱 실패 경로와 **같은 유형**이므로
+          // 거기서만 건지고 여기선 던지면 반쪽 수정이다.
+          const s = salvageDraftJson(again);
+          if (s) {
+            console.warn(`[gemini] 건져냄(${s.how}) — 제목 ${s.title.length}자 · 본문 ${s.bodyHtml.length}자`);
+            salvaged = s.how;
+            result = draftOutputSchema.safeParse({
+              title: s.title, bodyHtml: s.bodyHtml, tags: [], suggestedPhotoOrder: [],
+            });
+          }
         }
       }
       if (!result.success) {
@@ -179,8 +209,11 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
         const dropped = result.data.tags.filter((t) => !tags.includes(t));
         console.warn(`[gemini] 주소에 없는 지역 태그 제거: ${dropped.join(', ')} (주소: ${address || '없음'})`);
       }
+      wasSalvaged = salvaged;
       return { ...result.data, tags };
     },
+
+    salvagedAs: () => wasSalvaged,
   };
 }
 
