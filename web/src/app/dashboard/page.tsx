@@ -209,6 +209,16 @@ export default async function DashboardPage() {
     totalReviews: perfData.totalReviews,
     posRate: perfData.totalReviews ? Math.round((perfData.positive / perfData.totalReviews) * 100) : 0,
     todo: postTodo + (pendingReviews?.length ?? 0),
+    // 플레이스를 못 가지는 업종(온라인 셀러·프리랜서·과외)은 리뷰 지표가 영영 안 채워진다 →
+    // 타일을 "이번 주 올린 날"로 바꾼다. 넛지에만 걸려 있던 게이트를 KPI에도 건다(반쪽 수정 방지).
+    canHavePlace: hasPlacePage(business),
+    // 발행 판정은 위 `publishedToday`와 **같은 소스**(publishedHistory)를 쓴다 —
+    // 파생 숫자를 다른 쿼리에서 뽑으면 두 값이 조용히 어긋난다.
+    weekPublishedDays: new Set(
+      (publishedHistory.data ?? [])
+        .filter((r) => r.published_at && nowMs - Date.parse(r.published_at as string) < 7 * 86_400_000)
+        .map((r) => kstDay(r.published_at as string)),
+    ).size,
   };
 
   return (

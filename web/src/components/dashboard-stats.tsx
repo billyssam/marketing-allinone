@@ -13,6 +13,15 @@ export interface StatStripData {
   posRate: number;
   /** 오늘 할 일(붙여넣기·답글 대기 합) */
   todo: number;
+  /**
+   * 이 업종이 네이버 플레이스를 가질 수 있는가(`hasPlacePage(biz)`).
+   * false면 리뷰가 **영영** 안 들어온다 — 온라인 셀러·프리랜서·과외.
+   * 그런 사장님께 "플레이스 연결 후 집계"라고 쓰면 **영원히 오지 않을 것을 기다리라는 말**이고,
+   * 넉 장뿐인 타일 한 칸을 죽은 지표가 차지한다(2026-09-03 실사용자 화면에서 실측).
+   */
+  canHavePlace: boolean;
+  /** 이번 주에 글을 올린 날 수 — 리뷰를 못 쓰는 업종의 대체 지표 */
+  weekPublishedDays: number;
 }
 
 export function DashboardStats({ data }: { data: StatStripData }) {
@@ -37,13 +46,24 @@ export function DashboardStats({ data }: { data: StatStripData }) {
       unit: '건',
       sub: data.weekPosts > 0 ? `이번 주 ${data.weekPosts}건` : '오늘 첫 글을 만들어요',
     },
-    {
-      label: '리뷰 긍정률',
-      value: data.totalReviews > 0 ? String(data.posRate) : '—',
-      unit: data.totalReviews > 0 ? '%' : '',
-      sub: data.totalReviews > 0 ? `리뷰 ${data.totalReviews.toLocaleString()}건 기준` : '플레이스 연결 후 집계',
-      accent: data.totalReviews > 0 && data.posRate >= 80 ? 'var(--color-good)' : undefined,
-    },
+    // 플레이스를 가질 수 있는 업종만 리뷰 지표를 본다.
+    // 온라인 셀러에게는 대신 **실제로 답이 나오는 지표**(이번 주 올린 날)를 준다 —
+    // 우리가 매일 글을 공급하니 성과도 날 단위로 세는 게 맞다.
+    data.canHavePlace
+      ? {
+          label: '리뷰 긍정률',
+          value: data.totalReviews > 0 ? String(data.posRate) : '—',
+          unit: data.totalReviews > 0 ? '%' : '',
+          sub: data.totalReviews > 0 ? `리뷰 ${data.totalReviews.toLocaleString()}건 기준` : '플레이스 연결 후 집계',
+          accent: data.totalReviews > 0 && data.posRate >= 80 ? 'var(--color-good)' : undefined,
+        }
+      : {
+          label: '이번 주 올린 날',
+          value: String(data.weekPublishedDays),
+          unit: '일',
+          sub: data.weekPublishedDays > 0 ? '꾸준함이 제일 세요' : '한 번만 올려도 시작이에요',
+          accent: data.weekPublishedDays === 0 ? 'var(--color-amber)' : undefined,
+        },
     {
       // 초안 개수가 아니라 "오늘 올렸나(0/1) + 답글 대기". 끝낼 수 있는 숫자여야 한다.
       // ⚠️ 글이 아직 하나도 없는 매장(가입 1분차)에 "끝났어요"라고 하면 안 된다 —

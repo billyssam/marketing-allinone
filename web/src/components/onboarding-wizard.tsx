@@ -9,6 +9,7 @@ import {
   resolveBusinessType,
   recommendedChannelsFor,
   marketingFocusFor,
+  hasPlacePage,
   type BizGroup,
 } from '@shared/business/taxonomy';
 import { offeringNoun } from '@shared/content-engine/offerings';
@@ -59,6 +60,8 @@ export function OnboardingWizard() {
           setChannels(new Set(d.channels));
           setChannelsTouched(true);
         }
+        // 최대 5단계. 업종이 플레이스를 못 가지면 4단계가 되는데, 복원 시점엔 업종이 아직
+        // state에 안 들어가 있다 → 넉넉히 클램프하고, 렌더에서 `current`가 다시 막는다.
         if (typeof d.step === 'number') setStep(Math.min(Math.max(d.step, 0), 4));
         setRestored(Boolean(d.storeName || d.industryId));
       }
@@ -112,9 +115,33 @@ export function OnboardingWizard() {
 
   const effectiveChannels = channelsTouched ? channels : new Set(recommended);
 
-  const steps = ['매장', '업종', offeringWord, '플레이스', '채널'];
-  const canNext = [storeName.trim().length > 0, industryId !== '', true, true, true][step];
-  const lastStep = steps.length - 1;
+  /**
+   * 단계를 **번호가 아니라 이름으로** 다룬다.
+   *
+   * 왜: 플레이스 단계는 업종에 따라 없어야 한다(온라인 셀러·프리랜서·과외는 네이버 플레이스를
+   * 가질 수 없다). 실제로 온라인 셀러 사장님이 **있지도 않은 플레이스 주소를 요구받았다**
+   * (2026-09-03 실사용자 계정에서 실측). 그런데 렌더·검증·네비게이션이 전부 `step === 3` 처럼
+   * 숫자에 묶여 있어, 단계를 하나 빼면 나머지가 조용히 한 칸씩 밀린다.
+   * 키로 바꾸면 목록에서 빼는 것만으로 안전하게 사라진다.
+   */
+  const canHavePlace = !biz || hasPlacePage(biz);
+  const stepKeys = ['store', 'industry', 'offering', ...(canHavePlace ? ['place'] as const : []), 'channels'] as const;
+  type StepKey = (typeof stepKeys)[number];
+  // 업종을 바꾸면 단계 수가 줄 수 있다(5→4). 그때 step이 범위를 넘으면
+  // `stepKeys[step]`이 undefined가 되어 **첫 화면으로 튄다** — 클램프해서 막는다.
+  const current = stepKeys[Math.min(step, stepKeys.length - 1)] as StepKey;
+  const STEP_LABEL: Record<StepKey, string> = {
+    store: '매장', industry: '업종', offering: offeringWord, place: '플레이스', channels: '채널',
+  };
+  const steps = stepKeys.map((k) => STEP_LABEL[k]);
+  const canNext: Record<StepKey, boolean> = {
+    store: storeName.trim().length > 0, industry: industryId !== '', offering: true, place: true, channels: true,
+  };
+  const lastStep = stepKeys.length - 1;
+  // 진행 표시(●②③④)도 step을 그대로 쓰므로 state 자체를 범위 안으로 되돌려 놓는다
+  useEffect(() => {
+    if (step > lastStep) setStep(lastStep);
+  }, [step, lastStep]);
 
   function toggleChannel(id: ChannelId) {
     setChannelsTouched(true);
@@ -135,7 +162,9 @@ export function OnboardingWizard() {
       const res = await completeOnboarding({
         storeName: storeName.trim(),
         industryId,
-        naverPlaceUrl: placeUrl.trim() || undefined,
+        // 업종을 바꿔 플레이스 단계가 사라졌다면, 그 전에 입력된 주소는 보내지 않는다
+        // (화면에 없는 값이 조용히 저장되면 그 매장은 영영 안 되는 크롤을 매일 시도한다)
+        naverPlaceUrl: canHavePlace ? placeUrl.trim() || undefined : undefined,
         channels: [...effectiveChannels],
         offerings: offerings
           .map((o) => ({ name: o.name.trim(), price: o.price }))
@@ -188,14 +217,14 @@ export function OnboardingWizard() {
         </div>
       )}
 
-      {step === 0 && (
+      {current === 'store' && (
         <Step title="매장 이름이 뭔가요?" desc="블로그·인스타에 노출될 상호입니다.">
           <input autoFocus value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="예: 쿵더쿵 카페"
             className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 text-[15px] outline-none focus:border-[var(--color-amber)]" />
         </Step>
       )}
 
-      {step === 1 && (
+      {current === 'industry' && (
         <Step title="어떤 사업이세요?" desc="업종에 맞춰 콘텐츠 톤과 채널을 자동으로 구성해드려요.">
           <div className="max-h-[46vh] space-y-5 overflow-y-auto pr-1">
             {BIZ_GROUP_ORDER.map((g) => (
@@ -223,7 +252,7 @@ export function OnboardingWizard() {
         </Step>
       )}
 
-      {step === 2 && (
+      {current === 'offering' && (
         <Step title={`어떤 ${withJosa(offeringWord, '을를')} 파세요?`} desc={`두세 개만 적어두면 첫 글부터 실제 이름·가격이 들어가요. 건너뛰어도 괜찮아요.`}>
           <div className="space-y-2">
             {offerings.map((o, i) => (
@@ -245,7 +274,7 @@ export function OnboardingWizard() {
       )}
 
       {/* desc의 "메뉴"를 못박으면 미용실·헬스장 사장님에겐 남의 서비스처럼 읽힌다 */}
-      {step === 3 && (
+      {current === 'place' && (
         <Step title="네이버 플레이스 주소" desc={`붙여넣으면 매장 정보·${offeringWord}·리뷰 톤을 자동으로 학습해요. (선택)`}>
           <input value={placeUrl} onChange={(e) => setPlaceUrl(e.target.value)} placeholder="https://map.naver.com/p/..."
             className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 text-[14px] outline-none focus:border-[var(--color-amber)]" />
@@ -253,7 +282,7 @@ export function OnboardingWizard() {
         </Step>
       )}
 
-      {step === 4 && (
+      {current === 'channels' && (
         <Step title="이 채널로 시작할게요" desc={biz ? `${biz.label}에 맞는 채널을 골라뒀어요. 원하면 바꿀 수 있어요.` : '추천 채널을 골라뒀어요.'}>
           <div className="max-h-[46vh] space-y-4 overflow-y-auto pr-1">
             {GROUP_ORDER.map((g) => {
@@ -294,7 +323,7 @@ export function OnboardingWizard() {
           <button onClick={() => setStep((s) => s - 1)} className="rounded-full border border-[var(--color-hair-strong)] px-5 py-2.5 text-[14px] text-[var(--color-fg-2)]">이전</button>
         )}
         {step < lastStep ? (
-          <button onClick={() => setStep((s) => s + 1)} disabled={!canNext} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40">다음</button>
+          <button onClick={() => setStep((s) => s + 1)} disabled={!canNext[current]} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40">다음</button>
         ) : (
           <button onClick={finish} disabled={pending} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-60">
             {pending ? '설정 중…' : `${effectiveChannels.size}개 채널로 시작하기`}

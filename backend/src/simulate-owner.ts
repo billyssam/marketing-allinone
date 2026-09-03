@@ -33,9 +33,50 @@ const KEEP = process.argv.includes('--keep');
  * 워크플로에서 `if: always()`로 이걸 한 번 더 불러 확실히 지운다.
  */
 const CLEANUP_ONLY = process.argv.includes('--cleanup-only');
-const EMAIL = 'sim-owner@example.com';
+
+/**
+ * **업종 프로필** — 이 서비스는 한 업종용이 아니다(범용성 원칙).
+ *
+ * 왜 여러 개인가: 여정 검증이 빵집 하나로만 돌던 사이,
+ * 온라인 셀러 사장님이 **있지도 않은 네이버 플레이스 주소를 요구받고** 있었다.
+ * 오프라인 매장을 전제로 만든 화면이 층층이 박혀 있었는데
+ * 빵집으로만 걸어가니 하나도 안 걸렸다(2026-09-03 실사용자 계정에서 발견).
+ *
+ * 그래서 **가정이 정반대인 두 형태**를 번갈아 걷는다:
+ *  - offline: 매장·플레이스·방문 리뷰가 있다
+ *  - online : 셋 다 없다 → 플레이스 단계·리뷰 KPI·리뷰 안내가 전부 달라야 한다
+ *
+ * `--profile=online` 으로 고르고, 안 주면 **날짜로 번갈아 간다**(무인 크론이 둘 다 돈다).
+ */
+type Profile = {
+  key: 'offline' | 'online';
+  email: string;
+  store: string;
+  /** 업종 선택 화면에서 누를 라벨 */
+  industryLabel: string;
+  /** 이 업종이 네이버 플레이스를 가질 수 있는가 — 화면 기대치가 갈린다 */
+  canHavePlace: boolean;
+  offering: string;
+};
+const PROFILES: Profile[] = [
+  {
+    key: 'offline', email: 'sim-owner@example.com', store: '동네빵집 시뮬',
+    industryLabel: '베이커리·제과', canHavePlace: true, offering: '소금빵',
+  },
+  {
+    key: 'online', email: 'sim-online@example.com', store: '온라인셀러 시뮬',
+    industryLabel: '온라인 셀러', canHavePlace: false, offering: '유기농 그래놀라',
+  },
+];
+const wanted = process.argv.find((a) => a.startsWith('--profile='))?.split('=')[1];
+const PROFILE: Profile =
+  PROFILES.find((p) => p.key === wanted) ??
+  // 무인 실행: 날짜 홀짝으로 번갈아 → 이틀이면 두 형태가 모두 검증된다
+  PROFILES[Math.floor(Date.now() / 86_400_000) % PROFILES.length];
+
+const EMAIL = PROFILE.email;
 const PASSWORD = 'SimOwner!2026';
-const STORE = '동네빵집 시뮬';
+const STORE = PROFILE.store;
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
   auth: { persistSession: false },
@@ -118,17 +159,26 @@ async function clickOrStuck(page: Page, name: RegExp, label: string, ms = 8000):
   }
 }
 
+/**
+ * 검증 계정·매장을 지운다 — **모든 프로필의 것을 전부.**
+ *
+ * 오늘 것만 지우면, 어제 프로필의 실행이 취소·타임아웃으로 남았을 때 영영 안 지워진다.
+ * 그 매장은 온보딩까지 끝난 상태라 **다음 아침 크론이 매일 글을 만들며 Gemini 쿼터를 쓴다.**
+ */
 async function cleanup() {
-  const { data: stores } = await supabase.from('stores').select('id').eq('name', STORE);
-  for (const s of stores ?? []) {
-    await supabase.from('posts').delete().eq('store_id', s.id);
-    await supabase.from('channel_connections').delete().eq('store_id', s.id);
-    await supabase.from('reviews').delete().eq('store_id', s.id);
-    await supabase.from('regulars').delete().eq('store_id', s.id);
-    await supabase.from('stores').delete().eq('id', s.id);
+  for (const p of PROFILES) {
+    const { data: stores } = await supabase.from('stores').select('id').eq('name', p.store);
+    for (const s of stores ?? []) {
+      await supabase.from('posts').delete().eq('store_id', s.id);
+      await supabase.from('channel_connections').delete().eq('store_id', s.id);
+      await supabase.from('reviews').delete().eq('store_id', s.id);
+      await supabase.from('regulars').delete().eq('store_id', s.id);
+      await supabase.from('stores').delete().eq('id', s.id);
+    }
   }
+  const simEmails = new Set(PROFILES.map((p) => p.email));
   const { data: users } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
-  for (const u of users?.users ?? []) if (u.email === EMAIL) await supabase.auth.admin.deleteUser(u.id);
+  for (const u of users?.users ?? []) if (u.email && simEmails.has(u.email)) await supabase.auth.admin.deleteUser(u.id);
 }
 
 async function main() {
@@ -205,13 +255,13 @@ async function main() {
 
     // 스텝2 — 업종. 사장님은 43개 목록에서 자기 업종을 찾아야 한다
     saw('스텝2 업종 화면', (await text(page)).slice(0, 200));
-    const bakery = page.getByText('베이커리·제과', { exact: false }).first();
-    if (await bakery.count()) {
-      await bakery.click();
+    const industry = page.getByText(PROFILE.industryLabel, { exact: false }).first();
+    if (await industry.count()) {
+      await industry.click();
       taps++;
-      saw('업종 선택', '베이커리·제과');
+      saw('업종 선택', PROFILE.industryLabel);
     } else {
-      stuck('업종 목록에서 "베이커리·제과"를 못 찾았다');
+      stuck(`업종 목록에서 "${PROFILE.industryLabel}"를 못 찾았다`);
     }
     await page.waitForTimeout(500);
     if (await clickOrStuck(page, NEXT, '스텝2')) taps++;
@@ -219,7 +269,7 @@ async function main() {
 
     // 스텝3 — 판매 항목
     saw('스텝3 판매항목 화면', (await text(page)).slice(0, 220));
-    if (await fillOrStuck(page, /이름/, '소금빵', '항목명')) taps++;
+    if (await fillOrStuck(page, /이름/, PROFILE.offering, '항목명')) taps++;
     const price = page.locator('input[inputmode="numeric"]').first();
     if (await price.count()) {
       await price.fill('3800');
@@ -231,14 +281,28 @@ async function main() {
     if (await clickOrStuck(page, NEXT, '스텝3')) taps++;
     await page.waitForTimeout(900);
 
-    // 스텝4 — 플레이스. 다수가 여기서 건너뛴다
-    saw('스텝4 플레이스 화면', (await text(page)).slice(0, 200));
-    if (await clickOrStuck(page, NEXT, '스텝4')) taps++;
-    saw('플레이스', '건너뜀(실제로 가장 흔한 선택)');
-    await page.waitForTimeout(900);
+    // 스텝4 — 플레이스. **업종에 따라 있어야 하고, 없어야 한다.**
+    // 온라인 셀러·프리랜서·과외는 네이버 플레이스를 가질 수 없다. 그런 사장님께 주소를 물으면
+    // 답할 수 없는 질문 앞에서 멈춘다 — 실제로 온라인 셀러 사장님이 이 화면을 봤다(2026-09-03).
+    const step4 = await text(page);
+    const asksPlace = /네이버 플레이스 주소/.test(step4);
+    saw('스텝4 화면', step4.slice(0, 200));
+    if (PROFILE.canHavePlace && !asksPlace) {
+      stuck('오프라인 매장인데 플레이스를 안 물어본다 — 리뷰 수집이 영영 시작되지 않는다');
+    }
+    if (!PROFILE.canHavePlace && asksPlace) {
+      stuck('온라인 셀러에게 네이버 플레이스 주소를 요구한다 — 가질 수 없는 것을 묻고 있다');
+    }
+    if (asksPlace) {
+      if (await clickOrStuck(page, NEXT, '스텝4')) taps++;
+      saw('플레이스', '건너뜀(실제로 가장 흔한 선택)');
+      await page.waitForTimeout(900);
+    } else {
+      saw('플레이스 단계', '없음(이 업종엔 맞다)');
+    }
 
-    // 스텝5 — 채널
-    saw('스텝5 채널 화면', (await text(page)).slice(0, 250));
+    // 마지막 — 채널
+    saw('채널 화면', (await text(page)).slice(0, 250));
     const submitAt = Date.now();
     if (await clickOrStuck(page, NEXT, '스텝5')) taps++;
 
@@ -294,6 +358,18 @@ async function main() {
     } else if (!/붙여넣기|오늘 하나만|첫 글|초안을 만들고/.test(dash)) {
       // '첫 블로그 초안을 만들고 있어요'도 명백한 다음 안내인데 판정어에 없어서 오탐이 난 적 있다
       stuck('첫 화면은 떴는데 다음에 뭘 할지가 안 보인다');
+    }
+
+    // 업종에 안 맞는 안내가 섞여 있는가 — 오프라인 전제 문구가 온라인 셀러 화면에 남아 있었다.
+    // "영영 오지 않을 것을 기다리라"는 안내는 넉 장뿐인 타일과 첫 화면을 낭비한다.
+    if (!PROFILE.canHavePlace) {
+      const deadPrompts = ['플레이스 연결 후 집계', '네이버 플레이스를 연결', '플레이스 주소를 연결'];
+      const found = deadPrompts.filter((p) => dash.includes(p));
+      if (found.length) {
+        stuck(`온라인 셀러 대시보드에 플레이스 안내가 남아 있다: ${found.join(' / ')}`);
+      } else {
+        saw('업종 적합성', '플레이스 안내 없음(맞다)');
+      }
     }
 
     // ── 5. 웰컴 초안이 오는가 ──────────────────────────────────────────
@@ -399,20 +475,35 @@ async function main() {
     // 답글 화면이 실제로 어떻게 보이는지 확인한다(주입이라는 사실은 그대로 밝힌다).
     step('9. 리뷰 답글 — 손님 글에 답할 수 있는가 (리뷰는 크롤 대신 주입)');
     const { data: simStore } = await supabase.from('stores').select('id').eq('name', STORE).maybeSingle();
-    if (simStore) {
+    if (!PROFILE.canHavePlace) {
+      // 온라인 셀러에겐 플레이스 리뷰가 **존재하지 않는다**. 여기서 리뷰를 주입하면
+      // 있지도 않은 기능이 되는 것처럼 스스로를 속이는 검증이 된다(검증 도구가 거짓말하면 결함보다 나쁘다).
+      // 대신 화면이 **정직한지**만 본다.
+      await page.goto(`${BASE}/reviews`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      const rev = await text(page);
+      saw('리뷰 화면(온라인 셀러)', rev.slice(0, 320));
+      if (/플레이스 주소를 연결하면|연결하기/.test(rev)) {
+        stuck('온라인 셀러에게 플레이스를 연결하라고 한다 — 연결할 수 있는 플레이스가 없다');
+      } else if (!/준비 중|없어요/.test(rev)) {
+        stuck('리뷰가 왜 비어 있는지 설명이 없다 — 고장난 줄 안다');
+      } else {
+        saw('판정', '못 하는 것을 못 한다고 적었다(맞다)');
+      }
+    } else if (simStore) {
       const ago = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
       await supabase.from('reviews').insert([
         {
           store_id: simStore.id, source: 'naver_place', external_id: 'sim-neg',
           author_display: '손님A', content: '빵은 맛있는데 기다리는 시간이 너무 길었어요',
           rating: 2, sentiment: 'negative', posted_at: ago(1),
-          reply_draft: '손님A님, 기다리게 해드려 죄송합니다. 굽는 시간을 다시 조정하겠습니다. — 동네빵집 시뮬',
+          reply_draft: `손님A님, 기다리게 해드려 죄송합니다. 굽는 시간을 다시 조정하겠습니다. — ${STORE}`,
         },
         {
           store_id: simStore.id, source: 'naver_place', external_id: 'sim-pos',
           author_display: '손님B', content: '소금빵이 갓 구워져 나와서 정말 맛있었어요',
           rating: 5, sentiment: 'positive', posted_at: ago(0),
-          reply_draft: '손님B님, "소금빵이 갓 구워져 나와서 정말 맛있었어요"라고 해주신 말씀 정말 감사합니다. — 동네빵집 시뮬',
+          reply_draft: `손님B님, "${PROFILE.offering}이 갓 나와서 정말 맛있었어요"라고 해주신 말씀 정말 감사합니다. — ${STORE}`,
         },
       ]);
       await page.goto(`${BASE}/reviews`, { waitUntil: 'domcontentloaded' });

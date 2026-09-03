@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { ReviewList, type ReviewRow } from '@/components/review-list';
+import { resolveBusinessType, hasPlacePage } from '@shared/business/taxonomy';
 
 export const metadata = { title: '리뷰 관리' };
 
@@ -31,7 +32,7 @@ export default async function ReviewsPage() {
   const supabase = await createClient();
   const { data: store } = await supabase
     .from('stores')
-    .select('id, name, naver_place_url')
+    .select('id, name, naver_place_url, industry_id')
     .eq('owner_id', user.id)
     .maybeSingle();
   if (!store) redirect('/onboarding');
@@ -79,6 +80,8 @@ export default async function ReviewsPage() {
   const hiddenCount = Math.max(0, total - reviews.length);
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
   const placeId = placeIdFromUrl(store.naver_place_url);
+  // 이 업종이 네이버 플레이스를 가질 수 있는가 — 온라인 셀러·프리랜서·과외는 못 가진다
+  const canHavePlace = hasPlacePage(resolveBusinessType(store.industry_id as string));
 
   const sentiments = [
     { key: 'pos', label: '긍정', n: pos, color: 'var(--color-good)' },
@@ -100,11 +103,26 @@ export default async function ReviewsPage() {
         <div className="eyebrow">리뷰 모니터링</div>
         <h1 className="h1 mt-2">고객 리뷰 · 답글 관리</h1>
         <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">
-          네이버 플레이스 리뷰를 매일 자동 수집하고 감정을 분석해요. 부정 리뷰가 맨 위로 올라와 놓치지 않아요.
+          {canHavePlace
+            ? '네이버 플레이스 리뷰를 매일 자동 수집하고 감정을 분석해요. 부정 리뷰가 맨 위로 올라와 놓치지 않아요.'
+            : '온라인 판매는 네이버 플레이스 리뷰가 없어요. 스마트스토어·쿠팡 리뷰 수집은 아직 준비 중입니다.'}
         </p>
 
+        {/* 플레이스를 못 가지는 업종에 "연결하세요"는 **영영 못 지킬 안내**다.
+            온라인 셀러·프리랜서·과외가 여기 해당한다(2026-09-03 실사용자 화면에서 실측).
+            못 하는 건 못 한다고 적고, 대신 지금 할 수 있는 곳으로 보낸다. */}
+        {!canHavePlace && (
+          <Link href="/dashboard" className="mt-6 flex items-center justify-between rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 transition hover:border-[var(--color-hair-strong)]">
+            <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-fg-4)]" />
+              <span>준비되면 알려드릴게요. 그동안은 <b className="text-[var(--color-fg)]">매일 준비되는 글</b>에 집중하시면 돼요.</span>
+            </span>
+            <span className="shrink-0 text-[12px] font-medium text-[var(--color-amber)]">대시보드 →</span>
+          </Link>
+        )}
+
         {/* 플레이스 미연결 안내 — 연결 안 하면 리뷰가 영영 안 들어오니 정직하게 */}
-        {!placeId && (
+        {canHavePlace && !placeId && (
           <Link href="/settings" className="mt-6 flex items-center justify-between rounded-[var(--radius-lg)] border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 transition hover:border-[var(--color-hair-strong)]">
             <span className="flex items-center gap-2.5 text-[13px] text-[var(--color-fg-2)]">
               <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-amber)]" />
