@@ -195,8 +195,13 @@ export function recommendedChannelsFor(biz: BusinessType): ChannelId[] {
   const set = new Set<ChannelId>();
   const add = (...ids: ChannelId[]) => ids.forEach((i) => set.add(i));
 
-  // 1) 공통 유입 baseline — 어떤 자영업이든 지역 검색·콘텐츠는 기본
-  add('naver_place', 'naver_blog', 'instagram');
+  // 1) 공통 유입 baseline — 블로그·인스타는 업종을 안 가린다.
+  //    ⚠️ 네이버 플레이스는 **가릴 수 있어야 한다.** 예전엔 "어떤 자영업이든 지역 검색은 기본"이라며
+  //    무조건 넣었는데, 온라인 셀러·프리랜서·과외는 플레이스 페이지 자체를 가질 수 없다.
+  //    그 결과 온라인 셀러 대시보드에 "네이버 플레이스 · 연결 대기"가 영영 남아 있었다
+  //    (2026-09-03 실사용자 계정에서 실측 — 끝낼 수 없는 할 일은 화면을 계속 갉아먹는다).
+  add('naver_blog', 'instagram');
+  if (hasPlacePage(biz)) add('naver_place');
 
   // 2) 판매 형태별 sell 채널
   if (biz.saleModes.includes('delivery')) add('baemin', 'yogiyo');
