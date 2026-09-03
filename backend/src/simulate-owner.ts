@@ -160,15 +160,26 @@ async function clickOrStuck(page: Page, name: RegExp, label: string, ms = 8000):
 }
 
 /**
- * 검증 계정·매장을 지운다 — **모든 프로필의 것을 전부.**
+ * 검증 계정·매장을 지운다.
  *
- * 오늘 것만 지우면, 어제 프로필의 실행이 취소·타임아웃으로 남았을 때 영영 안 지워진다.
- * 그 매장은 온보딩까지 끝난 상태라 **다음 아침 크론이 매일 글을 만들며 Gemini 쿼터를 쓴다.**
+ * ⚠️ 두 가지를 **동시에** 만족해야 한다.
+ *  ① 남기면 안 된다 — 온보딩까지 끝난 검증 매장이 남으면 다음 아침 크론이 매일 글을 만들며
+ *    Gemini 쿼터를 쓴다(취소·타임아웃으로 finally가 안 도는 경우).
+ *  ② 남의 실행을 죽이면 안 된다 — 처음엔 "모든 프로필을 지운다"로 했더니,
+ *    GitHub 크론과 로컬 실행이 겹치면서 **상대의 계정을 실행 도중에 지워** 세션이 끊겼다.
+ *    리뷰·단골·리포트가 전부 로그인 화면으로 튕겼고, 원인을 화면 결함으로 오인할 뻔했다
+ *    (2026-09-03 실측 — 검증 도구가 만든 가짜 결함).
+ *
+ * 그래서: **내 프로필은 무조건**, 다른 프로필은 **오래된 잔재만**(2시간 이상) 지운다.
+ * 살아 있는 실행의 매장은 몇 분짜리라 절대 안 걸린다.
  */
+const STALE_MS = 2 * 3_600_000;
 async function cleanup() {
   for (const p of PROFILES) {
-    const { data: stores } = await supabase.from('stores').select('id').eq('name', p.store);
+    const mine = p.key === PROFILE.key;
+    const { data: stores } = await supabase.from('stores').select('id, created_at').eq('name', p.store);
     for (const s of stores ?? []) {
+      if (!mine && Date.now() - Date.parse(s.created_at as string) < STALE_MS) continue; // 지금 돌고 있는 남의 실행
       await supabase.from('posts').delete().eq('store_id', s.id);
       await supabase.from('channel_connections').delete().eq('store_id', s.id);
       await supabase.from('reviews').delete().eq('store_id', s.id);
@@ -176,15 +187,32 @@ async function cleanup() {
       await supabase.from('stores').delete().eq('id', s.id);
     }
   }
-  const simEmails = new Set(PROFILES.map((p) => p.email));
   const { data: users } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
-  for (const u of users?.users ?? []) if (u.email && simEmails.has(u.email)) await supabase.auth.admin.deleteUser(u.id);
+  for (const u of users?.users ?? []) {
+    const p = PROFILES.find((x) => x.email === u.email);
+    if (!p) continue;
+    if (p.key !== PROFILE.key && Date.now() - Date.parse(u.created_at) < STALE_MS) continue;
+    await supabase.auth.admin.deleteUser(u.id);
+  }
 }
 
 async function main() {
   if (CLEANUP_ONLY) {
     await cleanup();
     console.log('검증 계정·매장 정리 완료');
+    return;
+  }
+  /**
+   * 같은 프로필이 **지금 돌고 있으면 중단한다.**
+   *
+   * 검증 계정은 이름·이메일이 고정이라, 두 실행이 겹치면 서로의 계정을 지운다.
+   * 실제로 로컬 실행 중에 스케줄 크론이 겹쳐 **둘 다 실패**했고,
+   * 리뷰·단골·리포트가 로그인 화면으로 튕긴 걸 화면 결함으로 오인할 뻔했다(2026-09-03).
+   * 남의 실행을 밟는 것보다 **내가 안 도는 게** 낫다 — 결함이 아니라 상태이므로 정상 종료한다.
+   */
+  const { data: live } = await supabase.from('stores').select('created_at').eq('name', STORE).maybeSingle();
+  if (live && Date.now() - Date.parse(live.created_at as string) < 10 * 60_000) {
+    console.log(`⏸  "${STORE}" 검증이 이미 돌고 있다(${Math.round((Date.now() - Date.parse(live.created_at as string)) / 1000)}초 전 생성) — 겹치면 서로를 지우므로 이번 실행은 건너뛴다.`);
     return;
   }
   await cleanup(); // 이전 실행 잔재부터
