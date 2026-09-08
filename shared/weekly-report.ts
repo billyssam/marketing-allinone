@@ -12,6 +12,8 @@
  * - 숫자로 끝내지 않고 **다음 행동**으로 연결한다(미발행 초안·미답변 리뷰).
  */
 
+import { isLivePost } from './posts/status';
+
 export interface ReportPost {
   created_at: string;
   published_at?: string | null;
@@ -85,6 +87,15 @@ export function buildWeeklyReport(
 ): WeeklyReport {
   const start = kstMidnight(nowMs) - 6 * DAY;
   const inWindow = (iso?: string | null) => !!iso && Date.parse(iso) >= start;
+
+  /**
+   * 보관(버린) 글은 성과가 아니다.
+   *
+   * 데일리 크론이 같은 날 재생성하면 이전 초안이 `archived`로 남는다. 그걸 그대로 세면
+   * "이번 주 22건"처럼 실제(14건)보다 부풀려진다(2026-09-08 실측).
+   * 호출부(리포트 화면·주간 다이제스트)마다 각자 걸면 한쪽만 고쳐지므로 **여기서 한 번에** 막는다.
+   */
+  posts = posts.filter((p) => isLivePost(p.status));
 
   const weekPosts = posts.filter((p) => inWindow(p.created_at));
   const published = weekPosts.filter((p) => p.published_at || p.status === 'published');

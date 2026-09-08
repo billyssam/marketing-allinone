@@ -15,6 +15,7 @@ import { isReactivationTarget, daysSince } from '@shared/content-engine/reactiva
 import { buildWeekly, buildFeed } from '@/lib/activity';
 import { DashboardStats, type StatStripData } from '@/components/dashboard-stats';
 import { resolveBusinessType, marketingFocusFor, hasPlacePage } from '@shared/business/taxonomy';
+import { NOT_LIVE_FILTER } from '@shared/posts/status';
 import { resolveOfferings, offeringNoun } from '@shared/content-engine/offerings';
 import { withJosa } from '@shared/korean';
 import { pickNudge } from '@shared/nudge';
@@ -56,7 +57,8 @@ export default async function DashboardPage() {
   // 매장 하위 데이터는 서로 독립 → 병렬 조회(순차 → 1왕복)
   const [connsRes, recentPostsRes, todoPostsRes, pendingReviewsRes, urgentNegRes, reviewTotalRes, reviewPosRes, reviewNeuRes, reviewNegRes, reviewPendingRes, postsCountRes, regularsRes, feedPostsRes, feedReviewsRes] = await Promise.all([
     supabase.from('channel_connections').select('channel_id, status').eq('store_id', store.id),
-    supabase.from('posts').select('id, channel, title, body_plain, status, created_at').eq('store_id', store.id).order('created_at', { ascending: false }).limit(8),
+    // 최근 초안 — 보관(버린) 글은 뺀다. 안 빼면 사장님이 이미 버린 글 카드를 눌러 붙여넣는다
+    supabase.from('posts').select('id, channel, title, body_plain, status, created_at').eq('store_id', store.id).not('status', 'in', NOT_LIVE_FILTER).order('created_at', { ascending: false }).limit(8),
     // 오늘의 브리핑 = 발행 대기 초안(draft·ready) 중 최근 2일 것만.
     // 지난 글은 지우지 않고 아래 '최근 초안'에 남김 — 브리핑은 오늘 할 일이어야 함(무덤 방지)
     // limit 6이었는데 8채널을 연결하면 2건이 잘려 만든 글이 대시보드에서 아예 안 보였다.
@@ -74,11 +76,13 @@ export default async function DashboardPage() {
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'negative'),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null),
     // 성과: 초안 총계
-    supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
+    // "생성한 글" — 재생성으로 버린 초안까지 세면 실제보다 부풀려진다(실측 36 vs 28)
+    supabase.from('posts').select('id', { count: 'exact', head: true }).eq('store_id', store.id).not('status', 'in', NOT_LIVE_FILTER),
     // 재방문: 단골 방문일
     supabase.from('regulars').select('last_visit_at').eq('store_id', store.id).limit(1000),
     // 활동피드·주간차트: 최근 14일 posts + 리뷰 이벤트
-    supabase.from('posts').select('created_at, published_at, channel, title, metadata').eq('store_id', store.id).gte('created_at', new Date(Date.now() - 14 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(100),
+    // 주간 차트·활동 피드 — 여기도 보관분을 빼야 "이번 주 N건"이 실제와 맞는다(실측 22 vs 14)
+    supabase.from('posts').select('created_at, published_at, channel, title, metadata').eq('store_id', store.id).not('status', 'in', NOT_LIVE_FILTER).gte('created_at', new Date(Date.now() - 14 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(100),
     supabase.from('reviews').select('crawled_at, reply_sent_at, sentiment').eq('store_id', store.id).order('crawled_at', { ascending: false }).limit(60),
   ]);
 
@@ -137,6 +141,8 @@ export default async function DashboardPage() {
     .select('channel, published_at')
     .eq('store_id', store.id)
     .not('published_at', 'is', null)
+    // 발행 뒤 보관으로 옮긴 글은 "올린 날"에서 뺀다 — 같은 기준을 전 쿼리에 건다
+    .not('status', 'in', NOT_LIVE_FILTER)
     .order('published_at', { ascending: false })
     .limit(200);
   const lastPublished = new Map<string, string>();

@@ -85,16 +85,35 @@ test('부풀림 방지: 준비된 개수와 올린 개수를 함께 보여준다
   // 예전 문제 — "준비 5 / 안 올린 글 1"만 남으면 4개가 발행된 것처럼 읽힌다.
   const posts: ReportPost[] = [
     { created_at: ago(0), channel: 'blog', status: 'draft' },
-    { created_at: ago(1), channel: 'blog', status: 'archived' },
-    { created_at: ago(2), channel: 'blog', status: 'archived' },
-    { created_at: ago(3), channel: 'blog', status: 'archived' },
-    { created_at: ago(4), channel: 'blog', status: 'archived' },
+    { created_at: ago(1), channel: 'blog', status: 'draft' },
+    { created_at: ago(2), channel: 'blog', status: 'draft' },
+    { created_at: ago(3), channel: 'blog', status: 'draft' },
+    { created_at: ago(4), channel: 'blog', status: 'draft' },
   ];
   const r = buildWeeklyReport('가게', posts, [], NOW);
   assert.equal(r.stats.find((s) => s.label === '준비된 글')?.value, '5');
   assert.equal(r.stats.find((s) => s.label === '올린 글')?.value, '0');
   assert.equal(r.stats.find((s) => s.label === '올린 날')?.value, '0/7');
   assert.ok(!/올리셨어요/.test(r.headline), `안 올렸으면 올렸다고 하면 안 된다: ${r.headline}`);
+});
+
+/**
+ * ⚠️ 위 테스트는 예전에 보관분 4건을 섞어 놓고 **"준비된 글 5"**를 기대했다.
+ * 그 단정이 부풀림 방지라는 원래 취지와 정반대였다 — 버린 글을 준비된 글로 센 것이다.
+ * 재생성은 **새 글을 만들고 이전 것을 보관**하므로, 보관분까지 세면 한 번 재생성할 때마다
+ * 숫자가 두 배가 된다(2026-09-08 대시보드 실측: 이번 주 22건 → 실제 14건).
+ */
+test('재생성으로 보관된 글은 성과에서 빠진다', () => {
+  const posts: ReportPost[] = [
+    // 오늘 한 번 재생성했다 — 살아있는 글 1 + 보관 1
+    { created_at: ago(0), channel: 'blog', status: 'draft' },
+    { created_at: ago(0), channel: 'blog', status: 'archived' },
+    // 어제는 생성이 실패해 failed 로 남았다 — 이것도 준비된 글이 아니다
+    { created_at: ago(1), channel: 'blog', status: 'failed' },
+  ];
+  const r = buildWeeklyReport('가게', posts, [], NOW);
+  assert.equal(r.stats.find((s) => s.label === '준비된 글')?.value, '1',
+    '보관·실패분을 세면 사장님께 없는 성과를 보고하게 된다');
 });
 
 test('7일 윈도우: 8일 전 데이터는 이번 주에 안 들어간다', () => {
