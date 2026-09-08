@@ -4,6 +4,7 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { AppHeader } from '@/components/app-header';
 import { ReviewList, type ReviewRow } from '@/components/review-list';
 import { resolveBusinessType, hasPlacePage } from '@shared/business/taxonomy';
+import { mergeReviewLists } from '@shared/reviews/list-merge';
 
 export const metadata = { title: '리뷰 관리' };
 
@@ -38,28 +39,21 @@ export default async function ReviewsPage() {
   if (!store) redirect('/onboarding');
 
   const LIST_LIMIT = 100;
+  // 세 쿼리가 같은 칸을 읽어야 합칠 때 모양이 어긋나지 않는다
+  const LIST_COLS = 'id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at';
   // 목록은 최근 100건만(렌더 비용), 요약 수치는 **전체 기준**으로 따로 집계한다.
   // 안 그러면 대시보드("500건 기준")와 이 화면("100건")이 다른 숫자를 말해 신뢰가 깨진다(실측 발견).
-  const [rowsRes, totalRes, posRes, neuRes, negRes, pendingRes, negOpenRes, recentDoneRes] = await Promise.all([
+  const [rowsRes, totalRes, posRes, neuRes, negRes, pendingRes, negOpenRes, recentDoneRes, negOpenRowsRes] =
+    await Promise.all([
     supabase
       .from('reviews')
-      .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
+      .select(LIST_COLS)
       .eq('store_id', store.id)
-      /**
-       * ⚠️ **자르기가 정렬보다 먼저 일어난다.** 화면(`review-list`)은 "부정 → 답글대기 → 최신"으로
-       * 다시 정렬하지만, 그건 **여기서 잘라 보낸 100건 안에서만** 도는 정렬이다.
-       * 미답이 100건을 넘으면 오래된 부정 미답이 아예 안 실려 오고,
-       * "부정 리뷰가 맨 위로 올라와 놓치지 않아요"라는 약속이 조용히 깨진다.
-       * (2026-09-08 가짜 리뷰 120건 주입으로 실측 — 가장 오래된 미답이 목록에서 사라졌다)
-       *
-       * 그래서 **서버 정렬을 화면 정렬과 같은 우선순위로** 맞춘다:
-       *   ① 미답 먼저(reply_sent_at nulls first)
-       *   ② 그 안에서 부정 먼저 — `sentiment` 오름차순이 곧 negative < neutral < positive 다.
-       *      (알파벳 순서에 기대는 트릭이라 값을 바꾸면 조용히 깨진다 → 아래 테스트가 지킨다)
-       *   ③ 같은 조건이면 최신 먼저
-       */
+      // 일반 목록 — 미답 먼저, 그 안에서 최신순.
+      // ⚠️ 여기서 부정을 앞으로 당기려 하지 않는다. `sentiment`는 enum이라 정렬이
+      //    선언 순서(positive→negative)를 따르고, 값이 추가되면 조용히 뒤집힌다(실측으로 데임).
+      //    부정 미답은 아래에서 **따로 가져와 합친다.**
       .order('reply_sent_at', { ascending: true, nullsFirst: true })
-      .order('sentiment', { ascending: true })
       .order('posted_at', { ascending: false })
       .limit(LIST_LIMIT),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
@@ -78,16 +72,35 @@ export default async function ReviewsPage() {
      */
     supabase
       .from('reviews')
-      .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
+      .select(LIST_COLS)
       .eq('store_id', store.id)
       .gte('reply_sent_at', new Date(Date.now() - 86_400_000).toISOString())
       .order('reply_sent_at', { ascending: false })
       .limit(20),
+    /**
+     * **부정 미답**은 자르기에 절대 밀리면 안 된다 — 이 화면이 사장님께 한 약속이
+     * "부정 리뷰가 맨 위로 올라와 놓치지 않아요"이기 때문이다.
+     * 일반 목록에 섞어 두면 미답이 100건을 넘는 순간 오래된 부정이 통째로 사라진다(실측).
+     */
+    supabase
+      .from('reviews')
+      .select(LIST_COLS)
+      .eq('store_id', store.id)
+      .eq('sentiment', 'negative')
+      .is('reply_sent_at', null)
+      .order('posted_at', { ascending: false })
+      .limit(LIST_LIMIT),
   ]);
 
-  // 목록 + 방금 완료분을 합친다(중복 제거 — 100건 안에 이미 있으면 그대로 둔다)
-  const seen = new Set((rowsRes.data ?? []).map((r) => r.id as string));
-  const rows = [...(rowsRes.data ?? []), ...(recentDoneRes.data ?? []).filter((r) => !seen.has(r.id as string))];
+  // 무엇이 실려 가는가는 합치기가 보장하고, 보이는 순서는 화면(`review-list`)이 다시 잡는다
+  const rows = mergeReviewLists(
+    {
+      mustShow: (negOpenRowsRes.data ?? []) as { id: string }[],
+      recentDone: (recentDoneRes.data ?? []) as { id: string }[],
+      general: (rowsRes.data ?? []) as { id: string }[],
+    },
+    LIST_LIMIT + 20, // 부정·방금완료를 얹느라 일반 목록이 밀리지 않게 약간의 여유
+  ) as Record<string, unknown>[];
 
   const reviews: ReviewRow[] = (rows ?? []).map((r) => ({
     id: r.id as string,

@@ -1,43 +1,48 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mergeReviewLists } from '../../shared/reviews/list-merge.js';
+
+type R = { id: string; sentiment: string; sent: boolean };
+const r = (id: string, sentiment: string, sent = false): R => ({ id, sentiment, sent });
 
 /**
- * 리뷰 목록 정렬이 기대는 **전제**를 지킨다.
- *
- * `/reviews` 서버 쿼리는 `.order('sentiment', { ascending: true })` 하나로
- * "부정 먼저"를 만든다 — negative < neutral < positive 라는 **알파벳 순서**에 기댄 것이다.
- * 감정 값 이름을 바꾸면(예: 'bad'/'good') 이 정렬이 조용히 뒤집히고,
- * 부정 리뷰가 100건 밖으로 밀려 "놓치지 않아요" 약속이 깨진다.
- * 화면에서는 티가 안 나므로 여기서 못 박는다.
+ * ⚠️ 이 자리에 예전엔 "감정 값의 알파벳 순서가 곧 심각도 순서다"라는 테스트가 있었다.
+ * **통과했지만 거짓이었다** — 실제 `sentiment`는 enum이고 선언 순서가
+ * `positive, neutral, negative`라 DB 오름차순은 긍정 먼저였다.
+ * 내 가정을 검증하는 테스트는 결함을 못 잡는다. 그래서 스키마 순서에 기대는 방식을 버리고,
+ * **꼭 보여야 하는 것을 따로 가져와 합치는** 방식과 그 합치기를 검증한다.
  */
-test('감정 값의 알파벳 순서가 곧 심각도 순서다 (리뷰 목록 정렬의 전제)', () => {
-  const inOrder = ['negative', 'neutral', 'positive'];
-  const sorted = [...inOrder].sort();
-  assert.deepEqual(sorted, inOrder, '알파벳 정렬이 곧 부정→중립→긍정 이어야 한다');
+
+test('부정 미답은 일반 목록이 limit을 다 먹어도 살아남는다', () => {
+  const negatives = Array.from({ length: 40 }, (_, i) => r(`neg${i}`, 'negative'));
+  const general = Array.from({ length: 200 }, (_, i) => r(`gen${i}`, 'positive'));
+
+  const merged = mergeReviewLists({ mustShow: negatives, general, recentDone: [] }, 100);
+
+  assert.equal(merged.length, 100);
+  const kept = merged.filter((x) => x.id.startsWith('neg')).length;
+  assert.equal(kept, 40, `부정 40건 중 ${kept}건만 살아남았다 — "놓치지 않는다"는 약속이 깨진다`);
 });
 
-/**
- * 서버가 자른 뒤에 클라이언트가 정렬하므로, **자르기 전 순서**가 약속을 결정한다.
- * 미답 120건(부정 40) 중 100건만 실려 올 때, 부정이 전부 포함되는지 모사로 확인한다.
- */
-test('미답이 limit을 넘어도 부정 미답은 전부 실려 온다', () => {
-  const LIMIT = 100;
-  const all = Array.from({ length: 120 }, (_, i) => ({
-    id: i,
-    sentiment: (['negative', 'neutral', 'positive'] as const)[i % 3],
-    replySentAt: null as string | null,
-    postedAt: new Date(2026, 0, 1, i).toISOString(),
-  }));
+test('방금 완료한 리뷰가 살아남는다 — 아니면 완료 취소를 못 누른다', () => {
+  const done = [r('done1', 'positive', true)];
+  const general = Array.from({ length: 300 }, (_, i) => r(`gen${i}`, 'neutral'));
 
-  // 서버 정렬을 그대로 모사: 미답 먼저 → 감정 오름차순 → 최신 먼저
-  const served = [...all].sort((a, b) => {
-    const unanswered = (r: typeof a) => (r.replySentAt ? 1 : 0);
-    if (unanswered(a) !== unanswered(b)) return unanswered(a) - unanswered(b);
-    if (a.sentiment !== b.sentiment) return a.sentiment < b.sentiment ? -1 : 1;
-    return b.postedAt.localeCompare(a.postedAt);
-  }).slice(0, LIMIT);
+  const merged = mergeReviewLists({ mustShow: [], general, recentDone: done }, 100);
+  assert.ok(merged.some((x) => x.id === 'done1'), '완료한 리뷰가 목록 밖으로 밀렸다');
+});
 
-  const negTotal = all.filter((r) => r.sentiment === 'negative').length;
-  const negServed = served.filter((r) => r.sentiment === 'negative').length;
-  assert.equal(negServed, negTotal, `부정 ${negTotal}건 중 ${negServed}건만 실려 왔다 — 나머지는 영영 안 보인다`);
+test('중복은 한 번만 — 같은 리뷰가 두 목록에 있어도 카드가 두 장 안 나온다', () => {
+  const shared = r('same', 'negative');
+  const merged = mergeReviewLists({ mustShow: [shared], general: [shared], recentDone: [shared] }, 100);
+  assert.equal(merged.length, 1);
+});
+
+test('limit을 넘기지 않는다 — 렌더 비용 상한을 지킨다', () => {
+  const many = Array.from({ length: 500 }, (_, i) => r(`x${i}`, 'negative'));
+  assert.equal(mergeReviewLists({ mustShow: many, general: [], recentDone: [] }, 100).length, 100);
+});
+
+test('세 목록이 다 비면 빈 배열 — 빈 화면에서 터지지 않는다', () => {
+  assert.deepEqual(mergeReviewLists<R>({ mustShow: [], general: [], recentDone: [] }, 100), []);
 });
