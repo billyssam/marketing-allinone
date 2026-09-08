@@ -21,6 +21,27 @@ export function isReactivationTarget(daysSince: number | null | undefined): bool
   return t === 'fading' || t === 'inactive' || t === 'unknown';
 }
 
+/**
+ * 같은 등급 기준을 **DB 질의로** 쓰기 위한 시각 경계.
+ *
+ * 왜 필요한가: 단골 화면은 목록을 500건으로 자르는데, KPI를 그 표본에서 계산하면
+ * 단골 529명인 매장에 "전체 단골 500"이라고 뜬다(2026-09-08 실측 — 활성도 183 대신 154).
+ * 그래서 KPI는 count 질의로 **전체**를 세야 하는데, 그때 쓰는 시각 경계가
+ * `tierByDays`와 어긋나면 화면 숫자가 규칙과 다른 것을 세게 된다.
+ * 경계는 여기 한 곳에만 둔다(테스트가 두 정의를 대조한다).
+ *
+ * 유도: daysSince = floor((now - t)/DAY)
+ *   active   ⟺ daysSince ≤ 30 ⟺ t >  now − 31일
+ *   inactive ⟺ daysSince > 60 ⟺ t ≤  now − 61일
+ */
+export function tierCutoffs(nowMs: number): { activeAfter: string; inactiveAtOrBefore: string } {
+  const DAY = 86_400_000;
+  return {
+    activeAfter: new Date(nowMs - 31 * DAY).toISOString(),
+    inactiveAtOrBefore: new Date(nowMs - 61 * DAY).toISOString(),
+  };
+}
+
 export function daysSince(lastVisitISO: string | null | undefined, nowMs: number): number | null {
   if (!lastVisitISO) return null;
   const then = Date.parse(lastVisitISO);

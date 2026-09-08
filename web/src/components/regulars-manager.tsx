@@ -46,13 +46,24 @@ const BENEFIT_EXAMPLE: Record<string, string> = {
   프로그램: '예: 1회 체험 무료',
 };
 
+export interface RegularTotals {
+  /** 전체 집계(count 질의) — 목록 500건 표본이 아니라 매장의 진짜 수치 */
+  total: number;
+  active: number;
+  inactive: number;
+  /** 재방문 대상 = 활성이 아닌 전부(fading·inactive·방문일 미상) */
+  targets: number;
+}
+
 export function RegularsManager({
   storeName,
   regulars,
+  totals,
   offeringWord = '메뉴',
 }: {
   storeName: string;
   regulars: RegularRow[];
+  totals: RegularTotals;
   /** 업종별 판매 항목 명사(메뉴/상품/시술/프로그램) — 혜택 예시를 맞춘다 */
   offeringWord?: string;
 }) {
@@ -109,13 +120,22 @@ export function RegularsManager({
           {' '}(알림톡은 연동되면 한 번에 발송)
         </p>
 
-        {/* 요약 — 대시보드/리뷰와 동일한 헤어라인 KPI 타일 */}
+        {/* 요약 — 대시보드/리뷰와 동일한 헤어라인 KPI 타일.
+            ⚠️ 숫자는 **목록(list)이 아니라 서버 전체 집계(totals)**에서 온다.
+            목록은 500건에서 잘리고, 그 잘림이 오래된 방문 순이라 **활성만 통째로 빠진다** →
+            단골 529명 매장에서 "전체 500 · 활성 154(실제 183)"로 떴다(2026-09-08 실측).
+            사장님은 이 숫자로 "몇 명한테 보낼까"를 정한다 — 표본으로 답하면 안 된다. */}
         <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <Metric label="전체 단골" value={list.length} />
-          <Metric label="활성" value={list.filter((r) => tierByDays(r.daysSince) === 'active').length} accent="var(--color-good)" />
-          <Metric label="재방문 대상" value={targets.length} accent={targets.length > 0 ? 'var(--color-amber)' : undefined} />
-          <Metric label="끊긴 단골" value={list.filter((r) => tierByDays(r.daysSince) === 'inactive').length} accent="var(--color-bad)" />
+          <Metric label="전체 단골" value={totals.total} />
+          <Metric label="활성" value={totals.active} accent="var(--color-good)" />
+          <Metric label="재방문 대상" value={totals.targets} accent={totals.targets > 0 ? 'var(--color-amber)' : undefined} />
+          <Metric label="끊긴 단골" value={totals.inactive} accent="var(--color-bad)" />
         </div>
+        {totals.total > list.length && (
+          <p className="mt-2 text-[11.5px] text-[var(--color-fg-3)]">
+            위 숫자는 전체 {totals.total.toLocaleString()}명 기준이고, 아래 목록은 오래 안 오신 순으로 {list.length}명까지 보여드려요.
+          </p>
+        )}
 
         {/* 단골 추가 + 혜택 */}
         <AddForm onAdded={onAdded} />

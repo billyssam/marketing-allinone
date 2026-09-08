@@ -9,6 +9,7 @@ import {
   isReactivationTarget,
   daysSince,
   draftReactivation,
+  tierCutoffs,
 } from '../../shared/content-engine/reactivation.js';
 
 test('등급: 경과일 구간별 분류', () => {
@@ -89,4 +90,30 @@ test('시점 없으면(nowMs 미전달) 기존 톤 유지·occasion 미언급', 
 test('혜택이 있으면 혜택 우선(occasion 있어도)', () => {
   const m = draftReactivation({ name: '김단골', storeName: '쿵더쿵', daysSince: 90, benefit: '아메리카노 1잔 무료', nowMs: Date.parse('2026-12-24T10:00:00+09:00') });
   assert.ok(m.includes('아메리카노 1잔 무료'));
+});
+
+/**
+ * DB 질의용 경계(`tierCutoffs`)와 판정 규칙(`tierByDays`)이 **같은 선을 긋는지** 대조한다.
+ *
+ * 단골 KPI는 목록 표본이 아니라 count 질의로 세는데, 그때 쓰는 시각 경계가
+ * `tierByDays`와 한 칸이라도 어긋나면 화면 숫자가 규칙과 다른 것을 세게 된다.
+ * 정의가 두 군데라 조용히 갈라질 수 있어 여기서 못 박는다.
+ */
+test('경계 정의 일치: tierCutoffs가 tierByDays와 같은 선을 긋는다', () => {
+  const DAY = 86_400_000;
+  const now = Date.parse('2026-09-08T12:00:00+09:00');
+  const cut = tierCutoffs(now);
+
+  for (const d of [0, 1, 29, 30, 31, 59, 60, 61, 120]) {
+    const visitedAt = now - d * DAY;
+    const tier = tierByDays(daysSince(new Date(visitedAt).toISOString(), now));
+
+    // 질의: last_visit_at > activeAfter  →  활성
+    const queriedActive = visitedAt > Date.parse(cut.activeAfter);
+    assert.equal(queriedActive, tier === 'active', `${d}일 전: 질의=${queriedActive} 규칙=${tier}`);
+
+    // 질의: last_visit_at <= inactiveAtOrBefore  →  끊김
+    const queriedInactive = visitedAt <= Date.parse(cut.inactiveAtOrBefore);
+    assert.equal(queriedInactive, tier === 'inactive', `${d}일 전: 질의=${queriedInactive} 규칙=${tier}`);
+  }
 });
