@@ -40,14 +40,26 @@ export default async function ReviewsPage() {
   const LIST_LIMIT = 100;
   // 목록은 최근 100건만(렌더 비용), 요약 수치는 **전체 기준**으로 따로 집계한다.
   // 안 그러면 대시보드("500건 기준")와 이 화면("100건")이 다른 숫자를 말해 신뢰가 깨진다(실측 발견).
-  const [rowsRes, totalRes, posRes, neuRes, negRes, pendingRes, negOpenRes] = await Promise.all([
+  const [rowsRes, totalRes, posRes, neuRes, negRes, pendingRes, negOpenRes, recentDoneRes] = await Promise.all([
     supabase
       .from('reviews')
       .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
       .eq('store_id', store.id)
-      // 미답(reply_sent_at null) 먼저 — 최신순으로만 자르면 리뷰가 쌓였을 때
-      // 오래된 미답 리뷰가 100건 밖으로 밀려 영영 안 보인다(사장님이 할 일을 놓침).
+      /**
+       * ⚠️ **자르기가 정렬보다 먼저 일어난다.** 화면(`review-list`)은 "부정 → 답글대기 → 최신"으로
+       * 다시 정렬하지만, 그건 **여기서 잘라 보낸 100건 안에서만** 도는 정렬이다.
+       * 미답이 100건을 넘으면 오래된 부정 미답이 아예 안 실려 오고,
+       * "부정 리뷰가 맨 위로 올라와 놓치지 않아요"라는 약속이 조용히 깨진다.
+       * (2026-09-08 가짜 리뷰 120건 주입으로 실측 — 가장 오래된 미답이 목록에서 사라졌다)
+       *
+       * 그래서 **서버 정렬을 화면 정렬과 같은 우선순위로** 맞춘다:
+       *   ① 미답 먼저(reply_sent_at nulls first)
+       *   ② 그 안에서 부정 먼저 — `sentiment` 오름차순이 곧 negative < neutral < positive 다.
+       *      (알파벳 순서에 기대는 트릭이라 값을 바꾸면 조용히 깨진다 → 아래 테스트가 지킨다)
+       *   ③ 같은 조건이면 최신 먼저
+       */
       .order('reply_sent_at', { ascending: true, nullsFirst: true })
+      .order('sentiment', { ascending: true })
       .order('posted_at', { ascending: false })
       .limit(LIST_LIMIT),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id),
@@ -56,8 +68,26 @@ export default async function ReviewsPage() {
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'negative'),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null),
     supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('sentiment', 'negative').is('reply_sent_at', null),
+    /**
+     * **방금 완료 체크한 리뷰**는 따로 가져온다.
+     *
+     * 왜: 완료를 누르면 그 리뷰는 정렬상 맨 뒤로 가고, 미답이 100건을 넘는 매장에서는
+     * **목록 밖으로 밀려 화면에서 사라진다.** 카드에 '완료 취소' 버튼이 분명히 있는데도
+     * 손이 닿지 않아 **잘못 누르면 되돌릴 수 없다**(2026-09-08 가짜 120건 주입으로 실측).
+     * 최근 24시간 안에 완료한 것만 되살린다 — 오래된 완료분까지 끌어오면 목록이 다시 무거워진다.
+     */
+    supabase
+      .from('reviews')
+      .select('id, author_display, content, sentiment, sentiment_score, reply_draft, reply_sent_at, posted_at')
+      .eq('store_id', store.id)
+      .gte('reply_sent_at', new Date(Date.now() - 86_400_000).toISOString())
+      .order('reply_sent_at', { ascending: false })
+      .limit(20),
   ]);
-  const rows = rowsRes.data;
+
+  // 목록 + 방금 완료분을 합친다(중복 제거 — 100건 안에 이미 있으면 그대로 둔다)
+  const seen = new Set((rowsRes.data ?? []).map((r) => r.id as string));
+  const rows = [...(rowsRes.data ?? []), ...(recentDoneRes.data ?? []).filter((r) => !seen.has(r.id as string))];
 
   const reviews: ReviewRow[] = (rows ?? []).map((r) => ({
     id: r.id as string,
