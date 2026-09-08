@@ -217,6 +217,10 @@ async function main() {
     // 그래서 "버튼이 코드에 있는가"가 아니라 **새로고침한 화면에 실제로 있는가**로 본다.
     await page.goto(`${BASE}/reviews`, { waitUntil: 'domcontentloaded' });
     await text(page);
+    // 기본 탭은 '답글 대기'라 완료된 건 당연히 안 보인다(그게 맞다).
+    // 되돌리려면 '전체'로 가야 하는데, **거기에도 없으면** 100건 자르기에 밀린 것이다.
+    const allTab = page.getByRole('button', { name: /^전체/ }).first();
+    if (await allTab.count()) { await allTab.click(); await page.waitForTimeout(1200); }
     const undo = page.getByRole('button', { name: /완료 취소/ }).first();
     const undoable = (await undo.count()) > 0;
     check('완료 체크를 새로고침 뒤에도 되돌릴 수 있다', undoable,
