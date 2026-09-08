@@ -115,3 +115,37 @@ gh api repos/billyssam/marketing-allinone/check-runs/<job_id>/annotations
 - **모든 크론 멱등**: 재실행이 항상 안전(초안 중복 생성·리뷰 중복 저장 없음).
 - **알림 중복 방지**: 같은 날 같은 유형 이슈는 1개만.
 - **감시는 이중**: 인프라 레벨(uptime)과 비즈니스 레벨(morning-ready)을 분리.
+
+## 가짜 대량 데이터로 화면 검증하기 (2026-09-08 신설)
+
+실사용자가 없으니 화면은 늘 **비어 있는 상태**로만 검증됐다. "빈 화면이 잘 뜬다"는
+**채워졌을 때 맞는다는 뜻이 아니다.** 실제로 채워 넣자 하루에 결함 6건이 나왔다.
+
+```bash
+cd backend && npx tsx src/test-reply-flow.ts --url=https://marketing-allinone.vercel.app
+```
+```bash
+cd backend && npx tsx src/test-regulars-report.ts --url=https://marketing-allinone.vercel.app
+```
+```bash
+cd backend && npx tsx src/test-dashboard.ts --url=https://marketing-allinone.vercel.app
+```
+
+셋 다 `--cleanup-only`로 정리, `--keep`로 남겨 눈으로 볼 수 있다.
+
+### 이 방식으로 잡은 결함 유형 (새 화면을 만들면 같은 걸 의심할 것)
+
+1. **자르기가 계산보다 먼저** — 목록을 100·500건으로 자른 뒤 KPI를 그 표본에서 센다.
+   리뷰(부정 미답이 사라짐)·단골(활성만 통째로 빠짐) 둘 다 여기 걸렸다.
+   → 요약 숫자는 **count 질의로 전체**를, 꼭 보여야 하는 행은 **따로 가져와 합친다**.
+2. **버린 글을 성과로 셈** — 재생성으로 `archived`된 초안이 KPI·차트·목록에 섞였다.
+   → `shared/posts/status.ts`의 `NOT_LIVE_FILTER`를 posts 쿼리마다 건다.
+3. **되돌릴 수 없는 동작** — 완료 체크한 리뷰가 목록 밖으로 밀려 '완료 취소'에 손이 안 닿았다.
+   → 방금 처리한 것은 24시간 동안 목록에 남긴다.
+
+### ⚠️ 가짜 데이터는 **실제 앱이 만들 수 있는 모양**이어야 한다
+
+두 번 데었다.
+- `last_visit_at`을 date로 알고 `T00:00:00+09:00`을 붙였는데 실제는 **timestamptz** → 전원 '끊김'
+- `status:'published'` + `published_at:null`을 만들었는데 앱은 **둘을 항상 함께** 쓴다
+있을 수 없는 입력으로 만든 실패는 결함이 아니라 내 실수다. 넣기 전에 **스키마와 쓰는 코드**를 본다.
