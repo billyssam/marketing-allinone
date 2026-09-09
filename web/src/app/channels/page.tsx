@@ -48,6 +48,18 @@ export default async function ChannelsPage() {
     if (p.published_at) posted.set(ch, (posted.get(ch) ?? 0) + 1);
   }
 
+  /**
+   * **우리가 준비를 끝낸 연동**만 고객에게 버튼으로 보인다.
+   *
+   * Meta 앱 등록·심사는 **운영자가 한 번** 하는 일이고 고객은 그 존재를 모른다.
+   * 우리 준비가 안 됐는데 "인스타 연결" 버튼을 보여주면, 눌러도 안 되는 버튼이 된다 —
+   * 그러면 고객은 자기가 뭘 잘못한 줄 안다. 서버에서만 판단해 내려준다(키는 나가지 않는다).
+   */
+  const operatorReady = [
+    process.env.META_APP_ID ? 'META_APP_ID' : '',
+    process.env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID' : '',
+  ].filter(Boolean);
+
   const conns = new Map((connsRes.data ?? []).map((c) => [c.channel_id as string, c]));
   const rows: ChannelRow[] = CHANNELS.map((c) => {
     const postCh = CHANNEL_TO_POST[c.id];
@@ -56,7 +68,7 @@ export default async function ChannelsPage() {
       id: c.id,
       name: c.name,
       color: c.color,
-      readiness: readinessOf(c.id),
+      readiness: readinessOf(c.id, operatorReady),
       connected: Boolean(conn),
       hasKey: Boolean(conn?.access_token),
       made: postCh ? (made.get(postCh) ?? 0) : 0,

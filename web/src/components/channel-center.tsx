@@ -7,6 +7,7 @@ import { saveChannelKey } from '@/app/channels/actions';
 import { detectExtension } from '@/lib/extension';
 import {
   KEY_CHANNELS,
+  OAUTH_CHANNELS,
   READINESS_LABEL,
   READINESS_ORDER,
   WAITING_REASON,
@@ -50,7 +51,7 @@ export function ChannelCenter({
   }, []);
 
   const grouped = useMemo(() => {
-    const g: Record<Readiness, ChannelRow[]> = { ready: [], needsKey: [], waiting: [] };
+    const g: Record<Readiness, ChannelRow[]> = { oauth: [], ready: [], needsKey: [], waiting: [] };
     for (const r of list) g[r.readiness].push(r);
     // 추천 채널을 각 그룹 앞으로 — 사장님 업종에 맞는 것부터 보게
     for (const k of READINESS_ORDER) {
@@ -70,7 +71,7 @@ export function ChannelCenter({
   }
 
   const readyCount = grouped.ready.length;
-  const keyDone = grouped.needsKey.filter((r) => r.hasKey).length;
+  const oauthCount = grouped.oauth.length;
 
   return (
     <div className="min-h-screen">
@@ -80,8 +81,9 @@ export function ChannelCenter({
         <div className="eyebrow">채널</div>
         <h1 className="h1 mt-2">어디에 올릴지 정해요</h1>
         <p className="mt-2 text-[14px] leading-relaxed text-[var(--color-fg-2)]">
-          {bizLabel}에 맞춰 골라뒀어요. <b className="text-[var(--color-fg)]">{readyCount}곳</b>은 지금 바로 쓰시고,
-          {' '}키를 넣으시면 {KEY_CHANNELS.length - keyDone}곳이 더 열립니다.
+          {bizLabel}에 맞춰 골라뒀어요.
+          {oauthCount > 0 && <> <b className="text-[var(--color-fg)]">{oauthCount}곳</b>은 로그인 한 번이면 자동으로 올라가고,</>}
+          {' '}<b className="text-[var(--color-fg)]">{readyCount}곳</b>은 지금 바로 쓰실 수 있어요.
         </p>
 
         {/* 확장 — 6곳을 한 번에 여는 유일한 동작이라 가장 앞에 세운다.
@@ -187,6 +189,10 @@ function ChannelLine({
         <div className="mt-0.5 text-[12px] text-[var(--color-fg-3)]">
           {row.readiness === 'waiting' ? (
             WAITING_REASON[row.id] ?? '아직 준비 중이에요'
+          ) : row.readiness === 'oauth' ? (
+            row.connected
+              ? <span className="text-[var(--color-good)]">연결됐어요 · 자동으로 올라갑니다</span>
+              : OAUTH_CHANNELS.find((o) => o.id === row.id)?.unlocks
           ) : row.readiness === 'needsKey' ? (
             row.hasKey ? '키가 등록돼 있어요' : KEY_CHANNELS.find((k) => k.id === row.id)?.unlocks
           ) : row.writesContent ? (
@@ -200,7 +206,15 @@ function ChannelLine({
       </div>
 
       <div className="shrink-0">
-        {row.readiness === 'needsKey' ? (
+        {row.readiness === 'oauth' ? (
+          // 고객은 자기 계정으로 로그인만 한다 — 앱 등록·심사는 우리가 끝내 뒀다
+          <a
+            href={`/api/connect/${row.id}`}
+            className="btn-primary rounded-full px-4 py-1.5 text-[12.5px] font-medium"
+          >
+            {row.connected ? '다시 연결' : '연결하기'}
+          </a>
+        ) : row.readiness === 'needsKey' ? (
           <button
             type="button"
             onClick={onOpenKey}
