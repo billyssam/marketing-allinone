@@ -89,8 +89,24 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
           },
         );
       } catch (e) {
-        // 웰컴 드래프트 실패는 온보딩을 막지 않음(다음날 크론이 만들어줌)
-        console.error('[onboarding] 웰컴 드래프트 생성 실패:', (e as Error).message);
+        /**
+         * 웰컴 드래프트 실패는 온보딩을 막지 않는다(다음날 크론이 만들어준다).
+         * 하지만 **조용히 넘기면 안 된다** — 사장님은 가입 첫날 빈 화면을 보는데
+         * 우리는 이유를 모른다. 실제로 그 상태를 보고도 원인을 못 짚었다(2026-09-09).
+         * 콘솔은 아무도 안 본다(Vercel 로그를 뒤져야 한다) → DB에 남겨 화면·검증이 읽게 한다.
+         */
+        const msg = (e as Error).message ?? String(e);
+        console.error('[onboarding] 웰컴 드래프트 생성 실패:', msg);
+        try {
+          await createServiceClient().from('activity_log').insert({
+            store_id: store.id,
+            event: 'welcome_draft_failed',
+            // 원인을 그대로 남긴다 — 429(쿼터)인지 404(모델 폐기)인지 파싱 실패인지가 갈린다
+            detail: { message: msg.slice(0, 500), at: new Date().toISOString() },
+          });
+        } catch {
+          /* 기록 실패까지 온보딩을 막지는 않는다 */
+        }
       }
     });
   }

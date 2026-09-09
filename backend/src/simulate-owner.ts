@@ -461,7 +461,18 @@ async function main() {
         else stuck('자가복구 버튼을 눌러도 글이 안 만들어진다');
       }
     }
-    if (drafts === 0) stuck('첫 글이 끝내 안 왔다 — 가입 첫날 빈 화면을 본다');
+    if (drafts === 0) {
+      // "안 왔다"만 적으면 다음 사람이 또 원인을 찾아 헤맨다 —
+      // 온보딩이 실패 이유를 DB에 남기므로(activity_log) 그걸 읽어 함께 보고한다.
+      const { data: fail } = await supabase
+        .from('activity_log')
+        .select('detail, created_at')
+        .eq('event', 'welcome_draft_failed')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const why = (fail?.[0]?.detail as { message?: string } | undefined)?.message;
+      stuck(`첫 글이 끝내 안 왔다 — 가입 첫날 빈 화면을 본다${why ? ` · 원인: ${why.slice(0, 200)}` : ' (실패 기록도 없다 — 생성이 시작조차 안 했을 수 있다)'}`);
+    }
 
     // ── 6. 붙여넣기 ────────────────────────────────────────────────────
     step('6. 붙여넣기 — 실제로 올릴 수 있는가');
