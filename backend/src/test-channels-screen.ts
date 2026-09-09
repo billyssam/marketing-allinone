@@ -100,8 +100,20 @@ async function main() {
       /만든 글 5 · 올림 2/.test(screen) ? '만든 글 5 · 올림 2' : `화면: ${/만든 글[^·]*·[^ ]* \d+/.exec(screen)?.[0] ?? '표시 없음'}`);
 
     // ③ 못 여는 이유가 적혀 있는가 — "준비 중"으로 뭉뚱그리면 안 된다
-    check('못 여는 채널에 진짜 이유가 있다', /Meta 심사/.test(screen),
-      /Meta 심사/.test(screen) ? '인스타에 심사 대기 이유 표시' : '이유 없이 준비중만 적혀 있다');
+    const vague = (screen.match(/아직 준비 중이에요/g) ?? []).length;
+    check('못 여는 채널에 진짜 이유가 있다', vague === 0,
+      vague === 0 ? '뭉뚱그린 문구 0건' : `"아직 준비 중이에요"가 ${vague}건 — 이유를 안 적었다`);
+
+    /**
+     * ③-2 🔴 **고객 화면에 우리 사정이 새면 안 된다.**
+     * Meta App ID·심사 진행·알리고 계정은 **운영자가 한 번** 하는 일이고,
+     * 고객은 그게 뭔지 알 필요도 없고 알아도 할 수 있는 게 없다.
+     * 실제로 "Meta 심사 4~6주 — App ID 대기"를 고객 화면에 띄우고 있었다(2026-09-09).
+     */
+    const leaked = ['App ID', 'Meta 앱', '알리고', 'client_id', 'client_secret', '환경변수']
+      .filter((w) => screen.includes(w));
+    check('고객 화면에 운영자 용어가 없다', leaked.length === 0,
+      leaked.length === 0 ? '노출 0건' : `노출: ${leaked.join(', ')}`);
 
     // ④ 키 입력이 실제로 열리고 발급처로 보내는가
     const keyBtn = page.getByRole('button', { name: /키 넣기/ }).first();
