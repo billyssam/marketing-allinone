@@ -5,12 +5,24 @@
 const STORAGE_KEY = 'currentDraft';
 // GoBlogWrite.naver는 로그인된 계정의 write 페이지로 자동 리다이렉트 (blogId 파라미터 불필요)
 const NAVER_WRITE_URL = 'https://blog.naver.com/GoBlogWrite.naver';
-// 플레이스 '소식' 작성 — 로그인된 사업장으로 자동 이동한다
-const PLACE_WRITE_URL = 'https://new.smartplace.naver.com/';
 
-/** 채널에 맞는 글쓰기 주소. 모르는 채널이면 블로그(기본 채널)로. */
+/**
+ * 채널별 글쓰기 주소.
+ * 전부 **로그인된 계정의 작성 화면으로 자동 이동**하는 주소다 —
+ * 사장님 아이디를 우리가 알 필요가 없다(그래서 비밀번호도 안 받는다).
+ */
+const WRITE_URL = {
+  blog: NAVER_WRITE_URL,
+  naver_place: 'https://new.smartplace.naver.com/',
+  naver_band: 'https://band.us/',
+  danggeun: 'https://www.daangn.com/',
+  kakao_channel: 'https://center-pf.kakao.com/',
+  google_gbp: 'https://business.google.com/posts',
+};
+
+/** 모르는 채널이면 블로그(기본 채널)로 — 빈 탭을 여는 것보다 낫다 */
 function writeUrlFor(channel) {
-  return channel === 'naver_place' ? PLACE_WRITE_URL : NAVER_WRITE_URL;
+  return WRITE_URL[channel] ?? NAVER_WRITE_URL;
 }
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {

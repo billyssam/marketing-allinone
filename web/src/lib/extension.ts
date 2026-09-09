@@ -56,7 +56,9 @@ export async function detectExtension(timeoutMs = 1200): Promise<{ installed: bo
 }
 
 /** 확장이 지금 채워 넣을 수 있는 채널 — 여기 없는 채널은 붙여넣기로 간다 */
-export const ONE_CLICK_CHANNELS = ['blog', 'naver_place'] as const;
+export const ONE_CLICK_CHANNELS = [
+  'blog', 'naver_place', 'naver_band', 'danggeun', 'kakao_channel', 'google_gbp',
+] as const;
 export type OneClickChannel = (typeof ONE_CLICK_CHANNELS)[number];
 export function isOneClickChannel(ch?: string): ch is OneClickChannel {
   return !!ch && (ONE_CLICK_CHANNELS as readonly string[]).includes(ch);
@@ -66,6 +68,10 @@ export function isOneClickChannel(ch?: string): ch is OneClickChannel {
 export const ONE_CLICK_LABEL: Record<OneClickChannel, string> = {
   blog: '네이버 블로그에 바로 채우기',
   naver_place: '플레이스 소식에 바로 채우기',
+  naver_band: '밴드에 바로 채우기',
+  danggeun: '당근 동네홍보에 바로 채우기',
+  kakao_channel: '카카오 채널에 바로 채우기',
+  google_gbp: '구글 비즈니스에 바로 채우기',
 };
 
 export interface BlogDraftPayload {
