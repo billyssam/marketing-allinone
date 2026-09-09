@@ -106,7 +106,17 @@ export function PushToggle({ publicKey }: { publicKey?: string }) {
 
   if (state === 'loading' || state === 'unsupported') return null;
 
-  const box = 'panel mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] px-4 py-3';
+  /**
+   * 아직 한 대도 구독이 없으면 **눈에 띄게** 만든다.
+   *
+   * 매일 아침 글이 준비돼도 여기가 꺼져 있으면 사장님은 그걸 영영 모른다 —
+   * 실사용자 한 분이 9일치 글을 한 번도 못 받았다(2026-08-26~09-08 실측).
+   * ⚠️ 이 강조를 대시보드에 **별도 상자로** 넣었더니 같은 얘기가 두 번 나왔다.
+   *    알림 상태를 아는 곳은 여기 하나뿐이므로 강조도 여기서 한다.
+   */
+  const box = emphasize
+    ? 'mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-[var(--color-amber)]/40 bg-[var(--color-amber)]/[0.06] px-4 py-3.5'
+    : 'panel mt-3 flex items-center justify-between gap-3 rounded-[var(--radius-lg)] px-4 py-3';
   const label = 'text-[13px] text-[var(--color-fg-2)]';
 
   if (state === 'ios-needs-install') {
