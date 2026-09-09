@@ -98,6 +98,20 @@ jobs:
           set -o pipefail
           npx tsx src/test-extension-bridge.ts --url=https://marketing-allinone.vercel.app 2>&1 | tee -a /tmp/screens.log
 
+      # 연결 화면 — 사장님이 "지금 뭘 하면 하나가 더 열리는가"에 답을 얻는 유일한 곳.
+      # 실적을 같은 줄에 놓기 때문에, 숫자가 DB와 어긋나면 여기서 걸린다.
+      - name: 채널 연결 화면 (행동별 묶음·실적 대조)
+        if: ${{ !cancelled() }}
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true'
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx src/test-channels-screen.ts --url=https://marketing-allinone.vercel.app 2>&1 | tee -a /tmp/screens.log
+
       - name: 대시보드 (보관분 섞인 글 36건 · 리뷰 150건)
         if: ${{ !cancelled() }}
         working-directory: backend
@@ -124,6 +138,7 @@ jobs:
           npx tsx src/test-regulars-report.ts --cleanup-only || true
           npx tsx src/test-dashboard.ts --cleanup-only || true
           npx tsx src/test-extension-bridge.ts --cleanup-only || true
+          npx tsx src/test-channels-screen.ts --cleanup-only || true
 
       # 결과를 런 요약에 남긴다 — 로그를 뒤지지 않고 한눈에 본다(공개 저장소라 상호는 안 찍힌다)
       - name: 결과 요약
