@@ -37,7 +37,8 @@
           reply({ ok: false, error: chrome.runtime.lastError?.message ?? res?.error ?? '초안 저장 실패' });
           return;
         }
-        chrome.runtime.sendMessage({ type: 'OPEN_WRITE_PAGE' }, (r2) => {
+        // 채널을 같이 넘긴다 — 블로그 글쓰기와 플레이스 소식은 여는 주소가 다르다
+        chrome.runtime.sendMessage({ type: 'OPEN_WRITE_PAGE', channel: msg.payload?.channel }, (r2) => {
           if (chrome.runtime.lastError || !r2?.ok) {
             // 초안은 저장됐으니 사장님이 직접 글쓰기로 가도 채워진다 — 그걸 알려준다
             reply({ ok: true, note: '초안은 준비됐어요. 네이버 글쓰기 페이지를 직접 열어주세요.' });

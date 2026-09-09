@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { withJosa } from '@shared/korean';
 import { updatePostDraft } from '@/app/posts/actions';
-import { detectExtension, sendDraftToExtension } from '@/lib/extension';
+import { detectExtension, sendDraftToExtension, isOneClickChannel, ONE_CLICK_LABEL, type OneClickChannel } from '@/lib/extension';
 
 type Step = 'title' | 'body' | 'tags' | 'done';
 
@@ -84,17 +84,19 @@ function PrepareInner() {
   }, []);
 
   async function sendToBlog() {
-    if (!draft) return;
+    if (!draft || !isOneClickChannel(draft.channel)) return;
     setOneClick((s) => ({ ...s, sending: true, error: '' }));
     const res = await sendDraftToExtension({
-      postId: postId ?? "",
+      postId: postId ?? '',
+      channel: draft.channel,
       title: draft.title ?? '',
       bodyHtml: draft.bodyHtml ?? draft.bodyPlain ?? '',
+      bodyPlain: draft.bodyPlain ?? '',
       tags: draft.tags,
       storeName: draft.storeName,
     });
     setOneClick((s) => ({ ...s, sending: false, error: res.ok ? '' : (res.error ?? '전달 실패') }));
-    // 성공하면 확장이 글쓰기 탭을 열고 채운다 — 여기서는 완료 처리만 안내한다
+    // 성공하면 확장이 해당 화면을 열고 채운다 — 여기서는 완료 처리만 안내한다
   }
 
   /** 손보기 — 초안이 마음에 안 들 때 그대로 올리게 두지 않는다(파일럿 첫날 확실히 나올 요구) */
@@ -243,14 +245,14 @@ function PrepareInner() {
 
           {/* 확장이 깔려 있으면 **붙여넣기를 건너뛴다.** 제목·본문을 에디터에 직접 넣는다.
               (확장이 없으면 이 블록이 아예 안 뜨고 아래 3단계 흐름 그대로 — 설치를 강요하지 않는다) */}
-          {oneClick.available && draft?.channel === 'blog' && (
+          {oneClick.available && isOneClickChannel(draft?.channel) && (
             <button
               type="button"
               onClick={sendToBlog}
               disabled={oneClick.sending}
               className="btn-primary mt-6 w-full rounded-[var(--radius)] py-3.5 text-[15px] font-medium disabled:opacity-50"
             >
-              {oneClick.sending ? '블로그로 보내는 중…' : '⚡ 네이버 블로그에 바로 채우기'}
+              {oneClick.sending ? '보내는 중…' : `⚡ ${ONE_CLICK_LABEL[draft.channel as OneClickChannel]}`}
             </button>
           )}
           {oneClick.error && (

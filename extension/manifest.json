@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "마케팅올인원 — 네이버 블로그 원클릭",
-  "version": "0.3.0",
-  "description": "매일 아침 준비된 글을 네이버 블로그 에디터에 그대로 채워 넣습니다. 붙여넣기 3번 → 버튼 하나.",
+  "name": "마케팅올인원 — 네이버 원클릭",
+  "version": "0.4.0",
+  "description": "매일 아침 준비된 글을 네이버 블로그·플레이스 소식에 그대로 채워 넣습니다. 붙여넣기 3번 → 버튼 하나.",
   "permissions": ["storage", "activeTab", "tabs", "clipboardWrite", "clipboardRead"],
   "host_permissions": [
     "https://blog.naver.com/*",
-    "https://*.blog.naver.com/*"
+    "https://*.blog.naver.com/*",
+    "https://new.smartplace.naver.com/*",
+    "https://smartplace.naver.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -24,6 +26,15 @@
     },
     {
       "matches": [
+        "https://new.smartplace.naver.com/*",
+        "https://smartplace.naver.com/*"
+      ],
+      "js": ["place.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
         "https://marketing-allinone.vercel.app/*",
         "http://localhost:3500/*",
         "http://127.0.0.1:3500/*"
@@ -35,7 +46,7 @@
   ],
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "네이버 블로그 원클릭"
+    "default_title": "네이버 원클릭"
   },
   "externally_connectable": {
     "matches": [

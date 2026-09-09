@@ -55,10 +55,26 @@ export async function detectExtension(timeoutMs = 1200): Promise<{ installed: bo
   return r.ok ? { installed: true, version: r.version } : { installed: false };
 }
 
+/** 확장이 지금 채워 넣을 수 있는 채널 — 여기 없는 채널은 붙여넣기로 간다 */
+export const ONE_CLICK_CHANNELS = ['blog', 'naver_place'] as const;
+export type OneClickChannel = (typeof ONE_CLICK_CHANNELS)[number];
+export function isOneClickChannel(ch?: string): ch is OneClickChannel {
+  return !!ch && (ONE_CLICK_CHANNELS as readonly string[]).includes(ch);
+}
+
+/** 채널별로 버튼에 뭐라고 쓸지 — "블로그에 바로 채우기"가 플레이스에 뜨면 안 된다 */
+export const ONE_CLICK_LABEL: Record<OneClickChannel, string> = {
+  blog: '네이버 블로그에 바로 채우기',
+  naver_place: '플레이스 소식에 바로 채우기',
+};
+
 export interface BlogDraftPayload {
   postId: string;
+  /** 확장이 어느 화면을 열고 어떤 방식으로 채울지 결정한다 */
+  channel: OneClickChannel;
   title: string;
   bodyHtml: string;
+  bodyPlain: string;
   tags: string[];
   storeName: string;
 }

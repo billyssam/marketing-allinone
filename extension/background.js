@@ -5,6 +5,13 @@
 const STORAGE_KEY = 'currentDraft';
 // GoBlogWrite.naver는 로그인된 계정의 write 페이지로 자동 리다이렉트 (blogId 파라미터 불필요)
 const NAVER_WRITE_URL = 'https://blog.naver.com/GoBlogWrite.naver';
+// 플레이스 '소식' 작성 — 로그인된 사업장으로 자동 이동한다
+const PLACE_WRITE_URL = 'https://new.smartplace.naver.com/';
+
+/** 채널에 맞는 글쓰기 주소. 모르는 채널이면 블로그(기본 채널)로. */
+function writeUrlFor(channel) {
+  return channel === 'naver_place' ? PLACE_WRITE_URL : NAVER_WRITE_URL;
+}
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   console.log('[블로그 원클릭] 설치/업데이트:', reason);
@@ -41,7 +48,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message?.type === 'OPEN_WRITE_PAGE') {
-    chrome.tabs.create({ url: NAVER_WRITE_URL }).then((tab) => sendResponse({ ok: true, tabId: tab.id }));
+    // 채널에 따라 여는 곳이 다르다 — 블로그 글쓰기 vs 플레이스 소식
+    chrome.tabs
+      .create({ url: writeUrlFor(message.channel) })
+      .then((tab) => sendResponse({ ok: true, tabId: tab.id }));
     return true;
   }
   if (message?.type === 'INJECT_NOW') {
