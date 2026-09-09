@@ -1,0 +1,66 @@
+name: 사장님 감시 (신규·이탈)
+
+# 왜 있나: 실사용자 `본디`가 2026-08-26에 가입했는데 **우리가 안 건 9월 3일**이었다.
+# 그동안 초안은 매일 만들어졌지만 아무도 그분께 말을 걸지 않았고, 그분은 가입한 날 이후로 안 왔다.
+# 파일럿에서 첫 주 한마디가 전부인데, 사람이 DB를 열어봐야만 알 수 있는 구조였다.
+#
+# 이제 매일 확인한다:
+#   · 새로 가입한 사장님 → 그날 안에 안다
+#   · 온보딩까지 하고 7일 넘게 안 들어온 사장님 → 이탈 신호
+#
+# ⚠️ 저장소가 공개다. 상호·이메일은 **운영자 텔레그램(비공개)으로만** 나가고,
+#    공개 로그·이슈에는 "몇 명"과 별칭만 남는다.
+on:
+  schedule:
+    - cron: '30 23 * * *' # 08:30 KST — 아침에 확인하고 하루를 시작한다
+  workflow_dispatch: {}
+
+concurrency:
+  group: owner-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: 의존성 설치 (워크스페이스)
+        run: npm install
+
+      - name: 신규·이탈 사장님 확인
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MASK_STORE_NAMES: 'true' # 공개 저장소 — 로그에 상호를 남기지 않는다
+          OWNER_WATCH_SUMMARY_FILE: /tmp/owner-watch.txt
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx src/watch-new-owners.ts 2>&1 | tee /tmp/watch.log
+
+      # 텔레그램이 없을 수도 있으니 이슈로도 알린다(내용 없이 "확인하라"만 — 공개라서).
+      - name: 알릴 것이 있으면 이슈로
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -s /tmp/owner-watch.txt ] || { echo "알릴 것 없음"; exit 0; }
+          TITLE="👤 사장님 상태 확인 필요 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
+          SUMMARY=$(cat /tmp/owner-watch.txt)
+          BODY=$(printf '%s\n\n상세(상호·연락처)는 **운영자 텔레그램**으로 보냈습니다.\n공개 저장소라 여기에는 인원수만 적습니다.\n\n직접 보려면: `cd backend && npx tsx src/who-is-in.ts`\n\n- 새로 가입하신 분이면 **첫 주에 한 번 말을 거는 것**이 파일럿의 전부입니다.\n- 일주일 넘게 안 들어오신 분이면, 알림을 못 받고 계실 가능성이 큽니다(웹푸시 구독 확인).' "$SUMMARY")
+          COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"사장님 상태 확인 필요\" in:title" --json number --jq 'length')
+          if [ "$COUNT" = "0" ]; then
+            gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
+          fi
