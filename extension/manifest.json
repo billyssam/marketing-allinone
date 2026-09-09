@@ -23,7 +23,6 @@
       "all_frames": false
     },
     {
-      "//": "웹앱 ↔ 확장 다리. 확장 ID 없이 postMessage 로 통하게 한다(언패키지 ID는 기기마다 다름).",
       "matches": [
         "https://marketing-allinone.vercel.app/*",
         "http://localhost:3500/*",

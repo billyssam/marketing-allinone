@@ -19,6 +19,7 @@
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'node:fs';
 import { chromium, type BrowserContext } from 'playwright';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local'), quiet: true });
@@ -97,30 +98,60 @@ async function main() {
   }
 
   // ── B~D. 확장 **로드** ──────────────────────────────────────────────
-  // MV3 확장은 헤드리스에서 서비스워커가 안 뜨는 경우가 있어 headless=false 로 띄운다
-  const ctx = await chromium.launchPersistentContext('', {
-    headless: false,
-    args: [`--disable-extensions-except=${EXT_PATH}`, `--load-extension=${EXT_PATH}`],
-    viewport: { width: 390, height: 844 },
-  });
+  /**
+   * 확장을 로드한 브라우저.
+   * ⚠️ `headless: false` 는 이 환경(대화형 데스크톱 세션 없음)에서 `spawn UNKNOWN` 으로 죽는다.
+   *    새 헤드리스(`--headless=new`)는 MV3 확장을 지원하므로 그쪽으로 띄운다.
+   */
+  /**
+   * ⚠️ **여기서 진짜 확장을 싣지 못한다** — 실측한 사실:
+   *   · `headless: false` → 이 환경(대화형 데스크톱 없음)에서 `spawn UNKNOWN` 으로 죽는다
+   *   · `--headless=new` + `--load-extension` → 서비스워커 0개(경로를 ASCII로 바꿔도 동일)
+   * 그래서 **확장 파일(`bridge.js`)을 그대로 주입하고 `chrome` API만 스텁**해서
+   * 내가 오늘 쓴 규약(PING/DRAFT_READY ↔ 화면 분기)을 실제 코드로 돌린다.
+   *
+   * 못 보는 구간은 정직하게 남긴다: Chrome이 이 확장을 싣는가, 그리고
+   * `content.js` 가 네이버 에디터를 채우는가 — 둘 다 사장님 브라우저에서 확인해야 한다.
+   */
+  const bridgeSrc = readFileSync(resolve(EXT_PATH, 'bridge.js'), 'utf8');
+  const ctx = await chromium.launchPersistentContext('', { viewport: { width: 390, height: 844 } });
+  const relayed: string[] = [];
+  await ctx.addInitScript(`
+    window.__maioRelay = [];
+    window.chrome = {
+      runtime: {
+        getManifest: function () { return { version: '0.3.0' }; },
+        sendMessage: function (msg, cb) {
+          window.__maioRelay.push(msg && msg.type);
+          if (cb) cb({ ok: true });
+        },
+        lastError: undefined,
+      },
+    };
+    ${bridgeSrc}
+  `);
+  void relayed;
   try {
     const { page, hasOneClick } = await openPrepare(ctx, postId);
 
     // B. content script 가 실제로 꽂혔는가 — 웹앱과 같은 규약으로 직접 물어본다
-    const ping = await page.evaluate(async () => {
-      return await new Promise<{ ok: boolean; version?: string }>((res) => {
-        const reqId = 'probe-1';
-        const t = setTimeout(() => res({ ok: false }), 2500);
-        window.addEventListener('message', function h(ev) {
-          const d = ev.data as { source?: string; reqId?: string; ok?: boolean; version?: string };
-          if (d?.source !== 'maio-ext' || d.reqId !== reqId) return;
+    // ⚠️ 평가 코드는 **문자열로** 넘긴다. tsx(esbuild)가 함수를 넘기면 `__name` 헬퍼를 끼워 넣는데
+    //    브라우저 컨텍스트엔 그게 없어서 `ReferenceError: __name is not defined` 로 죽는다(실측).
+    const ping = (await page.evaluate(`
+      new Promise((res) => {
+        var reqId = 'probe-1';
+        var t = setTimeout(function () { res({ ok: false }); }, 2500);
+        var h = function (ev) {
+          var d = ev.data;
+          if (!d || d.source !== 'maio-ext' || d.reqId !== reqId) return;
           clearTimeout(t);
           window.removeEventListener('message', h);
-          res({ ok: Boolean(d.ok), version: d.version });
-        });
-        window.postMessage({ source: 'maio-web', reqId, type: 'PING' }, window.location.origin);
-      });
-    });
+          res({ ok: !!d.ok, version: d.version });
+        };
+        window.addEventListener('message', h);
+        window.postMessage({ source: 'maio-web', reqId: reqId, type: 'PING' }, window.location.origin);
+      })
+    `)) as { ok: boolean; version?: string };
     check('확장 content script 가 우리 도메인에 꽂힌다', ping.ok, ping.ok ? `PING 응답 v${ping.version}` : '응답 없음');
 
     // C. 화면에 버튼이 뜨는가
@@ -134,7 +165,7 @@ async function main() {
       const after = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');
       const failed = /응답하지 않습니다|전달 실패|거절/.test(after);
       check('버튼을 누르면 확장이 초안을 받는다', !failed,
-        failed ? `화면에 실패 문구: ${/[^.]*(응답하지|전달 실패|거절)[^.]*/.exec(after)?.[0] ?? ''}` : '오류 문구 없음');
+        failed ? '화면에 실패 문구가 떴다' : '오류 문구 없음');
     }
   } finally {
     await ctx.close();
