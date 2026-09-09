@@ -83,6 +83,21 @@ jobs:
           set -o pipefail
           npx tsx src/test-regulars-report.ts --url=https://marketing-allinone.vercel.app 2>&1 | tee -a /tmp/screens.log
 
+      # 확장 다리 — 붙여넣기를 버튼 하나로 바꾸는 경로.
+      # ⚠️ Chrome이 확장을 싣는 것과 네이버 에디터 주입은 여기서 못 본다(README에 명시).
+      #    여기서 지키는 건 **규약**이다: 확장 없으면 버튼이 안 뜨고, 있으면 채널에 맞는 버튼이 뜬다.
+      - name: 확장 다리 (블로그·플레이스 원클릭)
+        if: ${{ !cancelled() }}
+        working-directory: backend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MASK_STORE_NAMES: 'true'
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx src/test-extension-bridge.ts --url=https://marketing-allinone.vercel.app 2>&1 | tee -a /tmp/screens.log
+
       - name: 대시보드 (보관분 섞인 글 36건 · 리뷰 150건)
         if: ${{ !cancelled() }}
         working-directory: backend
@@ -108,6 +123,7 @@ jobs:
           npx tsx src/test-reply-flow.ts --cleanup-only || true
           npx tsx src/test-regulars-report.ts --cleanup-only || true
           npx tsx src/test-dashboard.ts --cleanup-only || true
+          npx tsx src/test-extension-bridge.ts --cleanup-only || true
 
       # 결과를 런 요약에 남긴다 — 로그를 뒤지지 않고 한눈에 본다(공개 저장소라 상호는 안 찍힌다)
       - name: 결과 요약
