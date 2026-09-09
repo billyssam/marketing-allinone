@@ -194,7 +194,7 @@ function ChannelLine({
               만든 글 {row.made} · 올림 {row.posted}
             </span>
           ) : (
-            '글은 만들지 않고 연결만 해둬요'
+            '여기엔 글을 만들지 않아요'
           )}
         </div>
       </div>
@@ -274,7 +274,7 @@ function KeySheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="eyebrow">{spec.issuer}</div>
-        <h2 className="h2 mt-1.5">키를 넣으면 열려요</h2>
+        <h2 className="h2 mt-1.5">{spec.unlocks}</h2>
         <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-fg-2)]">{spec.unlocks}</p>
 
         <a
@@ -326,7 +326,7 @@ function KeySheet({
             disabled={!filled || saving}
             className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40"
           >
-            {saving ? '확인하는 중…' : '연결하기'}
+            {saving ? '저장하는 중…' : '저장하기'}
           </button>
         </div>
       </div>

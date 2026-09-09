@@ -57,11 +57,43 @@ export const KEY_CHANNELS: {
   },
 ];
 
-/** 아직 못 여는 채널의 **진짜 이유**. 없으면 "준비 중"으로 뭉뚱그리지 않는다. */
+/**
+ * 아직 못 여는 채널의 **진짜 이유**.
+ *
+ * ⚠️ 하나라도 비면 "아직 준비 중이에요"가 뜬다. 그게 19개 채널에 똑같이 달리면
+ * 사장님은 아무것도 알 수 없고, 우리는 정직한 척만 한 것이 된다(화면 문구를 정독하다 발견).
+ * 못 여는 이유는 넷뿐이라 넷 다 적을 수 있다 — 심사 / API 없음 / 안 붙임 / 글이 아님.
+ */
 export const WAITING_REASON: Partial<Record<ChannelId, string>> = {
-  instagram: 'Meta 심사 4~6주 — 신청 준비 완료, App ID 대기',
-  facebook: 'Meta 심사 — 인스타와 같은 앱으로 함께 열립니다',
-  threads: 'Meta 심사 — 인스타와 같은 앱으로 함께 열립니다',
+  // 심사 — 신청하면 열린다
+  instagram: 'Meta 심사가 4~6주 걸려요. 신청 준비는 끝났습니다',
+  facebook: '인스타와 같은 심사로 함께 열려요',
+  threads: '인스타와 같은 심사로 함께 열려요',
+
+  // 사장님용 글쓰기 창구가 아예 없는 곳 — 우리가 뚫을 방법이 없다
+  baemin: '배민은 사장님이 글을 넣을 창구를 안 열어둬요',
+  yogiyo: '요기요는 사장님이 글을 넣을 창구를 안 열어둬요',
+  coupang_eats: '쿠팡이츠는 사장님이 글을 넣을 창구를 안 열어둬요',
+  kakao_map: '카카오맵은 플레이스처럼 글을 올릴 수 없어요',
+
+  // 방법은 있는데 아직 안 붙였다 — 정직하게
+  coupang: '판매자 연동은 되는데 아직 안 붙였어요',
+  eleven_st: '판매자 연동은 되는데 아직 안 붙였어요',
+  gmarket: '판매자 연동은 되는데 아직 안 붙였어요',
+  self_mall: '카페24·아임웹 연동은 되는데 아직 안 붙였어요',
+  kakao_friendtalk: '알림톡부터 열고 그다음이에요',
+  sms: '단골 화면에서 문자 앱으로 바로 보내실 수 있어요',
+  membership: '쿠폰·스탬프는 아직 안 만들었어요',
+
+  // 글이 아니라 영상 — 이 제품이 만드는 물건이 아니다
+  youtube: '영상이라 지금 만드는 글로는 안 돼요',
+  tiktok: '영상이라 지금 만드는 글로는 안 돼요',
+
+  // 광고 — 돈이 나가는 일이라 맨 마지막
+  naver_ad: '광고비가 나가는 일이라 맨 마지막에 열어요',
+  meta_ad: '광고비가 나가는 일이라 맨 마지막에 열어요',
+  kakao_moment: '광고비가 나가는 일이라 맨 마지막에 열어요',
+  google_ad: '광고비가 나가는 일이라 맨 마지막에 열어요',
 };
 
 export function readinessOf(id: ChannelId): Readiness {
@@ -76,7 +108,7 @@ export const READINESS_ORDER: Readiness[] = ['ready', 'needsKey', 'waiting'];
 export const READINESS_LABEL: Record<Readiness, { title: string; desc: string }> = {
   ready: { title: '바로 씁니다', desc: '매일 글이 준비되고, 확장을 깔면 버튼 하나로 채워집니다' },
   needsKey: { title: '키를 넣으면 열립니다', desc: '사장님이 직접 발급하시면 됩니다. 심사 없이 바로' },
-  waiting: { title: '아직 못 엽니다', desc: '되는 척하지 않겠습니다. 열리면 알려드릴게요' },
+  waiting: { title: '아직 못 엽니다', desc: '열리면 알려드릴게요. 지금은 다른 곳부터 채워요' },
 };
 
 /** 레지스트리 전체를 준비도별로 묶는다(planned 도 waiting 에 들어간다) */
