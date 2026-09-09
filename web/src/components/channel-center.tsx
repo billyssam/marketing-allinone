@@ -121,7 +121,7 @@ export function ChannelCenter({
           if (!items.length) return null;
           const meta = READINESS_LABEL[k];
           return (
-            <section key={k} className="mt-9">
+            <section key={k} className="mt-8">
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="text-[15px] font-medium tracking-tight">{meta.title}</h2>
                 <span className="mono text-[11px] text-[var(--color-fg-4)]">{items.length}</span>
