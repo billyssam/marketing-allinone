@@ -275,7 +275,7 @@ function KeySheet({
       >
         <div className="eyebrow">{spec.issuer}</div>
         <h2 className="h2 mt-1.5">{spec.unlocks}</h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-fg-2)]">{spec.unlocks}</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-fg-2)]">{spec.issuer}에서 발급받아 아래에 붙여넣으시면 됩니다.</p>
 
         <a
           href={spec.issueUrl}
