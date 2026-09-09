@@ -125,17 +125,28 @@ export function OnboardingWizard() {
    * 키로 바꾸면 목록에서 빼는 것만으로 안전하게 사라진다.
    */
   const canHavePlace = !biz || hasPlacePage(biz);
-  const stepKeys = ['store', 'industry', 'offering', ...(canHavePlace ? ['place'] as const : []), 'channels'] as const;
+  /**
+   * 마지막에 **알림 단계**를 둔다.
+   *
+   * 왜: 매일 아침 글이 준비돼도 사장님이 앱을 안 열면 그날 글은 그냥 지나간다.
+   * 지금 사장님께 닿는 경로는 웹 푸시 하나뿐인데, 그동안 대시보드 **카드로 권유만** 했다.
+   * 실사용자 한 분이 정확히 그걸 지나쳤고 — 9일치 글이 만들어졌지만 **한 번도 도착하지 않았고**,
+   * 가입한 날 이후로 다시 오지 않았다(2026-08-26~09-08 실측).
+   * 그래서 온보딩 흐름 안으로 끌어들인다. 건너뛸 수는 있게 두되(강요하면 첫날 이탈),
+   * **한 번은 반드시 보게** 만든다.
+   */
+  const stepKeys = ['store', 'industry', 'offering', ...(canHavePlace ? ['place'] as const : []), 'channels', 'alerts'] as const;
   type StepKey = (typeof stepKeys)[number];
   // 업종을 바꾸면 단계 수가 줄 수 있다(5→4). 그때 step이 범위를 넘으면
   // `stepKeys[step]`이 undefined가 되어 **첫 화면으로 튄다** — 클램프해서 막는다.
   const current = stepKeys[Math.min(step, stepKeys.length - 1)] as StepKey;
   const STEP_LABEL: Record<StepKey, string> = {
-    store: '매장', industry: '업종', offering: offeringWord, place: '플레이스', channels: '채널',
+    store: '매장', industry: '업종', offering: offeringWord, place: '플레이스', channels: '채널', alerts: '알림',
   };
   const steps = stepKeys.map((k) => STEP_LABEL[k]);
   const canNext: Record<StepKey, boolean> = {
     store: storeName.trim().length > 0, industry: industryId !== '', offering: true, place: true, channels: true,
+    alerts: true,
   };
   const lastStep = stepKeys.length - 1;
   // 진행 표시(●②③④)도 step을 그대로 쓰므로 state 자체를 범위 안으로 되돌려 놓는다
