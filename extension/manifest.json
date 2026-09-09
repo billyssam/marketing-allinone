@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "마케팅올인원 — 네이버 블로그 원클릭",
+  "version": "0.3.0",
+  "description": "매일 아침 준비된 글을 네이버 블로그 에디터에 그대로 채워 넣습니다. 붙여넣기 3번 → 버튼 하나.",
+  "permissions": ["storage", "activeTab", "tabs", "clipboardWrite", "clipboardRead"],
+  "host_permissions": [
+    "https://blog.naver.com/*",
+    "https://*.blog.naver.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://blog.naver.com/*",
+        "https://*.blog.naver.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "//": "웹앱 ↔ 확장 다리. 확장 ID 없이 postMessage 로 통하게 한다(언패키지 ID는 기기마다 다름).",
+      "matches": [
+        "https://marketing-allinone.vercel.app/*",
+        "http://localhost:3500/*",
+        "http://127.0.0.1:3500/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "네이버 블로그 원클릭"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://marketing-allinone.vercel.app/*",
+      "https://*.vercel.app/*",
+      "http://localhost:3500/*",
+      "http://127.0.0.1:3500/*"
+    ]
+  }
+}

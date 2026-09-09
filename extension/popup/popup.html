@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>블로그 원클릭</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">📝 블로그 원클릭</div>
+    <div class="version" id="version"></div>
+  </header>
+
+  <main>
+    <!-- 상태 배너 -->
+    <section class="status" id="status">확인 중...</section>
+
+    <!-- 초안 프리뷰 (초안 있을 때) -->
+    <section class="draft" id="draft-view" hidden>
+      <div class="draft__title" id="draft-title">-</div>
+      <div class="draft__meta">
+        <span id="draft-length">-</span> · <span id="draft-tag-count">-</span>개 태그
+      </div>
+      <div class="draft__saved" id="draft-saved">-</div>
+      <div class="draft__actions">
+        <button id="open-write" class="btn btn--primary">✍️ 네이버 블로그 write 열기</button>
+        <button id="inject-now" class="btn" hidden>📥 지금 삽입</button>
+        <button id="clear-draft" class="btn btn--ghost">삭제</button>
+      </div>
+    </section>
+
+    <!-- 초안 없을 때: 붙여넣기 존 -->
+    <section class="paste" id="paste-view" hidden>
+      <div class="paste__hint">
+        <code>web/output/last-draft.json</code> 파일 내용을 붙여넣으세요.
+        <br />또는 대시보드에서 자동 전달 대기 중입니다.
+      </div>
+      <textarea id="paste-json" placeholder='{"title": "...", "bodyHtml": "...", "tags": [...]}' rows="6"></textarea>
+      <button id="save-pasted" class="btn btn--primary">저장</button>
+      <div class="paste__err" id="paste-err"></div>
+    </section>
+  </main>
+
+  <footer>
+    <a href="#" id="open-dashboard">대시보드 (개발 예정)</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
