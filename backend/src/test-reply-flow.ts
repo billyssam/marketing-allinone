@@ -198,18 +198,26 @@ async function main() {
       const r = await fetch('/api/health'); // 세션 살아있는지 확인용
       return { health: r.status, target: id };
     }, victim!.id);
-    const { error: rlsErr } = await createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    ).from('reviews').update({ reply_sent_at: new Date().toISOString() }).eq('id', victim!.id);
-    const { data: victimAfter } = await sb.from('reviews')
-      .select('reply_sent_at').eq('id', victim!.id).single();
-    check(
-      '남의 매장 리뷰는 못 건드린다(RLS)',
-      victimAfter?.reply_sent_at == null,
-      victimAfter?.reply_sent_at == null
-        ? `차단됨(anon 갱신 거부${rlsErr ? `: ${rlsErr.code}` : ''}) · health ${hacked.health}`
-        : '🔴 남의 리뷰가 갱신됐다 — 다른 사장님 데이터를 바꿀 수 있다',
-    );
+    // ⚠️ anon 키가 없으면 **조용히 통과시키지 않는다.** 못 해본 검증을 통과로 적으면
+    //    "RLS 확인했다"는 거짓 기록이 남는다(검증 도구가 거짓말하면 결함보다 나쁘다).
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
+    if (!anon) {
+      // 못 해본 검증은 실패로 남기고 **나머지는 계속 돈다** — 여기서 던지면 취소 검증까지 못 한다
+      check('남의 매장 리뷰는 못 건드린다(RLS)', false,
+        '검증 못 함 — anon 키 없음(CI면 SUPABASE_ANON_KEY 시크릿 등록). 통과로 적지 않는다');
+    } else {
+      const { error: rlsErr } = await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, anon)
+        .from('reviews').update({ reply_sent_at: new Date().toISOString() }).eq('id', victim!.id);
+      const { data: victimAfter } = await sb.from('reviews')
+        .select('reply_sent_at').eq('id', victim!.id).single();
+      check(
+        '남의 매장 리뷰는 못 건드린다(RLS)',
+        victimAfter?.reply_sent_at == null,
+        victimAfter?.reply_sent_at == null
+          ? `차단됨(anon 갱신 거부${rlsErr ? `: ${rlsErr.code}` : ''}) · health ${hacked.health}`
+          : '🔴 남의 리뷰가 갱신됐다 — 다른 사장님 데이터를 바꿀 수 있다',
+      );
+    }
 
     // ── D. 취소가 되는가 (새로고침 뒤에도) ─────────────────────────────
     // 카드에 '완료 취소' 버튼은 있지만, 완료한 리뷰는 정렬상 맨 뒤로 가서
