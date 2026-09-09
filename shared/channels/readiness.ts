@@ -35,7 +35,7 @@ export const KEY_CHANNELS: {
   fields: { key: string; label: string; hint?: string }[];
 }[] = [
   {
-    id: 'smartstore' as ChannelId,
+    id: 'smartstore',
     unlocks: '매출·주문이 매일 자동으로 들어와요',
     issuer: '스마트스토어 판매자센터',
     issueUrl: 'https://sell.smartstore.naver.com/',
@@ -45,7 +45,7 @@ export const KEY_CHANNELS: {
     ],
   },
   {
-    id: 'kakao_alimtalk' as ChannelId,
+    id: 'kakao_alimtalk',
     unlocks: '단골에게 한 번에 알림톡을 보냅니다',
     issuer: '알리고',
     issueUrl: 'https://smartsms.aligo.in/',
@@ -62,7 +62,7 @@ export const WAITING_REASON: Partial<Record<ChannelId, string>> = {
   instagram: 'Meta 심사 4~6주 — 신청 준비 완료, App ID 대기',
   facebook: 'Meta 심사 — 인스타와 같은 앱으로 함께 열립니다',
   threads: 'Meta 심사 — 인스타와 같은 앱으로 함께 열립니다',
-} as Partial<Record<ChannelId, string>>;
+};
 
 export function readinessOf(id: ChannelId): Readiness {
   if (ONE_CLICK.includes(id)) return 'ready';
