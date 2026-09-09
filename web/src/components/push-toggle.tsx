@@ -21,7 +21,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export function PushToggle({ publicKey }: { publicKey?: string }) {
+export function PushToggle({ publicKey, emphasize = false }: { publicKey?: string; emphasize?: boolean }) {
   const [state, setState] = useState<State>('loading');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -145,7 +145,7 @@ export function PushToggle({ publicKey }: { publicKey?: string }) {
       <span className={label}>
         <b className="text-[var(--color-fg)]">아침 알림</b>
         <span className="block text-[12px] text-[var(--color-fg-3)]">
-          {state === 'on' ? '글이 준비되면 폰으로 알려드려요' : '켜두면 앱을 열지 않아도 오늘 글을 알려드려요'}
+          {state === 'on' ? '글이 준비되면 폰으로 알려드려요' : '켜두면 내일 아침 글이 준비될 때 폰으로 알려드려요. 아쉬운 리뷰가 달려도 바로 알려드립니다.'}
         </span>
         {err && <span className="block text-[12px] text-[var(--color-bad)]">{err}</span>}
       </span>

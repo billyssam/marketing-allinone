@@ -326,21 +326,7 @@ export default async function DashboardPage() {
             ⚠️ 아직 구독한 기기가 없으면 **조용한 카드로 두지 않는다.**
             실사용자 한 분이 이 카드를 지나쳤고, 9일치 글이 만들어졌지만 한 번도 도착하지 않았다.
             그분은 가입한 날 이후로 오지 않았다(2026-08-26~09-08 실측). */}
-        {!hasPushSub && (
-          <div className="mt-6 rounded-[var(--radius-lg)] border border-[var(--color-amber)]/40 bg-[var(--color-amber)]/[0.06] p-4">
-            <div className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-amber)]" />
-              <span className="text-[13.5px] font-medium text-[var(--color-fg)]">
-                아직 알림을 안 받고 계세요
-              </span>
-            </div>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
-              내일 아침에도 글은 준비됩니다. 알림을 켜두시면 <b className="text-[var(--color-fg)]">폰으로 바로</b> 알려드려요.
-              아쉬운 리뷰가 달려도 즉시 알려드립니다.
-            </p>
-          </div>
-        )}
-        <PushToggle publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY} />
+        <PushToggle publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY} emphasize={!hasPushSub} />
 
         {/* 재방문 유도 넛지 (끊긴 단골 있을 때) */}
         {reactivationTargets > 0 && (
