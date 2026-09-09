@@ -124,6 +124,13 @@ export default async function DashboardPage() {
     canHavePlace: hasPlacePage(business),
   });
 
+  /**
+   * 알림 구독 기기가 하나라도 있는가 — **이 제품이 사장님께 닿는 유일한 경로**다.
+   * 구독은 `user_metadata.push_subs`에 산다(별도 테이블 없이 — 마이그레이션을 피한 설계).
+   */
+  const hasPushSub =
+    (((user.user_metadata as { push_subs?: unknown[] } | undefined)?.push_subs ?? []).length) > 0;
+
   // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
   const justOnboarded =
     !!store.onboarded_at && Date.now() - Date.parse(store.onboarded_at) < 5 * 60_000;
@@ -315,7 +322,24 @@ export default async function DashboardPage() {
           </Link>
         )}
 
-        {/* 아침 알림 — 글이 준비돼도 앱을 안 열면 그날 글은 그냥 지나간다 */}
+        {/* 아침 알림 — 글이 준비돼도 앱을 안 열면 그날 글은 그냥 지나간다.
+            ⚠️ 아직 구독한 기기가 없으면 **조용한 카드로 두지 않는다.**
+            실사용자 한 분이 이 카드를 지나쳤고, 9일치 글이 만들어졌지만 한 번도 도착하지 않았다.
+            그분은 가입한 날 이후로 오지 않았다(2026-08-26~09-08 실측). */}
+        {!hasPushSub && (
+          <div className="mt-6 rounded-[var(--radius-lg)] border border-[var(--color-amber)]/40 bg-[var(--color-amber)]/[0.06] p-4">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-amber)]" />
+              <span className="text-[13.5px] font-medium text-[var(--color-fg)]">
+                아직 알림을 안 받고 계세요
+              </span>
+            </div>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
+              내일 아침에도 글은 준비됩니다. 알림을 켜두시면 <b className="text-[var(--color-fg)]">폰으로 바로</b> 알려드려요.
+              아쉬운 리뷰가 달려도 즉시 알려드립니다.
+            </p>
+          </div>
+        )}
         <PushToggle publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY} />
 
         {/* 재방문 유도 넛지 (끊긴 단골 있을 때) */}

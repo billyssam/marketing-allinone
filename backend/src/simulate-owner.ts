@@ -329,8 +329,23 @@ async function main() {
       saw('플레이스 단계', '없음(이 업종엔 맞다)');
     }
 
-    // 마지막 — 채널
+    // 채널
     saw('채널 화면', (await text(page)).slice(0, 250));
+    if (await clickOrStuck(page, NEXT, '채널')) taps++;
+    await page.waitForTimeout(900);
+
+    // 마지막 — 알림. **이 단계가 없으면 사장님은 매일 만든 글을 영영 못 받는다.**
+    // 실사용자 한 분이 대시보드 카드로만 권유받고 지나쳤고, 9일치 글이 한 번도 도착하지 않았다.
+    const alerts = await text(page);
+    saw('알림 화면', alerts.slice(0, 220));
+    if (!/알림/.test(alerts)) {
+      stuck('온보딩에 알림 안내가 없다 — 사장님은 매일 만든 글을 못 받는다');
+    } else if (!/홈 화면에 추가/.test(alerts)) {
+      // 시뮬레이터는 아이폰 UA로 돈다 → 아이폰 절차가 반드시 보여야 한다
+      stuck('아이폰인데 "홈 화면에 추가" 안내가 없다 — 눌러도 알림이 안 온다');
+    } else {
+      saw('판정', '알림 단계와 아이폰 절차가 보인다');
+    }
     const submitAt = Date.now();
     if (await clickOrStuck(page, NEXT, '스텝5')) taps++;
 

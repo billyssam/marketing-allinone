@@ -45,6 +45,16 @@ export function OnboardingWizard() {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
   const [restored, setRestored] = useState(false);
+  /**
+   * 아이폰인가 — 알림 안내가 완전히 달라진다.
+   * 아이폰은 **홈 화면에 추가한 뒤에만** 푸시가 오는데, 그 안내 없이 "알림 허용"만 말하면
+   * 사장님은 눌러도 아무 일이 없는 걸 겪는다(2026-08-18 iOS UA 실측으로 확인된 함정).
+   * SSR 에선 판정할 수 없으므로 마운트 후에 정한다.
+   */
+  const [isIos, setIsIos] = useState(false);
+  useEffect(() => {
+    setIsIos(/iphone|ipad|ipod/i.test(navigator.userAgent));
+  }, []);
 
   // 마운트 시 저장된 초안 복원 (SSR hydration 안전 — useEffect에서만 접근)
   useEffect(() => {
@@ -327,6 +337,50 @@ export function OnboardingWizard() {
         </Step>
       )}
 
+      {/* 알림 — 이 서비스가 실제로 작동하는지를 가르는 단계.
+          매일 아침 글이 준비돼도 여기서 지나치면 사장님은 그걸 영영 모른다.
+          ⚠️ 아직 매장이 없어서 여기서 구독까지는 못 한다(구독은 owner_id에 저장된다) →
+             지금은 **왜 필요한지와 아이폰 절차**만 확실히 보여주고, 실제 켜기는 대시보드 첫 화면에서. */}
+      {current === 'alerts' && (
+        <Step
+          title="글이 준비되면 어떻게 알려드릴까요?"
+          desc="매일 아침 글을 만들어 둬도, 알림이 없으면 그날 글은 그냥 지나갑니다."
+        >
+          <div className="space-y-3">
+            <div className="rounded-[14px] border border-[var(--color-hair)] bg-[var(--color-panel)] p-4">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-amber)]" />
+                <span className="text-[13.5px] font-medium text-[var(--color-fg)]">
+                  다음 화면에서 <b>알림 받기</b>를 눌러주세요
+                </span>
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
+                아침 7시 30분에 글이 준비되면 폰으로 알려드려요.
+                손님이 아쉬운 리뷰를 남기면 그것도 바로 알려드립니다.
+              </p>
+            </div>
+
+            {isIos && (
+              <div className="rounded-[14px] border border-[var(--color-hair)] bg-[var(--color-panel-2)] p-4">
+                <div className="eyebrow mb-2">아이폰은 한 단계가 더 있어요</div>
+                <ol className="space-y-1.5 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
+                  <li>1. 아래 공유 버튼 <b className="text-[var(--color-fg)]">⬆️</b> 를 누르고</li>
+                  <li>2. <b className="text-[var(--color-fg)]">홈 화면에 추가</b>를 누른 다음</li>
+                  <li>3. 홈 화면의 아이콘으로 다시 열어주세요</li>
+                </ol>
+                <p className="mt-2.5 text-[12px] text-[var(--color-fg-3)]">
+                  아이폰은 이 방법으로만 알림이 옵니다. 매번 카톡을 뒤지지 않아도 돼요.
+                </p>
+              </div>
+            )}
+
+            <p className="text-[12.5px] text-[var(--color-fg-3)]">
+              나중에 대시보드에서 켜셔도 됩니다.
+            </p>
+          </div>
+        </Step>
+      )}
+
       {error && <p className="mt-4 text-[13px] text-[var(--color-bad)]">{error}</p>}
 
       <div className="mt-8 flex gap-3">
@@ -337,7 +391,7 @@ export function OnboardingWizard() {
           <button onClick={() => setStep((s) => s + 1)} disabled={!canNext[current]} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40">다음</button>
         ) : (
           <button onClick={finish} disabled={pending} className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-60">
-            {pending ? '설정 중…' : `${effectiveChannels.size}개 채널로 시작하기`}
+            {pending ? '설정 중…' : '시작하기'}
           </button>
         )}
       </div>
