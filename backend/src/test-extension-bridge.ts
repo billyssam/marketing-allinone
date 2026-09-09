@@ -75,15 +75,21 @@ async function main() {
     owner_id: created.user.id, name: OWNER.store, industry_id: 'cafe',
     onboarded_at: new Date().toISOString(),
   }).select('id').single();
-  const { data: post } = await sb.from('posts').insert({
-    store_id: store!.id, channel: 'blog',
-    title: '확장 검증용 제목',
-    body_html: `<p>${'가'.repeat(300)}</p>`,
-    body_plain: '가'.repeat(300),
-    tags: ['검증', '확장'],
-    status: 'draft',
-  }).select('id').single();
-  const postId = post!.id as string;
+  // 원클릭이 걸리는 두 채널을 다 만든다 — 블로그(제목+본문)와 플레이스 소식(본문만)
+  const { data: made } = await sb.from('posts').insert([
+    {
+      store_id: store!.id, channel: 'blog',
+      title: '확장 검증용 제목', body_html: `<p>${'가'.repeat(300)}</p>`,
+      body_plain: '가'.repeat(300), tags: ['검증', '확장'], status: 'draft',
+    },
+    {
+      store_id: store!.id, channel: 'naver_place',
+      title: null, body_html: null,
+      body_plain: '플레이스 소식 검증용 본문입니다. ' + '나'.repeat(200), tags: [], status: 'draft',
+    },
+  ]).select('id, channel');
+  const postId = made!.find((p) => p.channel === 'blog')!.id as string;
+  const placePostId = made!.find((p) => p.channel === 'naver_place')!.id as string;
 
   // ── A. 확장 **없이** ────────────────────────────────────────────────
   const plain = await chromium.launchPersistentContext('', { viewport: { width: 390, height: 844 } });
@@ -167,6 +173,15 @@ async function main() {
       check('버튼을 누르면 확장이 초안을 받는다', !failed,
         failed ? '화면에 실패 문구가 떴다' : '오류 문구 없음');
     }
+
+    // E. **플레이스 소식**도 원클릭이 뜨는가 — 블로그만 되면 반쪽이다.
+    //    버튼 문구가 채널에 맞아야 한다("블로그에 채우기"가 플레이스에 뜨면 안 된다).
+    const place = await openPrepare(ctx, placePostId);
+    const placeBtn = place.body.includes('플레이스 소식에 바로 채우기');
+    check('플레이스 소식도 원클릭 버튼이 뜬다', placeBtn,
+      placeBtn ? '버튼 문구가 채널에 맞다' : `안 뜨거나 문구가 틀리다: ${place.body.slice(0, 80)}`);
+    check('플레이스 버튼에 블로그 문구가 안 섞인다', !place.body.includes('네이버 블로그에 바로 채우기'),
+      place.body.includes('네이버 블로그에 바로 채우기') ? '블로그 문구가 떴다' : '섞임 없음');
   } finally {
     await ctx.close();
     if (!process.argv.includes('--keep')) await cleanup();
