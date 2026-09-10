@@ -1,4 +1,4 @@
-# 다음 세션 시작점 (2026-09-09 이후)
+# 다음 세션 시작점 (2026-09-10 이후)
 
 > 🔴 저장소는 **PUBLIC**이다 — 로그·이슈에 상호 금지, 새 워크플로엔 `MASK_STORE_NAMES: 'true'`.
 > 상태는 문서 말고 **DB에서 직접** 확인할 것: `cd backend && npx tsx src/who-is-in.ts`
@@ -18,7 +18,8 @@ App ID 는 **우리 앱**이다. 그걸 고객 블로커로 오해해서, 열 �
 전체 표와 절차 = **`docs/OPERATOR_SETUP.md`**.
 
 ⚠️ 고객 화면에 우리 사정(App ID·심사·알리고)을 적지 않는다.
-`test-channels-screen.ts` 가 운영자 용어 누출을 판정으로 막는다.
+**`backend/src/check-operator-leak.ts` 가 고객 `.tsx` 전수를 훑어 `prebuild` 에서 빌드를 막는다.**
+가드가 걸리면 **문구를 지우지 말고 코드를 옮겨라**(환경변수 판단은 `lib/operator-ready.ts` 로).
 
 ## 🔑 지금 막힌 것 딱 하나 — Meta 앱
 
@@ -31,8 +32,10 @@ https://developers.facebook.com/apps
 (`readinessOf()` 가 환경변수를 보고 판단 — 코드 수정 불필요).
 심사 4~6주라 **넣는 날이 곧 10월 파일럿 가능 여부**를 가른다. 자료는 `docs/meta-review.md` 에 완비.
 
-그다음 내가 할 일: OAuth 콜백 라우트(`/api/connect/[channel]`) 구현 — **아직 없다.**
-화면의 `연결하기` 버튼은 그 주소를 가리키지만 라우트가 없어 지금 누르면 404다.
+✅ OAuth 라우트는 **9/9~10 에 만들었다** — `/api/connect/[channel]` 과 `/callback`.
+`state` 에 매장 id 를 HMAC 서명해 넣어 CSRF 로 남의 계정이 붙는 걸 막는다(테스트 10건).
+라이브 실측: `/api/connect/instagram` → `307 → /channels?error=not_ready`(환경변수가 없으니 정상).
+**환경변수만 들어오면 그대로 Meta 로 간다.**
 
 ## 9/9에 한 것
 
