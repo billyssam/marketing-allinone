@@ -73,11 +73,48 @@ export function ChannelCenter({
   const readyCount = grouped.ready.length;
   const oauthCount = grouped.oauth.length;
 
+  /**
+   * 연결 결과 안내. 주소창 문구는 **고객이 읽는 말**로만 옮긴다 —
+   * `not_ready` 를 "App ID 가 없습니다"로 풀면 고객이 할 수 있는 게 없는 정보가 된다.
+   */
+  const notice = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const q = new URLSearchParams(window.location.search);
+    const connected = q.get('connected');
+    if (connected) {
+      const name = rows.find((r) => r.id === connected)?.name ?? '채널';
+      return { tone: 'ok' as const, msg: `${name}이 연결됐어요. 이제 글이 자동으로 올라갑니다.` };
+    }
+    if (q.get('canceled')) return { tone: 'info' as const, msg: '연결을 취소하셨어요. 언제든 다시 하실 수 있어요.' };
+    const err = q.get('error');
+    if (err === 'not_ready') return { tone: 'info' as const, msg: '아직 준비 중인 채널이에요. 열리면 알려드릴게요.' };
+    if (err) return { tone: 'info' as const, msg: '연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.' };
+    return null;
+  }, [rows]);
+
   return (
     <div className="min-h-screen">
       <AppHeader storeName={storeName} current="/channels" />
 
       <main className="mx-auto max-w-3xl px-5 py-8 sm:px-6">
+        {/* 연결하고 돌아왔는데 화면이 그대로면 됐는지 안 됐는지 모른다.
+            실패해도 우리 사정(App ID·심사·에러 원문)은 말하지 않는다 — 원인은 서버에 남는다. */}
+        {notice && (
+          <div
+            className={`mb-5 flex items-center gap-2.5 rounded-[var(--radius)] border px-4 py-3 ${
+              notice.tone === 'ok'
+                ? 'border-[var(--color-good)]/40 bg-[var(--color-good)]/[0.07]'
+                : 'border-[var(--color-hair)] bg-[var(--color-panel)]'
+            }`}
+          >
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: notice.tone === 'ok' ? 'var(--color-good)' : 'var(--color-fg-3)' }}
+            />
+            <span className="text-[13px] text-[var(--color-fg-2)]">{notice.msg}</span>
+          </div>
+        )}
+
         <div className="eyebrow">채널</div>
         <h1 className="h1 mt-2">어디에 올릴지 정해요</h1>
         <p className="mt-2 text-[14px] leading-relaxed text-[var(--color-fg-2)]">
