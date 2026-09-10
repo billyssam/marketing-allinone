@@ -6,6 +6,7 @@ import { resolveBusinessType, recommendedChannelsFor } from '@shared/business/ta
 import { CHANNELS, CHANNEL_TO_POST } from '@shared/channels/registry';
 import { readinessOf } from '@shared/channels/readiness';
 import { NOT_LIVE_FILTER } from '@shared/posts/status';
+import { operatorReadyIntegrations } from '@/lib/operator-ready';
 
 export const metadata = { title: '채널 연결' };
 
@@ -50,15 +51,9 @@ export default async function ChannelsPage() {
 
   /**
    * **우리가 준비를 끝낸 연동**만 고객에게 버튼으로 보인다.
-   *
-   * Meta 앱 등록·심사는 **운영자가 한 번** 하는 일이고 고객은 그 존재를 모른다.
-   * 우리 준비가 안 됐는데 "인스타 연결" 버튼을 보여주면, 눌러도 안 되는 버튼이 된다 —
-   * 그러면 고객은 자기가 뭘 잘못한 줄 안다. 서버에서만 판단해 내려준다(키는 나가지 않는다).
+   * 판단은 서버 전용 모듈에서 — 화면 파일에 환경변수 이름을 두지 않는다.
    */
-  const operatorReady = [
-    process.env.META_APP_ID ? 'META_APP_ID' : '',
-    process.env.GOOGLE_CLIENT_ID ? 'GOOGLE_CLIENT_ID' : '',
-  ].filter(Boolean);
+  const operatorReady = operatorReadyIntegrations();
 
   const conns = new Map((connsRes.data ?? []).map((c) => [c.channel_id as string, c]));
   const rows: ChannelRow[] = CHANNELS.map((c) => {

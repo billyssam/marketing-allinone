@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "prebuild": "node --import tsx ../backend/src/check-operator-leak.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
