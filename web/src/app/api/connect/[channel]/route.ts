@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac, randomBytes } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
-import { oauthConfigOf, redirectUriFor } from '@shared/channels/oauth-config';
+import { oauthConfigOf, buildAuthUrl } from '@shared/channels/oauth-config';
 
 export const runtime = 'nodejs';
 
@@ -47,18 +47,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
   const sig = createHmac('sha256', secret).update(body).digest('base64url');
   const state = `${body}.${sig}`;
 
+  // URL 조립은 shared 에 두고 테스트로 지킨다 — 파라미터 하나가 빠져도 실제 OAuth 를
+  // 돌려야만 알 수 있는 종류의 결함이라, 라우트 안에 두면 영영 검증이 안 된다.
   const origin = new URL(req.url).origin;
-  const auth = new URL(cfg.authUrl);
-  auth.searchParams.set('client_id', clientId);
-  auth.searchParams.set('redirect_uri', redirectUriFor(origin, channel));
-  auth.searchParams.set('scope', cfg.scopes.join(cfg.tokenUrl.includes('googleapis') ? ' ' : ','));
-  auth.searchParams.set('response_type', 'code');
-  auth.searchParams.set('state', state);
-  // 구글은 새로고침 토큰을 받으려면 이 둘이 필요하다(없으면 한 시간 뒤 끊긴다)
-  if (cfg.tokenUrl.includes('googleapis')) {
-    auth.searchParams.set('access_type', 'offline');
-    auth.searchParams.set('prompt', 'consent');
-  }
-
-  return NextResponse.redirect(auth.toString());
+  return NextResponse.redirect(buildAuthUrl({ cfg, clientId, origin, channel, state }));
 }

@@ -61,3 +61,33 @@ export function oauthConfigOf(channel: string): OAuthConfig | undefined {
 export function redirectUriFor(origin: string, channel: string): string {
   return `${origin}/api/connect/${channel}/callback`;
 }
+
+/**
+ * 인가 화면 주소를 만든다.
+ *
+ * 라우트 안에 두면 **검증할 수가 없다** — 파라미터 하나가 빠져도 실제 OAuth 를 돌려야만 안다.
+ * 밖으로 꺼내 테스트로 못 박는다(scope 구분자·redirect_uri·state 는 틀리면 조용히 거부된다).
+ */
+export function buildAuthUrl(args: {
+  cfg: OAuthConfig;
+  clientId: string;
+  origin: string;
+  channel: string;
+  state: string;
+}): string {
+  const { cfg, clientId, origin, channel, state } = args;
+  const isGoogle = cfg.tokenUrl.includes('googleapis');
+  const u = new URL(cfg.authUrl);
+  u.searchParams.set('client_id', clientId);
+  u.searchParams.set('redirect_uri', redirectUriFor(origin, channel));
+  // ⚠️ 구분자가 다르다 — 구글은 공백, Meta 는 쉼표. 틀리면 권한이 통째로 무시된다.
+  u.searchParams.set('scope', cfg.scopes.join(isGoogle ? ' ' : ','));
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('state', state);
+  if (isGoogle) {
+    // 없으면 새로고침 토큰을 안 줘서 한 시간 뒤 조용히 끊긴다
+    u.searchParams.set('access_type', 'offline');
+    u.searchParams.set('prompt', 'consent');
+  }
+  return u.toString();
+}
