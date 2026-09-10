@@ -112,8 +112,11 @@ export const CHANNELS: ChannelDef[] = [
     actions: ['동네·모임 글 생성', '붙여넣기 발행'], note: 'DB 채널 확장 후 활성화' },
 
   // ===== 판매 =====
-  { id: 'smartstore', name: '네이버 스마트스토어', group: 'sell', color: '#16d66a', automation: 'auto', status: 'wip', connect: 'apikey', priority: 5,
-    actions: ['상품 등록·수정', '주문 관리', '문의 답변', '정산 조회'], requires: ['커머스 API 신청'] },
+  // ⚠️ `actions` 는 고객 화면(채널 마켓)에 그대로 뜬다 — **되는 것만** 적는다.
+  //    2026-09-10 이전엔 '상품 등록·수정·문의 답변·정산 조회' 를 약속해 뒀는데 코드는 하나도 없었다.
+  //    스마트스토어는 **글을 올리는 채널이 아니다**(커머스 API 에 소식/공지 발행이 없다).
+  { id: 'smartstore', name: '네이버 스마트스토어', group: 'sell', color: '#16d66a', automation: 'auto', status: 'live', connect: 'apikey', priority: 5,
+    actions: ['주문 건수 집계', '매출 집계'], requires: ['판매자센터 애플리케이션 ID·시크릿'] },
   { id: 'coupang', name: '쿠팡', group: 'sell', color: '#ff4d4d', automation: 'auto', status: 'planned', connect: 'apikey', priority: 11,
     actions: ['상품·주문', 'CS 답변'], requires: ['쿠팡 판매자 API'] },
   { id: 'coupang_eats', name: '쿠팡이츠', group: 'sell', color: '#ff4d4d', automation: 'assisted', status: 'planned', connect: 'manual', priority: 12,

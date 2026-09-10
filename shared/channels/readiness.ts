@@ -57,6 +57,19 @@ export const OAUTH_CHANNELS: {
 ];
 
 /**
+ * 키를 저장하기 전에 **실제로 눌러 볼 수 있는** 채널.
+ *
+ * 화면 문구가 이 목록을 따라간다 — 확인을 안 하면서 "확인하는 중"이라고 적으면
+ * 그 자체가 거짓말이다(전에 그랬다). 실제 확인 로직은 `key-verify.ts` 에 있는데,
+ * 그건 bcrypt 를 끌고 오므로 **브라우저로 가는 이 파일에는 이름만** 둔다.
+ */
+export const VERIFIABLE_KEY_CHANNELS: string[] = ['smartstore'];
+
+export function canVerifyKey(channelId: string): boolean {
+  return VERIFIABLE_KEY_CHANNELS.includes(channelId);
+}
+
+/**
  * **고객만 발급할 수 있는 키**가 필요한 채널.
  * ⚠️ 우리 계정 정보를 고객에게 묻지 않는다 — 그건 서버 환경변수에 있다.
  */

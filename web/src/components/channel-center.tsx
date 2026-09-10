@@ -6,6 +6,7 @@ import { toggleChannel } from '@/app/channels/actions';
 import { saveChannelKey } from '@/app/channels/actions';
 import { detectExtension } from '@/lib/extension';
 import {
+  canVerifyKey,
   KEY_CHANNELS,
   OAUTH_CHANNELS,
   READINESS_LABEL,
@@ -377,7 +378,8 @@ function KeySheet({
             disabled={!filled || saving}
             className="btn-primary flex-1 rounded-full py-2.5 text-[14px] font-medium disabled:opacity-40"
           >
-            {saving ? '저장하는 중…' : '저장하기'}
+            {/* 실제로 눌러 보는 채널만 "확인" 이라고 쓴다 — 안 하면서 쓰면 그게 거짓말이다 */}
+            {saving ? (canVerifyKey(channelId) ? '확인하는 중…' : '저장하는 중…') : '저장하기'}
           </button>
         </div>
       </div>

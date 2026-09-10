@@ -8,7 +8,9 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 import bcrypt from 'bcryptjs';
-import { kstIso, signClientSecret, splitWindows, smartstoreAdapter } from './channels/smartstore.js';
+import { smartstoreAdapter } from './channels/smartstore.js';
+import { kstIso, signClientSecret, splitWindows } from '../../shared/channels/smartstore-api.js';
+import { verifyChannelKey } from '../../shared/channels/key-verify.js';
 
 /** 네이버가 발급하는 시크릿과 같은 모양(bcrypt salt). 라운드만 낮춰 테스트를 빠르게 한다 */
 const SALT = '$2a$04$abcdefghijklmnopqrstuv';
@@ -125,6 +127,37 @@ test('연결이 안 된 상태면 지표를 0 이 아니라 "없음"으로 둔�
   );
   assert.equal(m.conversions, undefined);
   assert.equal(m.revenue, undefined);
+});
+
+test('🔴 안 되는 키는 저장 전에 걸러진다 — "등록됐어요"가 거짓말이 되지 않게', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response('{"code":"INVALID"}', { status: 401 })) as typeof fetch;
+  try {
+    const v = await verifyChannelKey('smartstore', { clientId: 'my-client', clientSecret: SALT });
+    assert.equal(v.checked, true);
+    assert.equal(v.ok, false);
+    assert.ok(v.error && !v.error.includes('401'), '네이버 원문 오류를 사장님에게 그대로 던지면 안 된다');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('확인할 방법이 없는 채널은 "확인함"으로 위장하지 않는다', async () => {
+  const v = await verifyChannelKey('kakao_alimtalk', { kakaoChannelId: '@가게' });
+  assert.equal(v.checked, false, '못 눌러 본 것을 눌러 봤다고 하면 안 된다');
+});
+
+test('두 칸 중 하나가 비면 네이버를 부르지도 않는다', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error('호출하면 안 된다');
+  }) as typeof fetch;
+  try {
+    const v = await verifyChannelKey('smartstore', { clientId: 'my-client', clientSecret: '' });
+    assert.equal(v.ok, false);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 test('같은 주문이 여러 번 바뀌어도 한 건으로 센다 + series 는 건수 축이다', async () => {
