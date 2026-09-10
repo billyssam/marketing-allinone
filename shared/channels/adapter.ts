@@ -62,6 +62,9 @@ export interface Metrics {
   views?: number;
   clicks?: number;
   conversions?: number;
+  /** 매출(원). 건수와 축이 다르므로 `series`·`conversions` 와 절대 섞지 않는다 */
+  revenue?: number;
+  /** `conversions` 와 **같은 축**(건수)의 일별 값. 금액을 넣지 말 것 */
   series?: { date: string; value: number }[];
 }
 
