@@ -84,7 +84,7 @@ export function ChannelCenter({
     const connected = q.get('connected');
     if (connected) {
       const name = rows.find((r) => r.id === connected)?.name ?? '채널';
-      return { tone: 'ok' as const, msg: `${name}이 연결됐어요. 이제 글이 자동으로 올라갑니다.` };
+      return { tone: 'ok' as const, msg: `${name} 계정이 연결됐어요. 게시할 내용은 확인 후 직접 올려 주세요.` };
     }
     if (q.get('canceled')) return { tone: 'info' as const, msg: '연결을 취소하셨어요. 언제든 다시 하실 수 있어요.' };
     const err = q.get('error');

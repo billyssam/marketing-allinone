@@ -120,9 +120,10 @@ export const WAITING_REASON: Partial<Record<ChannelId, string>> = {
    * "언제쯤 되는가"만 말한다.
    */
   instagram: '곧 열려요. 열리면 로그인 한 번으로 연결됩니다',
-  facebook: '인스타와 함께 열려요',
-  threads: '인스타와 함께 열려요',
+  facebook: '페이지 연결 기능을 준비하고 있어요. 지금은 직접 게시해 주세요',
+  threads: '스레드 연결 기능을 준비하고 있어요. 지금은 직접 게시해 주세요',
   google_business: '곧 열려요. 열리면 로그인 한 번으로 연결됩니다',
+  kakao_alimtalk: '알림톡 발송 기능을 준비하고 있어요. 지금은 메시지 초안을 확인해 주세요',
 
   // 사장님용 글쓰기 창구가 아예 없는 곳 — 우리가 뚫을 방법이 없다
   baemin: '배민은 사장님이 글을 넣을 창구를 안 열어둬요',
