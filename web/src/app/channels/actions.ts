@@ -27,21 +27,21 @@ export async function toggleChannel(
     .select('id')
     .eq('owner_id', user.id)
     .maybeSingle();
-  if (storeErr) return { error: storeErr.message };
+  if (storeErr) return { error: '매장 정보를 확인하지 못했어요. 잠시 후 다시 시도해주세요.' };
   if (!store) return { error: '매장이 없습니다.' };
 
   if (connect) {
     const { error } = await supabase
       .from('channel_connections')
       .upsert({ store_id: store.id, channel_id: channelId, status: 'pending' }, { onConflict: 'store_id,channel_id' });
-    if (error) return { error: error.message };
+    if (error) return { error: '초안 채널을 저장하지 못했어요. 다시 시도해주세요.' };
   } else {
     const { error } = await supabase
       .from('channel_connections')
       .delete()
       .eq('store_id', store.id)
       .eq('channel_id', channelId);
-    if (error) return { error: error.message };
+    if (error) return { error: '초안 채널 선택을 해제하지 못했어요. 다시 시도해주세요.' };
   }
 
   revalidatePath('/channels');

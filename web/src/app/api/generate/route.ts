@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { generateForStore } from '@/lib/generate';
-import type { ChannelId } from '@shared/channels/registry';
+import { contentChannelsFor, type ChannelId } from '@shared/channels/registry';
 import type { DraftInput } from '@shared/content-engine/types';
 import { generationFailure } from '@shared/generation-error';
 
@@ -89,11 +89,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 채널 우선순위: 요청 명시 > 매장의 켜진 채널 플래그 > 블로그 폴백(lib 기본)
-  const enabled: ChannelId[] = [];
-  if (store.channel_blog_enabled) enabled.push('naver_blog');
-  if (store.channel_instagram_enabled) enabled.push('instagram');
-  const channels = body.channels?.length ? body.channels : enabled;
+  // 재시도도 설정 화면의 선택을 사용한다. 이전 플래그는 해제 후에도 남을 수 있다.
+  let channels = body.channels;
+  if (!channels?.length) {
+    const { data: selections, error: selectionsError } = await supabase.from('channel_connections')
+      .select('channel_id').eq('store_id', store.id);
+    if (selectionsError) return NextResponse.json({ error: '선택한 초안 채널을 확인하지 못했어요. 잠시 후 다시 시도해주세요.' }, { status: 503 });
+    channels = contentChannelsFor((selections ?? []).map((selection) => selection.channel_id));
+  }
 
   try {
     const { title, posts } = await generateForStore(supabase, store, {
