@@ -90,8 +90,8 @@ async function main() {
     if (/로그인하세요/.test(screen)) throw new Error('로그인 실패 — 이후 판정이 무의미');
 
     // ① 행동별로 묶였는가 — 우리 분류(유입/판매/재방문/광고)가 아니라
-    check('행동별로 묶여 있다', /바로 씁니다/.test(screen) && /키를 넣으면 열립니다/.test(screen) && /아직 못 엽니다/.test(screen),
-      /바로 씁니다/.test(screen) ? '세 그룹 모두 보임' : `그룹이 안 보인다: ${screen.slice(0, 100)}`);
+    check('행동별로 묶여 있다', /초안을 준비합니다/.test(screen) && /키를 넣으면 열립니다/.test(screen) && /아직 못 엽니다/.test(screen),
+      /초안을 준비합니다/.test(screen) ? '세 그룹 모두 보임' : `그룹이 안 보인다: ${screen.slice(0, 100)}`);
     check('우리 분류로 묶여 있지 않다', !/유입 · 손님을 데려온다/.test(screen),
       /유입 · 손님을 데려온다/.test(screen) ? '옛 분류가 남아 있다' : '옛 분류 없음');
 

@@ -7,6 +7,8 @@ import { generateForStore } from '@/lib/generate';
 import { resolvePlaceUrl, placeUrlMessage } from '@/lib/place-url';
 import type { ChannelId } from '@shared/channels/registry';
 import type { StoreOffering } from '@shared/content-engine/types';
+import { CONTENT_CHANNELS, contentChannelsFor } from '@shared/channels/registry';
+import { generationFailure } from '@shared/generation-error';
 
 export interface OnboardingPayload {
   storeName: string;
@@ -22,6 +24,12 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: '로그인이 필요합니다' };
+  if (!payload?.storeName?.trim() || !payload.industryId) return { ok: false, error: '매장 이름과 업종을 먼저 입력해주세요.' };
+  const { data: existing, error: existingError } = await supabase.from('stores')
+    .select('id,onboarded_at').eq('owner_id', user.id).maybeSingle();
+  if (existingError) return { ok: false, error: '매장 정보를 확인하지 못했어요. 다시 시도해주세요.' };
+  if (existing?.onboarded_at) redirect('/dashboard');
+  const selectedChannels = contentChannelsFor((payload.channels ?? []).filter((id) => CONTENT_CHANNELS.includes(id)));
 
   // 판매 항목 정제 → brand_tone.offerings (첫 글부터 실제 소재로)
   const offerings: StoreOffering[] = (payload.offerings ?? [])
@@ -43,27 +51,32 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
     placeUrl = checked.url;
   }
 
-  const { data: store, error } = await supabase
-    .from('stores')
-    .insert({
+  const values = {
       owner_id: user.id,
-      name: payload.storeName,
+      name: payload.storeName.trim(),
       industry_id: payload.industryId,
       naver_place_url: placeUrl,
       address: payload.address ?? null,
       brand_tone: brandTone,
-      onboarded_at: new Date().toISOString(),
-    })
+      channel_blog_enabled: true,
+      channel_instagram_enabled: selectedChannels.includes('instagram'),
+    };
+  const write = existing
+    ? supabase.from('stores').update(values).eq('id', existing.id)
+    : supabase.from('stores').insert(values);
+  const { data: store, error } = await write
     .select('id')
     .single();
 
   if (error || !store) return { ok: false, error: '매장 저장에 실패했습니다' };
 
-  if (payload.channels.length) {
-    await supabase.from('channel_connections').insert(
-      payload.channels.map((c) => ({ store_id: store.id, channel_id: c, status: 'pending' })),
-    );
-  }
+  const { error: channelsError } = await supabase.from('channel_connections').upsert(
+    selectedChannels.map((c) => ({ store_id: store.id, channel_id: c, status: 'pending' })),
+    { onConflict: 'store_id,channel_id' },
+  );
+  if (channelsError) return { ok: false, error: '초안 채널을 저장하지 못했어요. 입력은 유지되니 다시 시도해주세요.' };
+  const { error: completionError } = await supabase.from('stores').update({ onboarded_at: new Date().toISOString() }).eq('id', store.id);
+  if (completionError) return { ok: false, error: '매장 설정을 마무리하지 못했어요. 다시 시도해주세요.' };
 
   // 웰컴 드래프트 — 응답 보낸 뒤 백그라운드에서 첫 초안 생성.
   // 신규 사장님이 다음날 아침 크론까지 기다리지 않고 대시보드에서 바로 첫 결과물을 봄.
@@ -85,7 +98,7 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
             angle: '우리 매장을 처음 소개하는 따뜻한 첫 인사 글',
             targetLength: 'medium',
             // 온보딩에서 인스타를 켰으면 첫 초안부터 세트로 (데일리 크론과 동일 정책)
-            channels: payload.channels.includes('instagram') ? ['naver_blog', 'instagram'] : ['naver_blog'],
+            channels: selectedChannels,
           },
         );
       } catch (e) {
@@ -95,14 +108,14 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
          * 우리는 이유를 모른다. 실제로 그 상태를 보고도 원인을 못 짚었다(2026-09-09).
          * 콘솔은 아무도 안 본다(Vercel 로그를 뒤져야 한다) → DB에 남겨 화면·검증이 읽게 한다.
          */
-        const msg = (e as Error).message ?? String(e);
-        console.error('[onboarding] 웰컴 드래프트 생성 실패:', msg);
+        const failure = generationFailure(e);
+        console.error('[onboarding] 웰컴 드래프트 생성 실패:', failure.status);
         try {
           await createServiceClient().from('activity_log').insert({
             store_id: store.id,
             event: 'welcome_draft_failed',
             // 원인을 그대로 남긴다 — 429(쿼터)인지 404(모델 폐기)인지 파싱 실패인지가 갈린다
-            detail: { message: msg.slice(0, 500), at: new Date().toISOString() },
+            detail: { message: failure.message, status: failure.status, at: new Date().toISOString() },
           });
         } catch {
           /* 기록 실패까지 온보딩을 막지는 않는다 */

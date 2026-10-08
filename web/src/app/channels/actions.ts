@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { verifyChannelKey } from '@shared/channels/key-verify';
+import { CONTENT_CHANNELS } from '@shared/channels/registry';
 
 /**
  * 채널 On/Off → channel_connections 영속화.
@@ -13,6 +14,8 @@ export async function toggleChannel(
   channelId: string,
   connect: boolean,
 ): Promise<{ ok?: true; error?: string }> {
+  if (!CONTENT_CHANNELS.some((id) => id === channelId)) return { error: '지금 선택할 수 없는 초안 채널이에요.' };
+  if (channelId === 'naver_blog' && !connect) return { error: '블로그는 기본 초안 채널이에요.' };
   const supabase = await createClient();
   const {
     data: { user },

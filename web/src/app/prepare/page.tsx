@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { withJosa } from '@shared/korean';
+import { plainTextHtml } from '@shared/post-edit';
 import { updatePostDraft } from '@/app/posts/actions';
 import { detectExtension, sendDraftToExtension, isOneClickChannel, ONE_CLICK_LABEL, type OneClickChannel } from '@/lib/extension';
 
@@ -109,7 +110,7 @@ function PrepareInner() {
   const [editErr, setEditErr] = useState('');
 
   async function saveEdit() {
-    if (!draft || !postId) return;
+    if (!draft || !postId || saving) return;
     const text = editText.trim();
     if (!text) return;
     setSaving(true);
@@ -122,7 +123,7 @@ function PrepareInner() {
       return;
     }
     // 화면·클립보드를 고친 내용으로 즉시 맞춘다 — 저장만 되고 옛 글이 복사되면 최악이다
-    const next = step === 'title' ? { ...draft, title: text } : { ...draft, bodyPlain: text };
+    const next = step === 'title' ? { ...draft, title: text } : { ...draft, bodyPlain: text, bodyHtml: plainTextHtml(text) };
     setDraft(next);
     setEditing(false);
     await copyCurrent(step, next);
@@ -158,7 +159,7 @@ function PrepareInner() {
       setStatus({ tone: 'err', msg: '잘못된 접근이에요. 대시보드에서 초안의 [붙여넣기 →]를 다시 눌러주세요.' });
       return;
     }
-    fetch(`/api/prepare?post=${encodeURIComponent(postId)}`)
+    fetch(`/api/prepare?post=${encodeURIComponent(postId)}`, { signal: AbortSignal.timeout(15000) })
       .then((r) => {
         if (r.status === 401) {
           window.location.assign(`/login?next=${encodeURIComponent(`/prepare?post=${postId}`)}`);
@@ -175,7 +176,7 @@ function PrepareInner() {
         setStatus({ tone: 'ok', msg: '' });
         void copyCurrent(first, d);
       })
-      .catch((err) => setStatus({ tone: 'err', msg: `초안을 불러오지 못했어요 (${err.message ?? err})` }));
+      .catch(() => setStatus({ tone: 'err', msg: '초안을 불러오지 못했어요. 대시보드에서 다시 열어주세요.' }));
   }, [postId]);
 
   const flow = flowFor(draft?.channel);
@@ -184,11 +185,7 @@ function PrepareInner() {
   const isLastStep = stepIdx === flow.length - 1;
 
   async function advance() {
-    if (!draft) return;
-    if (isDone) {
-      window.close(); // 팝업으로 열렸으면 닫힘. 아니면 아래 '대시보드로'가 폴백.
-      return;
-    }
+    if (!draft || editing || saving || isDone) return;
     if (stepIdx === -1 || isLastStep) {
       setStep('done');
       // 붙여넣기는 준비 단계다. 실제 게시 확인은 별도 버튼으로 저장한다.
@@ -218,6 +215,7 @@ function PrepareInner() {
     setPublication({ saving: true, confirmed: false, error: '' });
     try {
       const response = await fetch('/api/prepare', {
+        signal: AbortSignal.timeout(15000),
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ post: postId, confirmed: true, externalUrl: externalUrl.trim() }),
       });
@@ -318,6 +316,8 @@ function PrepareInner() {
                 <span className="h-px flex-1 bg-[var(--color-hair)]" />
               </div>
               <textarea
+                aria-label={`${stepLabel} 수정`}
+                maxLength={step === 'title' ? 120 : 20000}
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 rows={step === 'title' ? 2 : 12}
@@ -335,6 +335,7 @@ function PrepareInner() {
                 <button
                   type="button"
                   onClick={() => setEditing(false)}
+                    disabled={saving}
                   className="rounded-full border border-[var(--color-hair-strong)] px-5 text-[14px] text-[var(--color-fg-2)]"
                 >
                   취소
@@ -380,14 +381,7 @@ function PrepareInner() {
             </>
           )}
           {publication.error && <p role="alert" className="text-[13px] text-[var(--color-bad)]">{publication.error}</p>}
-          <button
-            type="button"
-            onClick={advance}
-            className="w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105"
-          >
-            {ctaLabel}
-          </button>
-          <Link href="/dashboard" className="block w-full rounded-full border border-[var(--color-hair-strong)] py-3.5 text-center text-[13.5px] font-medium text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">
+          <Link href="/dashboard" className="btn-primary block w-full rounded-full py-3.5 text-center text-[14px] font-medium">
             대시보드로 돌아가기
           </Link>
         </div>
@@ -412,7 +406,7 @@ function PrepareInner() {
           <button
             type="button"
             onClick={advance}
-            disabled={!draft}
+            disabled={!draft || editing || saving}
             className={
               visited
                 ? 'w-full rounded-full bg-[var(--color-amber)] py-3.5 text-[14px] font-medium text-[var(--color-amber-ink)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40'

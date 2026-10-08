@@ -43,6 +43,7 @@ export function ChannelCenter({
 }) {
   const [list, setList] = useState(rows);
   const [busy, setBusy] = useState<ChannelId | null>(null);
+  const [actionError, setActionError] = useState('');
   const [openKey, setOpenKey] = useState<ChannelId | null>(null);
   const [extInstalled, setExtInstalled] = useState<boolean | null>(null);
   const [, start] = useTransition();
@@ -62,12 +63,17 @@ export function ChannelCenter({
   }, [list, recommended]);
 
   function onToggle(id: ChannelId, next: boolean) {
+    setActionError('');
     setBusy(id);
     setList((prev) => prev.map((r) => (r.id === id ? { ...r, connected: next } : r))); // 낙관적
     start(async () => {
-      const res = await toggleChannel(id, next);
-      if (res.error) setList((prev) => prev.map((r) => (r.id === id ? { ...r, connected: !next } : r)));
-      setBusy(null);
+      try {
+        const res = await toggleChannel(id, next);
+        if (res.error) throw new Error(res.error);
+      } catch {
+        setList((prev) => prev.map((r) => (r.id === id ? { ...r, connected: !next } : r)));
+        setActionError('채널 선택을 저장하지 못했어요. 다시 시도해주세요.');
+      } finally { setBusy(null); }
     });
   }
 
@@ -124,6 +130,7 @@ export function ChannelCenter({
           {' '}<b className="text-[var(--color-fg)]">{readyCount}곳</b>은 지금 바로 쓰실 수 있어요.
         </p>
 
+        {actionError && <p role="alert" className="mt-4 text-[13px] text-[var(--color-bad)]">{actionError}</p>}
         {/* 확장 — 6곳을 한 번에 여는 유일한 동작이라 가장 앞에 세운다.
             이미 깔았으면 조용히 확인만(설치를 다시 권하면 잔소리가 된다) */}
         {extInstalled === false && (
@@ -131,17 +138,16 @@ export function ChannelCenter({
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-amber)]" />
               <span className="text-[14px] font-medium text-[var(--color-fg)]">
-                크롬 확장을 깔면 {readyCount}곳이 버튼 하나가 됩니다
+                PC 크롬 확장으로 초안 채우기 · 선택
               </span>
             </div>
             <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
-              지금은 글을 복사해 직접 붙여넣으셔야 해요. 확장을 깔면 앱에서 버튼만 누르면
-              네이버 블로그·플레이스 글쓰기 화면에 <b className="text-[var(--color-fg)]">제목과 본문이 채워진 채로</b> 열립니다.
-              설치는 5분, 아이디·비밀번호는 받지 않습니다.
+              휴대폰에서는 초안을 복사해 직접 붙여넣으세요. 확장은 설치하지 않아도 됩니다.
+              PC 크롬에서는 확장으로 제목과 본문을 채울 수 있어요. 게시 전 내용은 직접 확인해주세요.
             </p>
             <a
               href="/extension-guide"
-              className="btn-primary mt-4 inline-block rounded-full px-5 py-2.5 text-[13px] font-medium"
+              className="mt-4 inline-block text-[13px] text-[var(--color-fg-2)] underline underline-offset-4"
             >
               설치 방법 보기
             </a>
@@ -262,6 +268,8 @@ function ChannelLine({
           </button>
         ) : row.readiness === 'waiting' ? (
           <span className="mono text-[11px] text-[var(--color-fg-4)]">대기</span>
+        ) : row.id === 'naver_blog' ? (
+          <span className="text-[12px] text-[var(--color-fg-3)]">기본 초안</span>
         ) : (
           <button
             type="button"

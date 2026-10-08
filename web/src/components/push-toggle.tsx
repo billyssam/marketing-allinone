@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { savePushSubscription, removePushSubscription } from '@/app/settings/push-actions';
+import { savePushSubscription, removePushSubscription, savedPushEndpoints } from '@/app/settings/push-actions';
+import { bounded, devicePushEnabled } from '@shared/push-state';
 
 /**
  * 아침 알림 켜기 — 카톡봇 자리를 대신하는 모바일 진입점.
@@ -48,15 +49,22 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
       setState('denied');
       return;
     }
-    navigator.serviceWorker.ready
+    let alive = true;
+    bounded(navigator.serviceWorker.ready)
       .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setState(sub ? 'on' : 'off'))
-      .catch(() => setState('off'));
+      .then(async (sub) => {
+        const saved = await bounded(savedPushEndpoints());
+        if (!alive) return;
+        setState(devicePushEnabled(sub?.endpoint, saved.endpoints, Notification.permission === 'granted') ? 'on' : 'off');
+        if (!saved.ok) setErr('알림 저장 상태를 확인하지 못했어요. 다시 켜서 확인해주세요.');
+      })
+      .catch(() => { if (alive) { setState('off'); setErr('알림 연결을 확인하지 못했어요. 다시 켜서 확인해주세요.'); } });
+    return () => { alive = false; };
   }, []);
 
   async function enable() {
     if (!publicKey) {
-      setErr('알림 설정이 아직 준비되지 않았어요(VAPID 키 없음)');
+      setErr('알림 연결을 확인하고 있어요. 대시보드에서는 초안을 계속 확인할 수 있어요.');
       return;
     }
     setBusy(true);
@@ -67,23 +75,29 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
         setState(perm === 'denied' ? 'denied' : 'off');
         return;
       }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
+      const reg = await bounded(navigator.serviceWorker.ready);
+      const existing = await reg.pushManager.getSubscription();
+      const saved = await bounded(savedPushEndpoints());
+      if (!saved.ok) throw new Error('구독 확인 실패');
+      const sameOwner = existing && saved.endpoints.includes(existing.endpoint);
+      // 공유 기기에서 이전 계정의 구독을 새 계정에 그대로 붙이지 않는다.
+      if (existing && !sameOwner) await existing.unsubscribe();
+      const sub = (sameOwner ? existing : null) ?? await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
       });
       const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-      const res = await savePushSubscription({
+      const res = await bounded(savePushSubscription({
         endpoint: json.endpoint ?? '',
         keys: { p256dh: json.keys?.p256dh ?? '', auth: json.keys?.auth ?? '' },
-      });
+      }));
       if (!res.ok) {
         setErr(res.error ?? '저장하지 못했어요');
         return;
       }
       setState('on');
     } catch (e) {
-      setErr((e as Error).message);
+      setErr('알림을 켜지 못했어요. 브라우저 설정과 연결을 확인한 뒤 다시 시도해주세요.');
     } finally {
       setBusy(false);
     }
@@ -91,20 +105,27 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
 
   async function disable() {
     setBusy(true);
+    setErr('');
     try {
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await bounded(navigator.serviceWorker.ready);
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await removePushSubscription(sub.endpoint);
-        await sub.unsubscribe();
+        const removed = await bounded(removePushSubscription(sub.endpoint));
+        if (!removed.ok) throw new Error(removed.error);
+        setState('off');
+        const unsubscribed = await sub.unsubscribe();
+        if (!unsubscribed) throw new Error('해제 실패');
       }
       setState('off');
+    } catch {
+      setErr('알림 해제를 완료하지 못했어요. 다시 시도해주세요.');
     } finally {
       setBusy(false);
     }
   }
 
-  if (state === 'loading' || state === 'unsupported') return null;
+  if (state === 'loading') return <p role="status" className="mt-3 text-[13px] text-[var(--color-fg-3)]">이 기기의 알림 상태를 확인하는 중…</p>;
+  if (state === 'unsupported') return <p className="mt-3 text-[13px] text-[var(--color-fg-3)]">이 브라우저에서는 알림을 지원하지 않아요. 대시보드에서 초안을 확인해주세요.</p>;
 
   /**
    * 아직 한 대도 구독이 없으면 **눈에 띄게** 만든다.
@@ -134,7 +155,7 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
       <div className={box}>
         <span className={label}>
           알림이 차단돼 있어요
-          <span className="block text-[12px] text-[var(--color-fg-3)]">브라우저 주소창의 자물쇠 → 알림 → 허용으로 바꿔주세요</span>
+          <span className="block text-[12px] text-[var(--color-fg-3)]">브라우저의 이 사이트 설정에서 알림을 허용해주세요. 아이폰은 기기 설정 → 알림에서 홈 화면 앱을 확인해주세요.</span>
         </span>
       </div>
     );
@@ -145,9 +166,9 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
       <span className={label}>
         <b className="text-[var(--color-fg)]">아침 알림</b>
         <span className="block text-[12px] text-[var(--color-fg-3)]">
-          {state === 'on' ? '글이 준비되면 폰으로 알려드려요' : '켜두면 내일 아침 글이 준비될 때 폰으로 알려드려요. 아쉬운 리뷰가 달려도 바로 알려드립니다.'}
+          {state === 'on' ? '이 기기의 알림 설정이 저장됐어요' : '초안 준비 알림을 이 기기로 받아보세요. 알림 없이도 대시보드에서 확인할 수 있어요.'}
         </span>
-        {err && <span className="block text-[12px] text-[var(--color-bad)]">{err}</span>}
+        {err && <span role="alert" className="block text-[12px] text-[var(--color-bad)]">{err}</span>}
       </span>
       <button
         type="button"
@@ -159,7 +180,7 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
             : 'btn-primary shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-medium disabled:opacity-40'
         }
       >
-        {busy ? '…' : state === 'on' ? '끄기' : '켜기'}
+        {busy ? '저장 중…' : state === 'on' ? '알림 끄기' : '알림 켜기'}
       </button>
     </div>
   );

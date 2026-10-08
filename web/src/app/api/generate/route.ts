@@ -3,6 +3,7 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { generateForStore } from '@/lib/generate';
 import type { ChannelId } from '@shared/channels/registry';
 import type { DraftInput } from '@shared/content-engine/types';
+import { generationFailure } from '@shared/generation-error';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -21,7 +22,7 @@ interface GenerateBody {
  */
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured) {
-    return NextResponse.json({ error: 'Supabase가 설정돼 있지 않습니다.' }, { status: 503 });
+    return NextResponse.json({ error: '서비스 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요.' }, { status: 503 });
   }
 
   const supabase = await createClient();
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+  }
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY && !process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: generationFailure('api key not configured').message }, { status: 503 });
   }
 
   let body: GenerateBody = {};
@@ -53,7 +57,7 @@ export async function POST(req: NextRequest) {
 
   const { data: store, error: storeErr } = await storeQuery.maybeSingle();
   if (storeErr) {
-    return NextResponse.json({ error: `매장 조회 실패: ${storeErr.message}` }, { status: 500 });
+    return NextResponse.json({ error: '매장 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.' }, { status: 500 });
   }
   if (!store) {
     return NextResponse.json(
@@ -68,13 +72,14 @@ export async function POST(req: NextRequest) {
   const kstDayStart = new Date(
     Math.floor((Date.now() + 9 * 3600_000) / 86_400_000) * 86_400_000 - 9 * 3600_000,
   ).toISOString();
-  const { count: manualToday } = await supabase
+  const { count: manualToday, error: countError } = await supabase
     .from('posts')
     .select('id', { count: 'exact', head: true })
     .eq('store_id', store.id)
     .eq('channel', 'blog')
     .gte('created_at', kstDayStart)
     .or('metadata->>auto.is.null,metadata->>auto.neq.daily');
+  if (countError) return NextResponse.json({ error: '생성 상태를 확인하지 못했어요. 잠시 후 다시 시도해주세요.' }, { status: 503 });
   if ((manualToday ?? 0) >= MANUAL_DAILY_LIMIT) {
     return NextResponse.json(
       {
@@ -105,9 +110,7 @@ export async function POST(req: NextRequest) {
       count: posts.length,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    // Gemini 무료 한도(429) 등은 그대로 전달해 UI가 안내하도록
-    const status = /429|quota|rate/i.test(message) ? 429 : 500;
-    return NextResponse.json({ error: message }, { status });
+    const failure = generationFailure(err);
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }

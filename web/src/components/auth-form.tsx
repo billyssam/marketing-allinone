@@ -7,7 +7,7 @@ import { signInWithEmail, signUpWithEmail, signInWithProvider, signInWithNaver, 
 
 const PROVIDER_LABEL: Record<string, string> = { kakao: '카카오', google: '구글', naver: '네이버' };
 
-export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
+export function AuthForm({ mode, providers = [] }: { mode: 'login' | 'signup'; providers?: ('kakao' | 'google' | 'naver')[] }) {
   const action = mode === 'login' ? signInWithEmail : signUpWithEmail;
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
   const params = useSearchParams();
@@ -48,35 +48,35 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       )}
 
       {/* 소셜 로그인 — 카카오(1순위)·네이버·구글 */}
-      <div className="mt-8 space-y-2.5">
-        <form action={signInWithProvider}>
+      {providers.length > 0 && <div className="mt-8 space-y-2.5">
+        {providers.includes('kakao') && <form action={signInWithProvider}>
           <input type="hidden" name="next" value={params.get('next') ?? '/onboarding'} />
           <input type="hidden" name="provider" value="kakao" />
           <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fee500] py-3 text-[14px] font-medium text-[#3c1e1e] transition hover:brightness-95">
             <span className="font-black">K</span> 카카오로 {mode === 'login' ? '로그인' : '시작하기'}
           </button>
-        </form>
+        </form>}
         <div className="grid grid-cols-2 gap-2.5">
-          <form action={signInWithNaver}>
+          {providers.includes('naver') && <form action={signInWithNaver}>
             <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#03c75a] py-3 text-[13px] font-medium text-white transition hover:brightness-95">
               <span className="font-black">N</span> 네이버
             </button>
-          </form>
-          <form action={signInWithProvider}>
+          </form>}
+          {providers.includes('google') && <form action={signInWithProvider}>
             <input type="hidden" name="next" value={params.get('next') ?? '/onboarding'} />
             <input type="hidden" name="provider" value="google" />
             <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-hair-strong)] bg-white py-3 text-[13px] font-medium text-[#1f1f1f] transition hover:brightness-95">
               <span className="font-black text-[#4285f4]">G</span> 구글
             </button>
-          </form>
+          </form>}
         </div>
-      </div>
+      </div>}
 
-      <div className="my-5 flex items-center gap-3 text-[12px] text-[var(--color-fg-4)]">
+      {providers.length > 0 && <div className="my-5 flex items-center gap-3 text-[12px] text-[var(--color-fg-4)]">
         <span className="h-px flex-1 bg-[var(--color-hair)]" /> 또는 이메일 <span className="h-px flex-1 bg-[var(--color-hair)]" />
-      </div>
+      </div>}
 
-      <form action={formAction} className="space-y-3">
+      <form action={formAction} className="mt-6 space-y-3">
         <input type="hidden" name="next" value={params.get('next') ?? '/dashboard'} />
         <label htmlFor="auth-email" className="block text-[13px] text-[var(--color-fg-2)]">이메일</label>
         <input id="auth-email" name="email" type="email" required placeholder="name@example.com" autoComplete="email"

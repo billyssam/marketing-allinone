@@ -1,4 +1,4 @@
-import { CHANNELS, type ChannelId } from './registry';
+import { CHANNELS, CONTENT_CHANNELS, type ChannelId } from './registry';
 
 /**
  * 채널이 **고객(사장님) 입장에서 지금 어떤 상태인가** — 한 곳에서 정한다.
@@ -157,9 +157,10 @@ export const WAITING_REASON: Partial<Record<ChannelId, string>> = {
  */
 export function readinessOf(id: ChannelId, operatorReady: string[] = []): Readiness {
   if (id === 'kakao_alimtalk' && !operatorReady.includes('ALIGO_API_KEY')) return 'waiting';
-  if (ONE_CLICK.includes(id)) return 'ready';
   const oauth = OAUTH_CHANNELS.find((o) => o.id === id);
-  if (oauth) return operatorReady.includes(oauth.operatorReadyEnv) ? 'oauth' : 'waiting';
+  if (oauth && operatorReady.includes(oauth.operatorReadyEnv)) return 'oauth';
+  // 계정 연결이 아직 없어도 캡션·본문 초안은 직접 게시할 수 있다.
+  if (CONTENT_CHANNELS.includes(id)) return 'ready';
   if (KEY_CHANNELS.some((k) => k.id === id)) return 'needsKey';
   return 'waiting';
 }
@@ -170,7 +171,7 @@ export const READINESS_ORDER: Readiness[] = ['oauth', 'ready', 'needsKey', 'wait
 export const READINESS_LABEL: Record<Readiness, { title: string; desc: string }> = {
   // 가장 좋은 상태를 맨 위에 — 붙여넣기도 확장도 필요 없다
   oauth: { title: '계정을 연결합니다', desc: '계정과 권한을 확인해 연결해요. 자동 게시는 별도 제공 전까지 직접 진행하세요' },
-  ready: { title: '바로 씁니다', desc: '매일 글이 준비되고, 확장을 깔면 버튼 하나로 채워집니다' },
+  ready: { title: '초안을 준비합니다', desc: '글을 확인한 뒤 각 채널에 직접 게시하세요. PC 크롬 확장은 일부 채널의 입력을 도와줍니다' },
   needsKey: { title: '키를 넣으면 열립니다', desc: '사장님만 발급할 수 있는 값이라 한 번만 부탁드려요' },
   waiting: { title: '아직 못 엽니다', desc: '열리면 알려드릴게요. 지금은 다른 곳부터 채워요' },
 };

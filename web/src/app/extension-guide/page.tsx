@@ -12,22 +12,27 @@ export const metadata = { title: '확장 설치' };
 const STEPS: { n: number; title: string; body: string; code?: string }[] = [
   {
     n: 1,
+    title: '확장 파일을 내려받고 압축을 풀어주세요',
+    body: '아래 다운로드 버튼으로 받은 파일을 풀면 extension 폴더가 생깁니다.',
+  },
+  {
+    n: 2,
     title: '크롬 주소창에 아래를 입력하세요',
     body: '확장 관리 화면이 열립니다.',
     code: 'chrome://extensions',
   },
   {
-    n: 2,
+    n: 3,
     title: '오른쪽 위 "개발자 모드"를 켜세요',
     body: '켜야 아래 버튼이 나타납니다.',
   },
   {
-    n: 3,
+    n: 4,
     title: '"압축해제된 확장 프로그램을 로드합니다"를 누르세요',
     body: '폴더를 고르는 창이 뜹니다.',
   },
   {
-    n: 4,
+    n: 5,
     title: '내려받은 폴더에서 extension 을 고르세요',
     body: '목록에 "마케팅올인원 — 원클릭 발행"이 뜨면 끝입니다.',
   },
@@ -42,12 +47,15 @@ export default function ExtensionGuidePage() {
         </Link>
 
         <div className="eyebrow mt-6">크롬 확장</div>
-        <h1 className="h1 mt-2">붙여넣기를 버튼 하나로</h1>
+        <h1 className="h1 mt-2">PC 크롬에서 초안 채우기 · 선택</h1>
         <p className="mt-2.5 text-[14px] leading-relaxed text-[var(--color-fg-2)]">
-          설치하면 앱에서 버튼만 눌러도 네이버 블로그·플레이스 글쓰기 화면이
-          <b className="text-[var(--color-fg)]"> 제목과 본문이 채워진 채로</b> 열립니다.
+          휴대폰에서는 초안을 복사해 직접 붙여넣으세요. 확장은 설치하지 않아도 됩니다.
+          PC 크롬 확장은 글쓰기 화면에 제목과 본문을 채우는 보조 도구입니다. 게시 전 내용을 확인해주세요.
           아이디·비밀번호는 받지 않습니다 — 사장님이 이미 로그인해 둔 창을 그대로 씁니다.
         </p>
+        <a href="/marketing-allinone-extension.zip" download
+          className="btn-primary mt-5 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">PC 크롬 확장 내려받기</a>
+        <Link href="/dashboard" className="ml-4 inline-block text-[13px] text-[var(--color-fg-2)] underline underline-offset-4">설치 없이 초안 보기</Link>
 
         {/* 순서가 정보다 — 번호는 장식이 아니라 실제로 이 차례대로 눌러야 한다 */}
         <ol className="mt-8 space-y-3">

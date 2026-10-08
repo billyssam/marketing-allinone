@@ -1,5 +1,18 @@
 # 운영자가 한 번만 하는 일
 
+## 2026-10-08 고객 여정 출시 조건
+
+`CUSTOMER_JOURNEY_AUDIT.md`를 먼저 읽는다. 가입 확인 메일은 QA 주소에서 수신·인증했으나 복구 요청은 대기 후에도 발송 제한이다. Auth SMTP·발송 제한을 확인하고 운영 발송 계정과 도메인을 준비한 뒤 일반 고객 주소의 가입·복구 수신을 검증해야 한다. 고객에게 발송 계정 설정을 맡기지 않는다. 현재 SMTP 구성을 읽지 못했으므로 기본 SMTP 사용 여부를 단정하지 않는다.
+
+PC 확장은 선택 기능이며 `web/public/marketing-allinone-extension.zip`으로 배포한다. extension 소스를 수정하면 저장소 루트에서 아래 명령으로 다시 묶어 특정 ZIP만 강제 추가한다. ZIP에는 확장 소스만 넣고 환경 파일·비밀값을 포함하지 않는다.
+
+```powershell
+Compress-Archive -LiteralPath ./extension -DestinationPath ./web/public/marketing-allinone-extension.zip -Force
+git add -f web/public/marketing-allinone-extension.zip
+```
+
+AI 실제 생성, 실기기 알림 수신, 외부 게시, 운영자 주간 전달은 별도 실검증 조건이다.
+
 > 🔴 **이 문서의 존재 이유**: 3주 동안 "사장님이 Meta App ID를 주시면"이라고 적어 왔다.
 > **틀렸다.** App ID 는 **서비스(우리)가 한 번 등록하는 우리 앱**이고, 고객은 그게 뭔지 평생 모른다.
 > 고객은 "인스타 연결" 버튼을 누르고 자기 계정으로 로그인할 뿐이다.

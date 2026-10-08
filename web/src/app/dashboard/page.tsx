@@ -134,6 +134,13 @@ export default async function DashboardPage() {
   // 온보딩 직후(5분 내) + 초안 0 → 웰컴 드래프트 생성 대기 표시
   const justOnboarded =
     !!store.onboarded_at && Date.now() - Date.parse(store.onboarded_at) < 5 * 60_000;
+  const generationConfigured = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY);
+  let welcomeFailed = !generationConfigured || !justOnboarded;
+  if (perfData.totalPosts === 0 && justOnboarded && generationConfigured) {
+    const { count } = await supabase.from('activity_log').select('id', { count: 'exact', head: true })
+      .eq('store_id', store.id).eq('event', 'welcome_draft_failed').gte('created_at', store.onboarded_at);
+    welcomeFailed = (count ?? 0) > 0;
+  }
 
   // 재방문 유도 대상(끊긴 단골) 수
   const nowMs = Date.now();
@@ -279,8 +286,13 @@ export default async function DashboardPage() {
         )}
 
         <section className="mt-8">
-          {briefingItems.length === 0 && perfData.totalPosts === 0 && justOnboarded ? (
-            <FirstDraftPending />
+          {draftsLoadFailed || todoPostsRes.error || postsCountRes.error ? (
+            <div className="panel rounded-[var(--radius-lg)] p-6" role="alert">
+              <p>초안을 불러오지 못했어요. 저장된 글은 유지됩니다.</p>
+              <Link href="/dashboard" className="mt-3 inline-block text-[var(--color-amber)]">다시 불러오기 →</Link>
+            </div>
+          ) : briefingItems.length === 0 && perfData.totalPosts === 0 ? (
+            <FirstDraftPending failed={welcomeFailed} />
           ) : focus.primary ? (
             <>
               {/* 글은 우선순위 카드로 — 같은 글이 아래 브리핑에도 뜨면 중복이라 리뷰만 넘긴다 */}
@@ -341,10 +353,10 @@ export default async function DashboardPage() {
 
         {/* 연결된 채널 상태 */}
         <section className="mt-8">
-          <div className="mb-3 flex items-center gap-2 text-[13px] font-medium">연결된 채널 <span className="mono text-[var(--color-fg-3)]">{connected.length}</span></div>
+          <div className="mb-3 flex items-center gap-2 text-[13px] font-medium">선택한 초안 채널 <span className="mono text-[var(--color-fg-3)]">{connected.length}</span></div>
           {connected.length === 0 ? (
             <div className="panel rounded-[var(--radius-lg)] p-8 text-center">
-              <p className="text-[14px] text-[var(--color-fg-2)]">아직 연결된 채널이 없어요.</p>
+              <p className="text-[14px] text-[var(--color-fg-2)]">초안을 준비할 채널을 골라주세요.</p>
               <Link href="/channels" className="btn-primary mt-4 inline-block rounded-full px-5 py-2.5 text-[13px] font-medium">채널 연결하러 가기</Link>
             </div>
           ) : (
@@ -352,8 +364,9 @@ export default async function DashboardPage() {
               {connected.map((id) => {
                 const ch = CHANNELS.find((c) => c.id === id);
                 if (!ch) return null;
-                const au = automationLabelFor(ch);
-                const st = CONN_STATUS[connStatus.get(id) ?? 'pending'] ?? CONN_STATUS.pending;
+                const st = connStatus.get(id) === 'connected' ? CONN_STATUS.connected
+                  : connStatus.get(id) === 'error' ? CONN_STATUS.error
+                  : { label: '초안 선택됨', color: 'var(--color-fg-3)' };
                 return (
                   <div key={id} className="panel rounded-[var(--radius)] p-3.5">
                     <div className="flex items-center gap-2">
@@ -361,7 +374,7 @@ export default async function DashboardPage() {
                       <span className="text-[13.5px] font-medium">{ch.name}</span>
                     </div>
                     <div className="mono mt-2 flex items-center gap-1.5 text-[10px]">
-                      <span style={{ color: au.color }}>{au.label}</span>
+                      <span className="text-[var(--color-fg-3)]">초안 · 직접 게시</span>
                       <span className="text-[var(--color-fg-4)]">·</span>
                       <span style={{ color: st.color }}>{st.label}</span>
                     </div>

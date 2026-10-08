@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { completeOnboarding } from '@/app/onboarding/actions';
-import { CHANNELS, automationLabelFor, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
+import { CHANNELS, CONTENT_CHANNELS, GROUPS, type ChannelId, type ChannelGroup } from '@shared/channels/registry';
+import { PushToggle } from '@/components/push-toggle';
 import {
   BIZ_GROUPS,
   businessTypesByGroup,
@@ -34,7 +35,8 @@ interface OnboardingDraft {
   channelsTouched: boolean;
 }
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ ownerId, publicKey }: { ownerId: string; publicKey?: string }) {
+  const draftKey = `${DRAFT_KEY}:${ownerId}`;
   const [step, setStep] = useState(0);
   const [storeName, setStoreName] = useState('');
   const [industryId, setIndustryId] = useState('');
@@ -59,7 +61,7 @@ export function OnboardingWizard() {
   // 마운트 시 저장된 초안 복원 (SSR hydration 안전 — useEffect에서만 접근)
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = localStorage.getItem(draftKey);
       if (raw) {
         const d = JSON.parse(raw) as Partial<OnboardingDraft>;
         if (d.storeName) setStoreName(d.storeName);
@@ -72,7 +74,7 @@ export function OnboardingWizard() {
         }
         // 최대 5단계. 업종이 플레이스를 못 가지면 4단계가 되는데, 복원 시점엔 업종이 아직
         // state에 안 들어가 있다 → 넉넉히 클램프하고, 렌더에서 `current`가 다시 막는다.
-        if (typeof d.step === 'number') setStep(Math.min(Math.max(d.step, 0), 4));
+        if (typeof d.step === 'number') setStep(Math.min(Math.max(d.step, 0), 5));
         setRestored(Boolean(d.storeName || d.industryId));
       }
     } catch {
@@ -93,18 +95,18 @@ export function OnboardingWizard() {
       const isEmpty =
         !storeName && !industryId && !placeUrl && offerings.every((o) => !o.name) && !channelsTouched;
       if (isEmpty) {
-        localStorage.removeItem(DRAFT_KEY);
+        localStorage.removeItem(draftKey);
         return;
       }
       const draft: OnboardingDraft = {
         step, storeName, industryId, offerings, placeUrl,
         channels: [...channels], channelsTouched,
       };
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      localStorage.setItem(draftKey, JSON.stringify(draft));
     } catch {
       /* 용량 초과 등 무시 */
     }
-  }, [step, storeName, industryId, offerings, placeUrl, channels, channelsTouched]);
+  }, [step, storeName, industryId, offerings, placeUrl, channels, channelsTouched, draftKey]);
 
   const biz = industryId ? resolveBusinessType(industryId) : null;
   const offeringWord = biz ? offeringNoun(biz.offering) : '메뉴';
@@ -119,7 +121,7 @@ export function OnboardingWizard() {
   // 선택된 사업에 맞는 추천 채널(연결 가능한 것만). 사용자가 직접 건드리기 전까진 이걸 프리필.
   const recommended = useMemo<ChannelId[]>(() => {
     if (!biz) return [];
-    const connectable = new Set(CHANNELS.filter((c) => c.status !== 'planned').map((c) => c.id));
+    const connectable = new Set(CONTENT_CHANNELS);
     return recommendedChannelsFor(biz).filter((id) => connectable.has(id));
   }, [biz]);
 
@@ -178,7 +180,7 @@ export function OnboardingWizard() {
     setError('');
     // 낙관적 정리 — 성공 시 서버가 redirect를 throw해 아래 else에 도달하지 못하므로
     // 여기서 먼저 지운다. finish는 저장 트리거(state)를 건드리지 않아 재저장되지 않음.
-    try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+    try { localStorage.removeItem(draftKey); } catch { /* noop */ }
     start(async () => {
       const res = await completeOnboarding({
         storeName: storeName.trim(),
@@ -196,7 +198,7 @@ export function OnboardingWizard() {
         // 실패 → 새로고침해도 복원되도록 초안 재저장
         try {
           localStorage.setItem(
-            DRAFT_KEY,
+            draftKey,
             JSON.stringify({ step, storeName, industryId, offerings, placeUrl, channels: [...channels], channelsTouched }),
           );
         } catch { /* noop */ }
@@ -225,7 +227,7 @@ export function OnboardingWizard() {
           <button
             type="button"
             onClick={() => {
-              try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+              try { localStorage.removeItem(draftKey); } catch { /* noop */ }
               setStoreName(''); setIndustryId('');
               setOfferings([{ name: '' }, { name: '' }, { name: '' }]);
               setPlaceUrl(''); setChannels(new Set()); setChannelsTouched(false);
@@ -240,7 +242,7 @@ export function OnboardingWizard() {
 
       {current === 'store' && (
         <Step title="매장 이름이 뭔가요?" desc="블로그·인스타에 노출될 상호입니다.">
-          <input autoFocus value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="예: 쿵더쿵 카페"
+          <input aria-label="매장 이름" autoFocus value={storeName} onChange={(e) => setStoreName(e.target.value)} placeholder="예: 우리동네 카페"
             className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 text-[15px] outline-none focus:border-[var(--color-amber)]" />
         </Step>
       )}
@@ -297,17 +299,17 @@ export function OnboardingWizard() {
       {/* desc의 "메뉴"를 못박으면 미용실·헬스장 사장님에겐 남의 서비스처럼 읽힌다 */}
       {current === 'place' && (
         <Step title="네이버 플레이스 주소" desc={`붙여넣으면 매장 정보·${offeringWord}·리뷰 톤을 자동으로 학습해요. (선택)`}>
-          <input value={placeUrl} onChange={(e) => setPlaceUrl(e.target.value)} placeholder="https://map.naver.com/p/..."
+          <input aria-label="네이버 플레이스 주소" value={placeUrl} onChange={(e) => setPlaceUrl(e.target.value)} placeholder="https://map.naver.com/p/..."
             className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3.5 text-[14px] outline-none focus:border-[var(--color-amber)]" />
           <p className="mt-2 text-[12px] text-[var(--color-fg-3)]">나중에 대시보드에서 추가해도 됩니다.</p>
         </Step>
       )}
 
       {current === 'channels' && (
-        <Step title="이 채널로 시작할게요" desc={biz ? `${biz.label}에 맞는 채널을 골라뒀어요. 원하면 바꿀 수 있어요.` : '추천 채널을 골라뒀어요.'}>
+        <Step title="글을 준비할 채널을 골라주세요" desc="초안을 만드는 곳이에요. 계정 연결과 실제 게시는 별도로 진행합니다. 나중에 바꿔도 돼요.">
           <div className="max-h-[46vh] space-y-4 overflow-y-auto pr-1">
             {GROUP_ORDER.map((g) => {
-              const chans = CHANNELS.filter((c) => c.group === g && c.status !== 'planned');
+              const chans = CHANNELS.filter((c) => c.group === g && CONTENT_CHANNELS.includes(c.id));
               if (!chans.length) return null;
               return (
                 <div key={g}>
@@ -316,16 +318,15 @@ export function OnboardingWizard() {
                     {chans.map((c) => {
                       const on = effectiveChannels.has(c.id);
                       const rec = recommended.includes(c.id);
-                      const au = automationLabelFor(c);
                       return (
-                        <button key={c.id} onClick={() => toggleChannel(c.id)}
+                        <button key={c.id} aria-pressed={on} onClick={() => toggleChannel(c.id)}
                           className={`flex items-center justify-between rounded-lg border px-3 py-2.5 text-left transition ${on ? 'border-[var(--color-amber)] bg-[var(--color-panel)]' : 'border-[var(--color-hair)]'}`}>
                           <span className="flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
                             <span className="text-[13px]">{c.name}</span>
                             {rec && !on && <span className="mono text-[9px] text-[var(--color-amber)]">추천</span>}
                           </span>
-                          <span className="mono text-[9px]" style={{ color: on ? 'var(--color-amber)' : au.color }}>{on ? '✓' : au.label}</span>
+                          <span className="mono text-[9px] text-[var(--color-fg-3)]">{on ? '✓' : '초안'}</span>
                         </button>
                       );
                     })}
@@ -343,23 +344,23 @@ export function OnboardingWizard() {
              지금은 **왜 필요한지와 아이폰 절차**만 확실히 보여주고, 실제 켜기는 대시보드 첫 화면에서. */}
       {current === 'alerts' && (
         <Step
-          title="글이 준비되면 어떻게 알려드릴까요?"
-          desc="매일 아침 글을 만들어 둬도, 알림이 없으면 그날 글은 그냥 지나갑니다."
+          title="초안이 준비되면 알려드릴게요"
+          desc="알림은 선택이에요. 꺼두어도 대시보드에서 초안을 확인할 수 있어요."
         >
           <div className="space-y-3">
             <div className="rounded-[14px] border border-[var(--color-hair)] bg-[var(--color-panel)] p-4">
               <div className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-amber)]" />
                 <span className="text-[13.5px] font-medium text-[var(--color-fg)]">
-                  다음 화면에서 <b>알림 받기</b>를 눌러주세요
+                  이 기기에서 <b>알림 켜기</b>를 눌러주세요
                 </span>
               </div>
               <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
-                아침 7시 30분에 글이 준비되면 폰으로 알려드려요.
-                손님이 아쉬운 리뷰를 남기면 그것도 바로 알려드립니다.
+                초안 준비 알림을 이 기기로 보내드려요. 생성 완료 시각은 달라질 수 있어요.
               </p>
             </div>
 
+            <PushToggle publicKey={publicKey} emphasize />
             {isIos && (
               <div className="rounded-[14px] border border-[var(--color-hair)] bg-[var(--color-panel-2)] p-4">
                 <div className="eyebrow mb-2">아이폰은 한 단계가 더 있어요</div>
@@ -381,7 +382,7 @@ export function OnboardingWizard() {
         </Step>
       )}
 
-      {error && <p className="mt-4 text-[13px] text-[var(--color-bad)]">{error}</p>}
+      {error && <p role="alert" className="mt-4 text-[13px] text-[var(--color-bad)]">{error}</p>}
 
       <div className="mt-8 flex gap-3">
         {step > 0 && (
@@ -395,6 +396,12 @@ export function OnboardingWizard() {
           </button>
         )}
       </div>
+      {current === 'industry' && industryId && (
+        <button type="button" onClick={finish} disabled={pending}
+          className="mt-4 w-full text-[13px] text-[var(--color-fg-2)] underline underline-offset-4 disabled:opacity-50">
+          {pending ? '매장을 저장하는 중…' : '이름·업종만으로 먼저 시작하기'}
+        </button>
+      )}
     </div>
   );
 }

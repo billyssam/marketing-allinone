@@ -17,14 +17,15 @@ import { useRouter } from 'next/navigation';
 // 뜨지 않도록 여유를 둔다. 진짜 실패는 이 시간 뒤에 자가복구 버튼으로 회수.
 const STALL_AFTER = 16; // ≈ 80초
 
-export function FirstDraftPending() {
+export function FirstDraftPending({ failed = false }: { failed?: boolean }) {
   const router = useRouter();
   const count = useRef(0);
-  const [stalled, setStalled] = useState(false);
+  const [stalled, setStalled] = useState(failed);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (failed) { setStalled(true); return; }
     const t = setInterval(() => {
       count.current += 1;
       if (count.current >= STALL_AFTER) {
@@ -35,7 +36,7 @@ export function FirstDraftPending() {
       router.refresh();
     }, 5000);
     return () => clearInterval(t);
-  }, [router]);
+  }, [router, failed]);
 
   async function generateNow() {
     setLoading(true);
@@ -43,6 +44,7 @@ export function FirstDraftPending() {
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
+        signal: AbortSignal.timeout(70000),
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ targetLength: 'medium', channels: ['naver_blog'] }),
       });
@@ -55,8 +57,8 @@ export function FirstDraftPending() {
         } catch {
           /* 비-JSON 에러 바디 */
         }
-        if (res.status === 429) throw new Error(serverMsg ?? 'Gemini 무료 한도를 다 썼어요. 결제를 연결하면 계속 만들 수 있어요.');
-        if (res.status === 503) throw new Error(serverMsg ?? '아직 AI 키가 연결되지 않았어요. 설정에서 Gemini를 연결해주세요.');
+        if (res.status === 429) throw new Error(serverMsg ?? '지금 초안 생성 요청이 많아요. 잠시 후 다시 시도해주세요.');
+        if (res.status === 503) throw new Error(serverMsg ?? '초안 생성 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요.');
         throw new Error(serverMsg ?? '생성에 실패했어요. 잠시 후 다시 시도해주세요.');
       }
       router.refresh();
@@ -70,9 +72,9 @@ export function FirstDraftPending() {
   if (stalled) {
     return (
       <div className="panel rounded-[var(--radius-lg)] p-8 text-center">
-        <p className="text-[14px] font-medium">첫 글 생성이 예상보다 오래 걸려요</p>
+        <p className="text-[14px] font-medium">{failed ? '첫 초안을 아직 준비하지 못했어요' : '첫 글 생성이 예상보다 오래 걸려요'}</p>
         <p className="mx-auto mt-2 max-w-sm text-[12.5px] leading-relaxed text-[var(--color-fg-3)]">
-          지금 바로 첫 글을 만들어 볼 수 있어요. 매장 정보로 알아서 써드려요.
+          매장 정보는 저장됐어요. 다시 입력할 필요 없이 아래에서 재시도할 수 있어요.
         </p>
         <div className="mt-4 flex items-center justify-center gap-2.5">
           <button
@@ -91,7 +93,7 @@ export function FirstDraftPending() {
             새로고침
           </button>
         </div>
-        {error && <p className="mt-3 text-[12px] leading-relaxed text-[var(--color-bad)]">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-[12px] leading-relaxed text-[var(--color-bad)]">{error}</p>}
       </div>
     );
   }

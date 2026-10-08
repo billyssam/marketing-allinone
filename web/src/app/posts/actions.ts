@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { plainTextHtml } from '@shared/post-edit';
 
 /**
  * 발행 취소 — "완료를 눌렀지만 실제로는 안 올린" 경우를 되돌린다.
@@ -65,13 +66,14 @@ export async function updatePostDraft(
   if (body !== undefined && !body) return { ok: false, error: '본문은 비울 수 없어요' };
   if (body && body.length > 20000) return { ok: false, error: '본문이 너무 깁니다' };
 
-  const title = patch.title === undefined ? undefined : (patch.title ?? '').trim().slice(0, 120) || null;
+  if (patch.title && patch.title.trim().length > 120) return { ok: false, error: '제목은 120자 이내로 입력해주세요.' };
+  const title = patch.title === undefined ? undefined : (patch.title ?? '').trim() || null;
 
   const { data, error } = await supabase
     .from('posts')
     .update({
       ...(title !== undefined ? { title } : {}),
-      ...(body ? { body_plain: body } : {}),
+      ...(body ? { body_plain: body, body_html: plainTextHtml(body) } : {}),
       // 사장님이 손댔다는 흔적 — 나중에 "어떤 글을 고쳐 쓰는가"를 보고 프롬프트를 고칠 근거가 된다
       updated_at: new Date().toISOString(),
     })

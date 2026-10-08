@@ -59,12 +59,15 @@ export default async function ChannelsPage() {
   const rows: ChannelRow[] = CHANNELS.map((c) => {
     const postCh = CHANNEL_TO_POST[c.id];
     const conn = conns.get(c.id);
+    const readiness = readinessOf(c.id, operatorReady);
     return {
       id: c.id,
       name: c.name,
       color: c.color,
-      readiness: readinessOf(c.id, operatorReady),
-      connected: Boolean(conn),
+      readiness,
+      connected: readiness === 'oauth' || readiness === 'needsKey'
+        ? Boolean(conn?.status === 'connected' && conn?.access_token)
+        : Boolean(conn),
       hasKey: Boolean(conn?.access_token),
       made: postCh ? (made.get(postCh) ?? 0) : 0,
       posted: postCh ? (posted.get(postCh) ?? 0) : 0,

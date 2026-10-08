@@ -58,6 +58,7 @@ export function GenerateButton({
       const angleValue = angle.trim() || picked?.directive || undefined;
       const res = await fetch('/api/generate', {
         method: 'POST',
+        signal: AbortSignal.timeout(70000),
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           angle: angleValue,
@@ -75,10 +76,10 @@ export function GenerateButton({
           /* 비-JSON 에러 바디 */
         }
         if (res.status === 429) {
-          throw new Error(serverMsg ?? 'Gemini 무료 한도를 다 썼어요. 결제를 연결하면 계속 만들 수 있어요.');
+          throw new Error(serverMsg ?? '지금 초안 생성 요청이 많아요. 잠시 후 다시 시도해주세요.');
         }
         if (res.status === 503) {
-          throw new Error(serverMsg ?? '아직 AI 키가 연결되지 않았어요. 설정에서 Gemini를 연결해주세요.');
+          throw new Error(serverMsg ?? '초안 생성 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요.');
         }
         throw new Error(serverMsg ?? '생성에 실패했어요. 잠시 후 다시 시도해주세요.');
       }
@@ -175,10 +176,10 @@ export function GenerateButton({
               disabled={loading}
               className="btn-primary mt-3 w-full rounded-full py-2.5 text-[13px] font-medium disabled:opacity-60"
             >
-              {loading ? '생성 중… (10~20초)' : '생성하기'}
+              {loading ? '초안을 만드는 중…' : '생성하기'}
             </button>
 
-            {error && <p className="mt-2.5 text-[11.5px] leading-relaxed text-[var(--color-bad)]">{error}</p>}
+            {error && <p role="alert" className="mt-2.5 text-[11.5px] leading-relaxed text-[var(--color-bad)]">{error}</p>}
           </div>
         </>
       )}

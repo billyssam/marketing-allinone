@@ -7,7 +7,7 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 
 export type AuthState = { error?: string };
 
-const NOT_READY = '아직 인증이 연결되지 않았어요. (Supabase 설정 대기 중)';
+const NOT_READY = '지금은 로그인 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요.';
 
 export async function signInWithEmail(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!isSupabaseConfigured) return { error: NOT_READY };
@@ -89,9 +89,10 @@ export async function requestPasswordReset(_prev: AuthState, formData: FormData)
   const origin = (await headers()).get('origin') ?? process.env.NEXT_PUBLIC_APP_URL;
   const supabase = await createClient();
   // 실패해도 사용자에겐 동일 안내(존재하지 않는 계정을 구분해주지 않기 위해)
-  await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/auth/callback?next=/reset-password`,
   });
+  if (error) return { error: '재설정 메일 요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.' };
   redirect('/login?notice=reset-sent');
 }
 

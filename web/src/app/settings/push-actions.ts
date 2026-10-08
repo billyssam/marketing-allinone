@@ -19,6 +19,14 @@ export interface PushSub {
 
 const MAX_DEVICES = 5;
 
+export async function savedPushEndpoints(): Promise<{ ok: boolean; endpoints: string[] }> {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return { ok: false, endpoints: [] };
+  const subs = Array.isArray(user.user_metadata?.push_subs) ? user.user_metadata.push_subs as PushSub[] : [];
+  return { ok: true, endpoints: subs.map((sub) => sub.endpoint).filter(Boolean) };
+}
+
 export async function savePushSubscription(sub: PushSub): Promise<{ ok: boolean; error?: string }> {
   if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
     return { ok: false, error: '구독 정보가 올바르지 않아요' };
@@ -35,7 +43,7 @@ export async function savePushSubscription(sub: PushSub): Promise<{ ok: boolean;
   const next = [sub, ...prev.filter((s) => s.endpoint !== sub.endpoint)].slice(0, MAX_DEVICES);
 
   const { error } = await supabase.auth.updateUser({ data: { push_subs: next } });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: '알림 설정을 저장하지 못했어요. 다시 시도해주세요.' };
   return { ok: true };
 }
 
@@ -52,6 +60,6 @@ export async function removePushSubscription(endpoint: string): Promise<{ ok: bo
   const { error } = await supabase.auth.updateUser({
     data: { push_subs: prev.filter((s) => s.endpoint !== endpoint) },
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: '알림 설정을 해제하지 못했어요. 다시 시도해주세요.' };
   return { ok: true };
 }

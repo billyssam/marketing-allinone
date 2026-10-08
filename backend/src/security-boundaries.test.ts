@@ -53,8 +53,9 @@ test('구글 관리 계정만으로 성공하지 않고 실제 매장을 확인�
   await assert.rejects(verifyOAuthIdentity('google_business', 'token', mockResponses({ accounts: [{ name: 'accounts/12' }] }, {})));
 });
 test('Meta 설정만으로 미구현 Facebook·Threads 연결 버튼을 열지 않는다', () => {
-  assert.equal(readinessOf('facebook', ['META_APP_ID']), 'waiting');
-  assert.equal(readinessOf('threads', ['META_APP_ID']), 'waiting');
+  // 직접 게시할 초안은 제공하지만 Meta 로그인으로 계정 연결됐다고 판정하지 않는다.
+  assert.equal(readinessOf('facebook', ['META_APP_ID']), 'ready');
+  assert.equal(readinessOf('threads', ['META_APP_ID']), 'ready');
 });
 test('알림톡은 운영 발송 계정이 준비돼야 고객 연결을 연다', () => {
   assert.equal(readinessOf('kakao_alimtalk'), 'waiting');
