@@ -4,6 +4,20 @@ import { generationFailure } from '../../shared/generation-error';
 import { bounded, devicePushEnabled } from '../../shared/push-state';
 import { plainTextHtml } from '../../shared/post-edit';
 import { readinessOf } from '../../shared/channels/readiness';
+import { authConfigurationProblems } from '../../shared/auth-health';
+
+test('초대 전용 선언으로 열린 공개 가입을 정상 처리하지 않는다', () => {
+  assert.match(authConfigurationProblems({ disable_signup: false }, { signupMode: 'invite', smtpDeclared: true }).join(' '), /공개 가입/);
+});
+test('초대 전용으로 실제 닫혀 있어도 복구 메일 준비는 필요하다', () => {
+  assert.match(authConfigurationProblems({ disable_signup: true }, { signupMode: 'invite', smtpDeclared: false }).join(' '), /복구 메일/);
+});
+test('가입 확인 메일을 꺼도 복구 메일 준비 누락을 숨기지 않는다', () => {
+  assert.match(authConfigurationProblems({ mailer_autoconfirm: true }, { smtpDeclared: false }).join(' '), /복구 메일/);
+});
+test('설정 일치와 SMTP 준비 선언이 있으면 설정 검사는 통과한다', () => {
+  assert.deepEqual(authConfigurationProblems({ disable_signup: true }, { signupMode: 'invite', smtpDeclared: true }), []);
+});
 
 test('기기 구독만 있고 서버 저장이 실패한 알림은 켜짐이 아니다', () => {
   assert.equal(devicePushEnabled('device-a', [], true), false);

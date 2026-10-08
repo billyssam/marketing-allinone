@@ -9,7 +9,8 @@
  *
  * 점검 항목
  *   1) 리다이렉트 허용목록에 운영 주소가 있는가 (없으면 재설정/가입확인/OAuth 전부 깨짐)
- *   2) 확인메일이 켜져 있는데 커스텀 SMTP가 없는 상태인가 (내장 메일=시간당 2통, 팀 외 발송 거부)
+ *   2) 초대 전용 선언과 실제 공개 가입 차단 상태가 일치하는가
+ *   3) 가입 모드와 무관하게 운영 메일 준비가 확인됐는가 (실제 수신은 별도)
  *
  * 사용법: npx tsx src/check-auth-config.ts
  * env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, (선택) PILOT_APP_URL
@@ -17,6 +18,7 @@
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { authConfigurationProblems, type AuthHealthSettings } from '../../shared/auth-health';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local') });
 loadEnv();
@@ -80,61 +82,23 @@ async function checkRedirectAllowList() {
   }
 }
 
-/** 2) 확인메일 ON + 내장 SMTP 조합인지 — 이 조합이면 사장님 자가가입이 막힌다 */
+/** 메일 설정 선언과 실제 가입 설정 대조. 공개 settings로 SMTP 구성을 추측하지 않는다. */
 async function checkEmailDeliverability() {
   const res = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key! } });
   if (!res.ok) {
     problems.push(`인증 설정 조회 실패: HTTP ${res.status}`);
     return;
   }
-  const settings = (await res.json()) as { mailer_autoconfirm?: boolean };
-  const confirmRequired = settings.mailer_autoconfirm === false;
-
-  if (!confirmRequired) {
-    console.log('✅ 확인메일 OFF — 가입이 메일 도달에 의존하지 않음');
-    return;
-  }
-
-  // 커스텀 SMTP 연결 여부는 공개 설정 어디에도 없다.
-  // 발송 한도(429)로 추론하면 "마침 한도가 회복된 순간"에는 통과해버려 신호가 흔들린다
-  // — 실제로 첫 실행이 그렇게 나왔다. 그래서 추론 대신 **명시 플래그**로 판정한다.
-  // SMTP를 붙인 사람이 CUSTOM_SMTP_CONFIGURED=true를 켜기 전까지는 막힌 것으로 본다.
+  const settings = (await res.json()) as AuthHealthSettings;
+  problems.push(...authConfigurationProblems(settings, {
+    signupMode: process.env.OWNER_SIGNUP_MODE,
+    smtpDeclared: process.env.CUSTOM_SMTP_CONFIGURED === 'true',
+  }));
+  console.log('가입 설정: ' + (settings.disable_signup === true ? '공개 가입 닫힘' : '공개 가입 열림'));
+  console.log('확인메일: ' + (settings.mailer_autoconfirm === false ? '필수' : '생략'));
   if (process.env.CUSTOM_SMTP_CONFIGURED === 'true') {
-    console.log('✅ 확인메일 ON + 커스텀 SMTP 연결됨 — 자가가입 가능');
-    return;
+    console.log('SMTP 준비는 운영자 등록값입니다. 이 검사는 실제 메일 수신을 증명하지 않습니다.');
   }
-
-  // 초대 운영 모드 — 사장님 자가가입을 **의도적으로 닫고** 운영자가 계정을 열어주는 방식.
-  // 파일럿은 이 방식으로 확정됐다(pilot-kit.md). 매일 실패로 울리면 진짜 문제가 묻히므로
-  // 통과시키되, 자가가입을 열 때 조용히 잊히지 않도록 상태를 로그에 남긴다.
-  if (process.env.OWNER_SIGNUP_MODE === 'invite') {
-    console.log('✅ 초대 운영 모드 — 자가가입은 닫혀 있고 invite-owner.ts로 계정을 연다');
-    console.log('   (자가가입을 열려면: 확인메일 OFF 또는 커스텀 SMTP 연결 후 이 플래그 제거)');
-    return;
-  }
-
-  // 참고용 실측(판정에는 쓰지 않고 근거로만 덧붙임)
-  const probe = await fetch(`${url}/auth/v1/recover`, {
-    method: 'POST',
-    headers: { apikey: key!, Authorization: `Bearer ${key!}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: `deliver-check-${Date.now()}@example.com` }),
-  });
-  const evidence =
-    probe.status === 429
-      ? '현재 한도 소진 상태(429 over_email_send_rate_limit) — 지금 가입하면 즉시 실패'
-      : '현재는 한도 여유가 있으나 시간당 2통이라 사장님 2~3분만 몰려도 즉시 막힘';
-
-  problems.push(
-    [
-      `확인메일 ON인데 커스텀 SMTP 미연결 → 사장님 자가가입이 막힌다`,
-      `  근거: 내장 메일 서비스는 프로젝트 전체 시간당 2통이고 팀 외 주소로는 발송을 거부한다.`,
-      `        ${evidence}`,
-      `        (실측: 가입 요청이 429로 거절되면 계정 자체가 생성되지 않음)`,
-      `  조치(둘 중 하나):`,
-      `    A. 커스텀 SMTP 연결(Resend 등) 후 CUSTOM_SMTP_CONFIGURED=true 설정 — 근본 해결`,
-      `    B. 파일럿은 초대 방식으로 진행: npx tsx src/invite-owner.ts <이메일> <이름>`,
-    ].join('\n')
-  );
 }
 
 async function main() {
@@ -147,7 +111,7 @@ async function main() {
     problems.forEach((p, i) => console.error(`${i + 1}. ${p}\n`));
     process.exit(1);
   }
-  console.log('\n✅ 인증 설정 이상 없음');
+  console.log('\n✅ 인증 설정 선언·허용목록 검사 통과 (실제 메일 수신은 별도 검증)');
 }
 
 main().catch((e) => {

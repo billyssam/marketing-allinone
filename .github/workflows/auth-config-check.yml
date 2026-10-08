@@ -30,14 +30,14 @@ jobs:
       - name: 의존성 설치 (워크스페이스)
         run: npm install
 
-      - name: 인증 설정 실측 (리다이렉트 허용목록 + 메일 도달)
+      - name: 인증 설정 대조 (리다이렉트 + 가입 모드 + 메일 준비 선언)
         working-directory: backend
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # SMTP를 붙인 뒤 repo variable로 true를 주면 메일 항목이 통과로 바뀐다
+          # SMTP 설정과 실제 가입/복구 수신을 확인한 운영자가 등록하는 선언값
           CUSTOM_SMTP_CONFIGURED: ${{ vars.CUSTOM_SMTP_CONFIGURED }}
-          # 'invite'면 자가가입을 의도적으로 닫은 운영 모드로 보고 메일 항목을 통과시킨다
+          # 'invite' 선언은 실제 disable_signup과 대조하며 복구 메일 검사를 생략하지 않는다
           OWNER_SIGNUP_MODE: ${{ vars.OWNER_SIGNUP_MODE }}
         run: npx tsx src/check-auth-config.ts
 
@@ -70,5 +70,5 @@ jobs:
           # 사장님이 대시보드에서 고치면 사람 손 없이 닫힌다 — 열린 채 방치되면 다음부터 무시하게 된다.
           for N in $(gh issue list -R "${{ github.repository }}" --state open --search "\"인증 설정 문제\" in:title" --json number --jq '.[].number'); do
             gh issue close -R "${{ github.repository }}" "$N" \
-              --comment "✅ 인증 설정 점검 통과 — 리다이렉트 허용목록·메일 도달 모두 정상입니다. 자동으로 닫습니다."
+              --comment "✅ 인증 설정 선언·리다이렉트 점검 통과. 실제 가입·복구 메일 수신은 별도 검증이 필요합니다. 자동으로 닫습니다."
           done
