@@ -68,6 +68,11 @@ function PrepareInner() {
   const [copyOk, setCopyOk] = useState(false);
   /** 이번 단계에서 앱을 한 번이라도 열었는지 — 열기 전엔 '앱 열기', 다녀온 뒤엔 '다음'을 강조 */
   const [visited, setVisited] = useState(false);
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    setDesktop(!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) &&
+      !(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+  }, []);
   const [status, setStatus] = useState<{ tone: 'ok' | 'wait' | 'err'; msg: string }>({
     tone: 'wait',
     msg: '초안을 불러오는 중…',
@@ -198,13 +203,21 @@ function PrepareInner() {
   }
 
   const info = STEP_INFO[step];
-  const meta = metaFor(draft?.channel);
+  const channelMeta = metaFor(draft?.channel);
+  const meta = desktop && (draft?.channel ?? 'blog') === 'blog'
+    ? { ...channelMeta, appHref: 'https://blog.naver.com/GoBlogWrite.naver', appScheme: undefined, appLabel: '네이버 블로그 글쓰기 열기' }
+    : channelMeta;
   const stepLabel = meta.caption && step === 'body' ? '캡션' : info.label;
-  const hint = meta.caption
+  const mobileHint = meta.caption
     ? isDone
       ? `이제 ${meta.targetName} 앱에서 게시 버튼만 누르면 끝이에요.`
       : `아래 버튼으로 ${withJosa(meta.targetName, '을를')} 열고, 새 게시물 캡션 칸에 길게 눌러 붙여넣으세요.`
     : info.hint;
+  const hint = desktop
+    ? isDone
+      ? '외부 게시 화면에서 발행 버튼을 눌러주세요.'
+      : `글쓰기 화면의 ${stepLabel} 칸을 클릭하고 Ctrl+V(맥은 ⌘+V)로 붙여넣으세요.`
+    : mobileHint;
   const ctaLabel = isDone ? '닫기' : isLastStep ? '완료' : info.cta;
 
   const previewText = contentFor(step, draft);
@@ -376,7 +389,7 @@ function PrepareInner() {
                 placeholder="https://…" className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 text-[14px]" />
               <button type="button" onClick={confirmPublication} disabled={publication.saving}
                 className="btn-primary w-full rounded-full py-3.5 text-[14px] font-medium disabled:opacity-50">
-                {publication.saving ? '저장하는 중…' : '외부 앱에서 게시했어요 · 확인 저장'}
+                {publication.saving ? '저장하는 중…' : `외부 ${desktop ? '화면' : '앱'}에서 게시했어요 · 확인 저장`}
               </button>
             </>
           )}
@@ -389,6 +402,8 @@ function PrepareInner() {
         <div className="mt-8 space-y-2.5">
           <a
             href={meta.appHref}
+            target={desktop ? '_blank' : undefined}
+            rel={desktop ? 'noopener noreferrer' : undefined}
             onClick={(e) => {
               setVisited(true);
               if (!meta.appScheme) return; // https만 있는 채널은 기본 동작(앱 있으면 OS가 앱으로 연다)
