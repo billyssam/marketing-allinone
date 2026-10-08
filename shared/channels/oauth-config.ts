@@ -19,8 +19,6 @@ export interface OAuthConfig {
   clientSecretEnv: string;
   /** 요청할 권한 — 최소만 요청한다(과하면 심사에서 막힌다) */
   scopes: string[];
-  /** 이 채널 연결로 함께 열리는 채널들(Meta 앱 하나로 인스타·페북·스레드가 같이 열린다) */
-  alsoConnects?: ChannelId[];
   /** 토큰 교환을 POST 폼으로 보내는가(Meta) 아니면 JSON 인가(Google) */
   tokenBody: 'form' | 'json';
 }
@@ -38,8 +36,6 @@ export const OAUTH_CONFIG: Partial<Record<ChannelId, OAuthConfig>> = {
       'pages_show_list',
       'business_management',
     ],
-    // Meta 앱 하나를 승인하면 페북 페이지·스레드도 같이 붙는다 — 고객을 세 번 로그인시키지 않는다
-    alsoConnects: ['facebook', 'threads'] as ChannelId[],
     tokenBody: 'form',
   },
   google_business: {

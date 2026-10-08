@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { safeAuthRedirect } from '@shared/auth-redirect';
 
 /**
  * 이메일 링크(초대·비밀번호 재설정) 마무리 화면.
@@ -19,7 +20,7 @@ function FinishInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const next = params.get('next') || '/dashboard';
+    const next = safeAuthRedirect(params.get('next'));
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
 
     // 만료·이미 사용된 링크는 해시에 에러로 온다 — 정직하게 안내하고 재요청으로 유도

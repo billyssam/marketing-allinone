@@ -1,6 +1,6 @@
 const items = [
-  { ch: '블로그', color: 'var(--color-naver)', title: '옥천 안내면 쿵더쿵 카페, 대청호 나들이길 쉼터', status: '초안 준비됨', action: '보내기' },
-  { ch: '인스타', color: 'var(--color-ig)', title: '수제대추차 한 잔의 여유 · 릴스 15초', status: '오늘 18:00 예약', action: '예약됨' },
+  { ch: '블로그', color: 'var(--color-naver)', title: '우리 동네 카페, 나들이길에 만나는 쉼터', status: '초안 준비됨', action: '내용 확인' },
+  { ch: '인스타', color: 'var(--color-ig)', title: '따뜻한 차 한 잔의 여유 · 캡션 초안', status: '게시 전 확인', action: '내용 확인' },
   { ch: '리뷰', color: 'var(--color-review)', title: '"음료가 미지근했어요" · 별점 ★★☆', status: '답글 초안 대기', action: '확인' },
 ];
 
@@ -12,7 +12,7 @@ export function BriefingCard() {
         <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--color-amber)] text-[15px] font-semibold text-[var(--color-amber-ink)]">ㅁ</span>
         <div className="leading-tight">
           <div className="text-[13px] font-medium">마케팅올인원</div>
-          <div className="mono text-[10px] text-[var(--color-fg-3)]">오늘 오전 9:00 · 화요일 브리핑</div>
+          <div className="mono text-[11px] text-[var(--color-fg-2)]">브리핑 예시 · 실제 매장 데이터가 아닙니다</div>
         </div>
       </div>
 
@@ -31,13 +31,12 @@ export function BriefingCard() {
                 <span className="mono text-[10px] text-[var(--color-fg-3)]">{it.status}</span>
               </div>
               <div className="mt-1.5 line-clamp-2 text-[12.5px] leading-snug text-[var(--color-fg)]">{it.title}</div>
-              <button
-                type="button"
+              <div
                 className="mt-2.5 w-full rounded-lg py-1.5 text-[12px] font-medium"
                 style={{ background: `${it.color}1c`, color: it.color }}
               >
                 {it.action}
-              </button>
+              </div>
             </div>
           ))}
         </div>

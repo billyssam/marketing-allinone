@@ -1,13 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { safeAuthRedirect } from '@shared/auth-redirect';
 
 /**
  * 사장님 전용(로그인 필수) 라우트. 새 사장님 페이지를 추가하면 여기 한 줄 넣을 것.
  * 각 페이지가 자체 getUser() 가드도 갖지만(방어심층), 프록시에서 먼저 막아야
  * 로그인 후 원래 페이지로 돌아오는 next= 흐름이 작동한다.
- * `/prepare`는 UUID 캡버빌리티 링크(붙여넣기용)라 의도적으로 공개.
+ * 초안 링크도 로그인과 소유권 확인을 거친다.
  */
-const PROTECTED_ROUTES = ['/dashboard', '/onboarding', '/channels', '/reviews', '/regulars', '/settings', '/posts', '/report'];
+const PROTECTED_ROUTES = ['/dashboard', '/onboarding', '/channels', '/reviews', '/regulars', '/settings', '/posts', '/report', '/prepare'];
 
 /** 세션 자동 갱신 + 보호 라우트 가드 */
 export async function updateSession(request: NextRequest) {
@@ -40,12 +41,15 @@ export async function updateSession(request: NextRequest) {
   if (isProtected && !user) {
     const redirect = request.nextUrl.clone();
     redirect.pathname = '/login';
-    redirect.searchParams.set('next', path);
+    redirect.search = '';
+    redirect.searchParams.set('next', path + request.nextUrl.search);
     return NextResponse.redirect(redirect);
   }
   if (isAuthPage && user) {
     const redirect = request.nextUrl.clone();
-    redirect.pathname = '/dashboard';
+    const next = new URL(safeAuthRedirect(request.nextUrl.searchParams.get('next')), request.url);
+    redirect.pathname = next.pathname;
+    redirect.search = next.search;
     return NextResponse.redirect(redirect);
   }
 

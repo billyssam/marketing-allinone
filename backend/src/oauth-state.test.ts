@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { OAUTH_CONFIG, buildAuthUrl } from '../../shared/channels/oauth-config.js';
+import { verifyOAuthState as verify } from '../../shared/channels/oauth-state.js';
 
 /**
  * OAuth `state` 서명 검증 — **콜백 라우트와 같은 로직**을 여기서 지킨다.
@@ -12,23 +13,6 @@ import { OAUTH_CONFIG, buildAuthUrl } from '../../shared/channels/oauth-config.j
 function sign(payload: object, secret: string): string {
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   return `${body}.${createHmac('sha256', secret).update(body).digest('base64url')}`;
-}
-
-/** 콜백의 verifyState 와 동일한 판정 */
-function verify(state: string, secret: string): { storeId: string; channel: string } | null {
-  const [body, sig] = (state ?? '').split('.');
-  if (!body || !sig) return null;
-  const expected = createHmac('sha256', secret).update(body).digest();
-  let got: Buffer;
-  try { got = Buffer.from(sig, 'base64url'); } catch { return null; }
-  if (expected.length !== got.length) return null;
-  if (!timingSafeEqual(expected, got)) return null;
-  try {
-    const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-    if (typeof p.at !== 'number' || Date.now() - p.at > 10 * 60_000) return null;
-    if (!p.storeId || !p.channel) return null;
-    return { storeId: String(p.storeId), channel: String(p.channel) };
-  } catch { return null; }
 }
 
 const SECRET = 'operator-app-secret';
@@ -54,6 +38,11 @@ test('🔴 본문만 바꿔치기해도 거부한다(매장 id 바꿔 남의 매
 test('10분 지난 state 는 거부한다 — 굴러다니는 링크 재사용 방지', () => {
   const old = { storeId: 's', channel: 'instagram', nonce: 'n', at: Date.now() - 11 * 60_000 };
   assert.equal(verify(sign(old, SECRET), SECRET), null);
+});
+test('미래 시각·잘못된 식별자·추가 서명 조각을 거부한다', () => {
+  assert.equal(verify(sign({ ...fresh(), at: Date.now() + 60_000 }, SECRET), SECRET), null);
+  assert.equal(verify(sign({ ...fresh(), storeId: { id: 'store-1' } }, SECRET), SECRET), null);
+  assert.equal(verify(sign(fresh(), SECRET) + '.extra', SECRET), null);
 });
 
 test('깨진 입력에도 던지지 않는다 — 라우트가 500 으로 죽으면 안 된다', () => {
@@ -109,6 +98,7 @@ test('구글은 offline·consent 를 붙인다 — 없으면 한 시간 뒤 조�
   assert.equal(u.searchParams.get('prompt'), 'consent');
 });
 
-test('Meta 연결 하나로 페북·스레드까지 함께 붙는다 — 고객을 세 번 로그인시키지 않는다', () => {
-  assert.deepEqual(OAUTH_CONFIG.instagram!.alsoConnects, ['facebook', 'threads']);
+test('미구현 채널을 Meta 계정 연결만으로 지원한다고 선언하지 않는다', () => {
+  assert.equal(OAUTH_CONFIG.facebook, undefined);
+  assert.equal(OAUTH_CONFIG.threads, undefined);
 });

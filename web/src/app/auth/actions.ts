@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { safeAuthRedirect } from '@shared/auth-redirect';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 
 export type AuthState = { error?: string };
@@ -17,7 +18,7 @@ export async function signInWithEmail(_prev: AuthState, formData: FormData): Pro
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: translate(error.message) };
-  redirect('/dashboard');
+  redirect(safeAuthRedirect(formData.get('next')));
 }
 
 export async function signUpWithEmail(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -51,7 +52,7 @@ export async function signInWithProvider(formData: FormData): Promise<void> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     // 브라우저 자동 리다이렉트 끄고 url만 받아, 프로바이더가 켜졌는지 서버서 먼저 확인
-    options: { redirectTo: `${origin}/auth/callback?next=/onboarding`, skipBrowserRedirect: true },
+    options: { redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(safeAuthRedirect(formData.get('next'), '/onboarding'))}`, skipBrowserRedirect: true },
   });
   if (error || !data?.url) redirect(notice);
 

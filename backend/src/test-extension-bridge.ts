@@ -55,6 +55,13 @@ async function cleanup() {
 async function openPrepare(ctx: BrowserContext, postId: string) {
   const page = await ctx.newPage();
   await page.goto(`${BASE}/prepare?post=${postId}`, { waitUntil: 'domcontentloaded' });
+  // 보호된 초안은 소유자로 로그인해야 한다. 링크 보유만으로 접근하지 않는다.
+  if (new URL(page.url()).pathname === '/login') {
+    await page.getByLabel('이메일', { exact: true }).fill(OWNER.email);
+    await page.getByLabel('비밀번호', { exact: true }).fill('ExtTest!2026');
+    await page.getByRole('button', { name: '로그인', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/prepare');
+  }
   // 초안 fetch + 확장 감지(1.2초)가 끝날 시간을 준다
   await page.waitForTimeout(4000);
   const body = (await page.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ');

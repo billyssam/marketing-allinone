@@ -21,13 +21,13 @@ export default function LandingPage() {
 
           {/* 한글 조판: 어절 중간 절단 금지(keep-all) — "끝나/있어요" 분리는 결함 */}
           <h1 className="display rise r2 mt-6">
-            매일 아침 9시,<br />
-            마케팅이 <span className="amber-text">끝나있어요</span>.
+            매장에 맞는 초안,<br />
+            매일 <span className="amber-text">준비해드려요</span>.
           </h1>
 
           <p className="rise r3 mt-6 max-w-md text-[16px] leading-relaxed text-[var(--color-fg-2)] sm:text-[17px]">
-            인스타·블로그·리뷰 답글까지 AI가 매일 아침 준비해둡니다.
-            사장님은 확인하고 붙여넣기만. <span className="text-[var(--color-fg)]">하루 5분이면 끝나요.</span>
+            블로그·인스타 캡션과 리뷰 답글을 한 화면에서 준비하세요.
+            <span className="text-[var(--color-fg)]">내용을 확인하고 각 채널에서 직접 게시합니다.</span>
           </p>
 
           <div className="rise r4 mt-8 flex flex-wrap items-center gap-3">
@@ -40,9 +40,9 @@ export default function LandingPage() {
           </div>
 
           <div className="rise r5 mt-12 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[var(--color-hair)] bg-[var(--color-hair)]">
-            <Stat n={12} suffix="초" label="콘텐츠 생성" />
-            <Stat n={30} suffix="초" label="블로그 발행" />
-            <Stat n={7} suffix="개" label="채널 연결" />
+            <Stat value="매일" label="콘텐츠 초안" />
+            <Stat value="직접 확인" label="최종 게시" />
+            <Stat value="한 화면" label="초안·리뷰 관리" />
           </div>
         </div>
 
@@ -72,7 +72,7 @@ export default function LandingPage() {
             <div className="eyebrow">기능</div>
             <h2 className="h1 mt-4">채널마다<br />필요한 도구,<br /><span className="text-[var(--color-fg-3)]">한 화면에서.</span></h2>
             <p className="mt-5 max-w-xs text-[15px] leading-relaxed text-[var(--color-fg-2)]">
-              흩어진 마케팅 채널을 하나의 리듬으로. 자동은 자동으로, 손이 필요한 건 30초로.
+              매일 준비되는 초안과 리뷰를 함께 관리하세요. 게시 전 내용 확인은 사장님이 합니다.
             </p>
           </div>
 
@@ -126,7 +126,7 @@ export default function LandingPage() {
           <h2 className="h1 mt-4 max-w-xl">파일럿은 무료.<br /><span className="text-[var(--color-fg-3)]">정식 출시 후 월 5만원부터.</span></h2>
         </div>
         <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['전 채널 무제한', '매일 초안 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" href="/signup" delay={0} />
+          <Price name="파일럿" price="₩0" period="3개월" highlight feats={['지원 채널 초안 · 리뷰 관리', '매일 초안 · 대시보드', '주 1회 피드백', '이후 전환 자유']} cta="파일럿 신청" href="/signup" delay={0} />
           <Price name="스탠다드" price="₩49,000" period="월" feats={['인스타·블로그·알림톡', '네이버 리뷰 관리', '단골 500명', '이메일 지원']} cta="출시 대기" delay={60} />
           <Price name="프로" price="₩99,000" period="월" feats={['스탠다드 전부', '배민·요기요·쿠팡', '단골 무제한', '카톡 채팅 지원']} cta="출시 대기" delay={120} />
         </div>
@@ -170,18 +170,18 @@ const CHANNELS = [
  */
 const FEATURES: { title: string; tag?: string; color: string; icon: string; soon?: boolean; body: string }[] = [
   { title: 'AI 콘텐츠 엔진', tag: '핵심', color: '#ffb534', icon: '✦', body: '네이버 플레이스에서 매장 정보를 크롤하고 리뷰 톤까지 학습해, 업종별 카피를 자동 생성합니다. 메뉴·가격·영업시간 같은 실제 사실이 글에 그대로 들어갑니다.' },
-  { title: '매일 아침 초안', tag: '완전 자동', color: '#16d66a', icon: '✦', body: '매일 아침 7시 30분, 블로그·인스타 초안이 대시보드에 준비됩니다. 확인하고 30초 붙여넣기.' },
-  { title: '리뷰 감정 모니터링', tag: '하루 3회', color: '#ff5f83', icon: '★', body: '네이버 리뷰를 자동 수집해 긍정·부정을 분류하고, 답글 초안까지 매장 톤으로 써둡니다.' },
+  { title: '매일 콘텐츠 초안', tag: '자동 생성', color: '#16d66a', icon: '✦', body: '등록한 매장 정보로 매일 초안을 생성합니다. 완료된 글을 대시보드에서 확인하고 붙여넣으세요. 생성 완료 시각은 달라질 수 있어요.' },
+  { title: '리뷰 감정 모니터링', tag: '하루 4회', color: '#ff5f83', icon: '★', body: '네이버 리뷰를 자동 수집해 긍정·부정을 분류합니다. 답글 초안을 확인하고 직접 등록하세요.' },
   { title: '통합 성과 대시보드', tag: '분석', color: '#38e2a4', icon: '◈', body: '발행량·리뷰 감정·주간 활동을 한 화면에서. 오늘 할 일은 아침 브리핑으로.' },
   { title: '인스타그램 자동 발행', color: '#ff4d8d', icon: '◎', soon: true, body: '지금은 캡션을 자동 생성해 붙여넣기로 발행합니다. Meta 공식 API 예약 발행은 준비 중.' },
   { title: '재방문 알림톡', color: '#ffcd3c', icon: '⚡', soon: true, body: '단골 이탈을 감지해 메시지 초안까지 만들어 둡니다. 알림톡 자동 발송은 채널 심사 후 연결 예정.' },
 ];
 
-function Stat({ n, suffix, label }: { n: number; suffix: string; label: string }) {
+function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="bg-[var(--color-bg)] px-4 py-5 sm:px-5">
-      <div className="text-2xl font-semibold tnum sm:text-3xl">
-        <span data-count={n} data-suffix={suffix}>0{suffix}</span>
+      <div className="text-[18px] font-semibold sm:text-2xl">
+        {value}
       </div>
       <div className="mt-1 text-[11px] text-[var(--color-fg-3)] sm:text-xs">{label}</div>
     </div>

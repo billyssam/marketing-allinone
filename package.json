@@ -13,7 +13,9 @@
     "dev:web": "npm run dev -w web",
     "dev:backend": "npm run dev -w backend",
     "dev:bot": "npm run dev -w bot",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test -w backend",
+    "check": "npm run typecheck && npm test && npm run build && npm audit --audit-level=moderate",
     "build": "npm run build -w web && npm run build -w backend && npm run build -w bot"
   }
 }

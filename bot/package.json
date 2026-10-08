@@ -13,12 +13,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",
     "dotenv": "^17.4.2",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/node-cron": "^3.0.11",
     "tsx": "^4.22.4",
     "typescript": "^5"
   }

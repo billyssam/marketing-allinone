@@ -50,10 +50,8 @@ export const OAUTH_CHANNELS: {
   /** 우리 쪽 준비가 끝났는가 — 안 끝났으면 버튼 대신 "곧 열려요"를 보여준다 */
   operatorReadyEnv: string;
 }[] = [
-  { id: 'instagram', unlocks: '붙여넣기 없이 인스타에 바로 올라가요', operatorReadyEnv: 'META_APP_ID' },
-  { id: 'facebook', unlocks: '페이스북 페이지에 함께 올라가요', operatorReadyEnv: 'META_APP_ID' },
-  { id: 'threads', unlocks: '스레드에도 함께 올라가요', operatorReadyEnv: 'META_APP_ID' },
-  { id: 'google_business', unlocks: '구글 지도 소식에 바로 올라가요', operatorReadyEnv: 'GOOGLE_CLIENT_ID' },
+  { id: 'instagram', unlocks: '인스타 계정과 접근 권한을 확인해 연결해요', operatorReadyEnv: 'META_APP_ID' },
+  { id: 'google_business', unlocks: '구글 매장 계정을 확인해 연결해요', operatorReadyEnv: 'GOOGLE_CLIENT_ID' },
 ];
 
 /**
@@ -157,6 +155,7 @@ export const WAITING_REASON: Partial<Record<ChannelId, string>> = {
  *   비어 있으면 OAuth 채널은 `waiting` 으로 떨어진다 — 고객에게 눌러도 안 되는 버튼을 보이지 않는다.
  */
 export function readinessOf(id: ChannelId, operatorReady: string[] = []): Readiness {
+  if (id === 'kakao_alimtalk' && !operatorReady.includes('ALIGO_API_KEY')) return 'waiting';
   if (ONE_CLICK.includes(id)) return 'ready';
   const oauth = OAUTH_CHANNELS.find((o) => o.id === id);
   if (oauth) return operatorReady.includes(oauth.operatorReadyEnv) ? 'oauth' : 'waiting';
@@ -169,7 +168,7 @@ export const READINESS_ORDER: Readiness[] = ['oauth', 'ready', 'needsKey', 'wait
 
 export const READINESS_LABEL: Record<Readiness, { title: string; desc: string }> = {
   // 가장 좋은 상태를 맨 위에 — 붙여넣기도 확장도 필요 없다
-  oauth: { title: '한 번 연결하면 자동', desc: '계정으로 로그인만 하시면, 다음부터 알아서 올라갑니다' },
+  oauth: { title: '계정을 연결합니다', desc: '계정과 권한을 확인해 연결해요. 자동 게시는 별도 제공 전까지 직접 진행하세요' },
   ready: { title: '바로 씁니다', desc: '매일 글이 준비되고, 확장을 깔면 버튼 하나로 채워집니다' },
   needsKey: { title: '키를 넣으면 열립니다', desc: '사장님만 발급할 수 있는 값이라 한 번만 부탁드려요' },
   waiting: { title: '아직 못 엽니다', desc: '열리면 알려드릴게요. 지금은 다른 곳부터 채워요' },

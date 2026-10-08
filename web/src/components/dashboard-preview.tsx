@@ -34,7 +34,7 @@ export function DashboardPreview() {
             <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
           </div>
-          <span className="mono text-[11px] text-[var(--color-fg-3)]">쿵더쿵 카페 · 이번 주</span>
+          <span className="mono text-[11px] text-[var(--color-fg-2)]">예시 매장 · 가상 데이터</span>
         </div>
         <span className="mono rounded-md border border-[var(--color-hair)] px-1.5 py-0.5 text-[10px] text-[var(--color-fg-3)]">
           ⌘K
@@ -110,7 +110,7 @@ export function DashboardPreview() {
             <div className="mb-3 flex items-center justify-between">
               <div className="eyebrow">최근 활동</div>
               <span className="mono flex items-center gap-1 text-[9px] text-[var(--color-good)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-good)]" /> LIVE
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-good)]" /> 예시
               </span>
             </div>
             <div className="space-y-2">

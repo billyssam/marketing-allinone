@@ -10,6 +10,7 @@ import { detectExtension, sendDraftToExtension, isOneClickChannel, ONE_CLICK_LAB
 type Step = 'title' | 'body' | 'tags' | 'done';
 
 interface Draft {
+  status?: string;
   title: string;
   bodyHtml: string;
   bodyPlain: string;
@@ -60,6 +61,8 @@ function PrepareInner() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [step, setStep] = useState<Step>('title');
   const [copied, setCopied] = useState(false);
+  const [publication, setPublication] = useState({ saving: false, confirmed: false, error: '' });
+  const [externalUrl, setExternalUrl] = useState('');
   /** 마지막 (자동)복사가 실제로 성공했는지 — 실패면 "탭하여 복사"로 정직하게 안내 */
   const [copyOk, setCopyOk] = useState(false);
   /** 이번 단계에서 앱을 한 번이라도 열었는지 — 열기 전엔 '앱 열기', 다녀온 뒤엔 '다음'을 강조 */
@@ -156,9 +159,15 @@ function PrepareInner() {
       return;
     }
     fetch(`/api/prepare?post=${encodeURIComponent(postId)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((r) => {
+        if (r.status === 401) {
+          window.location.assign(`/login?next=${encodeURIComponent(`/prepare?post=${postId}`)}`);
+        }
+        return r.ok ? r.json() : Promise.reject(new Error(String(r.status)));
+      })
       .then((d: Draft) => {
         setDraft(d);
+        setPublication({ saving: false, confirmed: d.status === 'published', error: '' });
         const first = flowFor(d.channel)[0];
         setStep(first);
         // 로드 완료 = 즉시 상태 클리어. 자동복사는 베스트에포트(제스처 없으면
@@ -182,14 +191,7 @@ function PrepareInner() {
     }
     if (stepIdx === -1 || isLastStep) {
       setStep('done');
-      // 발행 완료 마킹 → 브리핑에서 이 초안이 빠짐(멱등, 실패해도 UX 막지 않음)
-      if (postId && postId !== 'MOCK') {
-        fetch('/api/prepare', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ post: postId }),
-        }).catch(() => {});
-      }
+      // 붙여넣기는 준비 단계다. 실제 게시 확인은 별도 버튼으로 저장한다.
       return;
     }
     const next = flow[stepIdx + 1];
@@ -210,6 +212,22 @@ function PrepareInner() {
 
   const previewText = contentFor(step, draft);
   const previewClamped = previewText.length > 500 ? previewText.slice(0, 500) + '…' : previewText;
+
+  async function confirmPublication() {
+    if (!postId || publication.saving || publication.confirmed) return;
+    setPublication({ saving: true, confirmed: false, error: '' });
+    try {
+      const response = await fetch('/api/prepare', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ post: postId, confirmed: true, externalUrl: externalUrl.trim() }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || '저장하지 못했어요');
+      setPublication({ saving: false, confirmed: true, error: '' });
+    } catch (error) {
+      setPublication({ saving: false, confirmed: false, error: error instanceof Error ? error.message : '저장하지 못했어요' });
+    }
+  }
 
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-8 pt-10">
@@ -234,8 +252,10 @@ function PrepareInner() {
         /* ── 완료 화면 ── */
         <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
           <div className="grid h-14 w-14 place-items-center rounded-full bg-[var(--color-good)]/12 text-[26px] text-[var(--color-good)]">✓</div>
-          <h1 className="mt-5 text-[22px] font-semibold tracking-tight">다 붙여넣었어요</h1>
-          <p className="mt-2 max-w-[16rem] text-[14px] leading-relaxed text-[var(--color-fg-2)]">{hint}</p>
+          <h1 className="mt-5 text-[22px] font-semibold tracking-tight">{publication.confirmed ? '게시 확인을 저장했어요' : '게시 준비가 끝났어요'}</h1>
+          <p className="mt-2 max-w-[18rem] text-[14px] leading-relaxed text-[var(--color-fg-2)]">
+            {publication.confirmed ? '사장님이 게시를 확인한 기록이에요. 외부 서비스의 자동 검증은 아닙니다.' : `${hint} 게시를 마친 뒤 아래에서 확인해주세요.`}
+          </p>
         </div>
       ) : (
         /* ── 단계 화면 ── */
@@ -347,6 +367,19 @@ function PrepareInner() {
           → 앱에 다녀왔는지(visited)에 따라 강조를 넘긴다. */}
       {isDone ? (
         <div className="mt-8 space-y-2.5">
+          {!publication.confirmed && (
+            <>
+              <a href={meta.appHref} target="_blank" rel="noopener noreferrer" className="block py-2 text-center text-[14px] text-[var(--color-amber)]">{meta.appLabel}</a>
+              <label htmlFor="published-url" className="block text-[13px] text-[var(--color-fg-2)]">게시물 주소 · 선택</label>
+              <input id="published-url" type="url" value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)}
+                placeholder="https://…" className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 text-[14px]" />
+              <button type="button" onClick={confirmPublication} disabled={publication.saving}
+                className="btn-primary w-full rounded-full py-3.5 text-[14px] font-medium disabled:opacity-50">
+                {publication.saving ? '저장하는 중…' : '외부 앱에서 게시했어요 · 확인 저장'}
+              </button>
+            </>
+          )}
+          {publication.error && <p role="alert" className="text-[13px] text-[var(--color-bad)]">{publication.error}</p>}
           <button
             type="button"
             onClick={advance}

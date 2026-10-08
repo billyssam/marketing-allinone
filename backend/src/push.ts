@@ -43,29 +43,42 @@ export async function pushToOwner(
   supabase: SupabaseClient,
   ownerId: string,
   payload: PushPayload,
+  send = (sub: PushSub, body: string) => webpush.sendNotification(sub as webpush.PushSubscription, body, { timeout: 10_000 }),
 ): Promise<PushResult> {
   const out: PushResult = { sent: 0, gone: 0, failed: 0 };
-  const { data: userRes } = await supabase.auth.admin.getUserById(ownerId);
+  const { data: userRes, error: readError } = await supabase.auth.admin.getUserById(ownerId);
+  if (readError || !userRes?.user) throw new Error('알림 구독 조회 실패');
   const meta = userRes?.user?.user_metadata ?? {};
-  const subs = (meta.push_subs ?? []) as PushSub[];
+  const subs = (Array.isArray(meta.push_subs) ? meta.push_subs : []) as PushSub[];
   if (!subs.length) return out;
 
   const body = JSON.stringify(payload);
+  const expired = new Set<string>();
   for (const sub of subs) {
     try {
-      await webpush.sendNotification(sub as unknown as webpush.PushSubscription, body);
+      await send(sub, body);
       out.sent++;
     } catch (e) {
       const status = (e as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {
-        await supabase.auth.admin.updateUserById(ownerId, {
-          user_metadata: { ...meta, push_subs: subs.filter((x) => x.endpoint !== sub.endpoint) },
-        });
+        expired.add(sub.endpoint);
         out.gone++;
       } else {
         out.failed++;
       }
     }
+  }
+  if (expired.size) {
+    // 한 기기씩 옛 배열로 저장하면 앞서 지운 만료 기기가 되살아난다.
+    // 발송 중 새로 등록한 기기도 보존하기 위해 최신 metadata를 읽고 한 번에 정리한다.
+    const { data: current, error } = await supabase.auth.admin.getUserById(ownerId);
+    if (error || !current?.user) throw new Error('만료 구독 조회 실패');
+    const latestMeta = current.user.user_metadata ?? {};
+    const latestSubs = Array.isArray(latestMeta.push_subs) ? latestMeta.push_subs as PushSub[] : [];
+    const { error: updateError } = await supabase.auth.admin.updateUserById(ownerId, {
+      user_metadata: { ...latestMeta, push_subs: latestSubs.filter(sub => !expired.has(sub.endpoint)) },
+    });
+    if (updateError) throw new Error('만료 구독 정리 실패');
   }
   return out;
 }

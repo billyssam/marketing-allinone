@@ -17,7 +17,7 @@ export function SiteHeader() {
           <Link href="#pricing" className="transition hover:text-[var(--color-fg)]">가격</Link>
         </nav>
         <div className="flex items-center gap-1">
-          <Link href="/login" className="hidden rounded-full px-4 py-2 text-[13px] text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)] sm:inline-block">
+          <Link href="/login" className="rounded-full px-3 py-2 text-[13px] text-[var(--color-fg-2)] transition hover:text-[var(--color-fg)]">
             로그인
           </Link>
           <Link href="/signup" className="rounded-full bg-[var(--color-fg)] px-4 py-2 text-[13px] font-medium text-[var(--color-bg)] transition hover:bg-white">

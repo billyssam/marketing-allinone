@@ -60,6 +60,8 @@ async function main() {
         .limit(500),
     ]);
 
+    if (postsRes.error || reviewsRes.error) throw new Error('주간 리포트 데이터 조회 실패');
+
     // 플레이스 리뷰 총량 기록 — 화면(/report)과 같은 근거를 쓴다
     const reviewHistory =
       ((s.brand_tone as { place_facts?: { reviewHistory?: { at: string; count: number }[] } } | null)
@@ -102,6 +104,7 @@ async function main() {
     const sent = await sendTelegramChunks(full);
     console.log(`주간 다이제스트 · 매장 ${stores.length}곳 (상세는 ${sent ? '운영자 텔레그램으로 발송됨' : '텔레그램 미설정 — 로컬에서 npx tsx src/weekly-digest.ts 실행'})`);
     for (const l of maskedLines) console.log(l);
+    if (!sent) throw new Error('주간 다이제스트 전달 실패: 비공개 전달 경로 설정과 응답을 확인하세요');
     return;
   }
 

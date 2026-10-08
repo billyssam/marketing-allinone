@@ -27,7 +27,7 @@ jobs:
           node-version: 22
 
       - name: 의존성 설치 (워크스페이스)
-        run: npm install
+        run: npm ci
 
       - name: 매장별 주간 리포트 생성 (전문은 텔레그램으로)
         working-directory: backend
@@ -37,7 +37,10 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MASK_STORE_NAMES: 'true'
-        run: npx tsx src/weekly-digest.ts | tee /tmp/digest.txt
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx src/weekly-digest.ts | tee /tmp/digest.txt
 
       - name: 이슈로 알림 (내용 없음 — 공개 저장소)
         env:
@@ -47,7 +50,7 @@ jobs:
           {
             echo '주간 다이제스트가 준비됐습니다.'
             echo
-            echo '- 전문은 **운영자 텔레그램**으로 발송됩니다(설정된 경우).'
+            echo '- 전문의 **운영자 텔레그램 전달 성공**을 확인했습니다.'
             echo '- 직접 보려면 로컬에서: `cd backend && npx tsx src/weekly-digest.ts`'
             echo '- 이 저장소는 공개라 매장 상호·실적은 이슈에 싣지 않습니다.'
             echo

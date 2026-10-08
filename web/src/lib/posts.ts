@@ -36,7 +36,7 @@ export const POST_STATUS_LABEL: Record<PostStatus, string> = {
   draft: '초안',
   ready: '발행 준비',
   sent_to_owner: '카톡 전송됨',
-  published: '발행 완료',
+  published: '게시 확인',
   failed: '실패',
   archived: '보관',
 };
@@ -146,8 +146,7 @@ export interface PrepareDraft {
 
 /**
  * /prepare 복붙 도우미용 단건 조회.
- * 카톡 딥링크로 로그인 세션 없이 열릴 수 있으므로 서비스롤 클라이언트로 UUID 단건만 조회한다.
- * (post id는 추측 불가한 UUID → 핸드오프 링크 소유자만 접근)
+ * 로그인한 사용자의 RLS 클라이언트로 조회한다. 링크 보유만으로 접근을 허용하지 않는다.
  */
 export async function getPreparePost(
   supabase: SupabaseClient,

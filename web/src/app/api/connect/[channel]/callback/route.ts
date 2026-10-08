@@ -1,33 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { verifyOAuthState as verifyState } from '@shared/channels/oauth-state';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { oauthConfigOf, redirectUriFor } from '@shared/channels/oauth-config';
+import { verifyOAuthIdentity } from '@shared/channels/oauth-identity';
 
 export const runtime = 'nodejs';
-
-/** 서명을 **검증한다**. 길이가 다르면 timingSafeEqual 이 던지므로 먼저 막는다. */
-function verifyState(state: string, secret: string): { storeId: string; channel: string } | null {
-  const [body, sig] = (state ?? '').split('.');
-  if (!body || !sig) return null;
-  const expected = createHmac('sha256', secret).update(body).digest();
-  let got: Buffer;
-  try {
-    got = Buffer.from(sig, 'base64url');
-  } catch {
-    return null;
-  }
-  if (expected.length !== got.length) return null;
-  if (!timingSafeEqual(expected, got)) return null;
-  try {
-    const p = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
-    // 10분 지난 state 는 안 받는다 — 링크가 굴러다니다 쓰이는 걸 막는다
-    if (typeof p.at !== 'number' || Date.now() - p.at > 10 * 60_000) return null;
-    if (!p.storeId || !p.channel) return null;
-    return { storeId: String(p.storeId), channel: String(p.channel) };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 연결 콜백 — 코드를 토큰으로 바꿔 저장한다.
@@ -93,7 +70,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
     const text = await res.text();
     if (!res.ok) {
       // ⚠️ 원문에 client_secret 이 섞일 수 있으니 그대로 남기지 않는다
-      await logFail(`token ${res.status}: ${text.replace(secret, '***').slice(0, 300)}`);
+      await logFail(`token HTTP ${res.status}`);
       return back('error=connect_failed');
     }
     const token = JSON.parse(text) as { access_token?: string; refresh_token?: string; expires_in?: number };
@@ -102,17 +79,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
       return back('error=connect_failed');
     }
 
-    // 이 연결로 함께 열리는 채널까지 한 번에 저장 — 고객을 세 번 로그인시키지 않는다
-    const channels = [channel, ...(cfg.alsoConnects ?? [])];
-    const rows = channels.map((id) => ({
+    const identity = await verifyOAuthIdentity(channel, token.access_token);
+    const rows = [{
       store_id: store.id,
-      channel_id: id,
+      channel_id: channel,
       status: 'connected',
+      external_id: identity.externalId,
       access_token: token.access_token,
       refresh_token: token.refresh_token ?? null,
       expires_at: token.expires_in ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null,
-      metadata: { connectedAt: new Date().toISOString(), via: channel },
-    }));
+      metadata: { connectedAt: new Date().toISOString(), via: channel, identityVerified: true },
+    }];
     const { error } = await admin
       .from('channel_connections')
       .upsert(rows, { onConflict: 'store_id,channel_id' });
@@ -123,7 +100,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
 
     return back(`connected=${channel}`);
   } catch (e) {
-    await logFail((e as Error).message);
+    // Network errors can embed request URLs or credentials; never persist arbitrary error text.
+    await logFail('연결 검증 또는 저장 실패');
     return back('error=connect_failed');
   }
 }

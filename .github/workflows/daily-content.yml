@@ -32,7 +32,7 @@ jobs:
           node-version: 22
 
       - name: 의존성 설치 (워크스페이스)
-        run: npm install
+        run: npm ci
 
       - name: 데일리 초안 생성
         working-directory: backend
@@ -51,7 +51,6 @@ jobs:
       # 생성이 실패해도 이건 돌려본다 — 어제 초안이라도 있으면 알릴 값어치가 있다.
       - name: 아침 알림 발송 (웹 푸시)
         if: ${{ !cancelled() }}
-        continue-on-error: true # 알림 실패가 콘텐츠 생성 성공을 덮지 않게
         working-directory: backend
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -71,7 +70,7 @@ jobs:
         run: |
           TITLE="🔴 데일리 콘텐츠 크론 실패 — $(TZ=Asia/Seoul date +%Y-%m-%d)"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          BODY=$(printf '자동 알림: 데일리 초안 생성이 실패했습니다. 재시도 크론(08:30 KST)이 자가치유를 시도하지만, 그것까지 실패하면 사장님들 아침 초안이 비어 있을 수 있습니다.\n\n로그: %s' "$RUN_URL")
+          BODY=$(printf '자동 알림: 초안 생성 또는 웹 푸시 전달이 실패했습니다. 로그에서 실패 단계를 확인하세요. 생성 성공만으로 고객에게 전달됐다고 판단하지 않습니다.\n\n로그: %s' "$RUN_URL")
           COUNT=$(gh issue list -R "${{ github.repository }}" --state open --search "\"$TITLE\" in:title" --json number --jq 'length')
           if [ "$COUNT" = "0" ]; then
             gh issue create -R "${{ github.repository }}" --title "$TITLE" --body "$BODY"
@@ -86,5 +85,5 @@ jobs:
         run: |
           for N in $(gh issue list -R "${{ github.repository }}" --state open --search "\"데일리 콘텐츠 크론 실패\" in:title" --json number --jq '.[].number'); do
             gh issue close "$N" -R "${{ github.repository }}" \
-              --comment "✅ 데일리 초안 생성 통과 — 자동으로 닫습니다."
+              --comment "✅ 초안 생성과 웹 푸시 단계 모두 통과 — 자동으로 닫습니다."
           done

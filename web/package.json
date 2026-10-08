@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
     "prebuild": "node --import tsx ../backend/src/check-operator-leak.ts"
   },
   "dependencies": {
@@ -24,7 +25,7 @@
     "dotenv": "^17.4.2",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.23.0",
-    "next": "16.2.10",
+    "next": "^16.4.0",
     "pretendard": "^1.3.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",

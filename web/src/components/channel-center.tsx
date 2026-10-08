@@ -120,7 +120,7 @@ export function ChannelCenter({
         <h1 className="h1 mt-2">어디에 올릴지 정해요</h1>
         <p className="mt-2 text-[14px] leading-relaxed text-[var(--color-fg-2)]">
           {bizLabel}에 맞춰 골라뒀어요.
-          {oauthCount > 0 && <> <b className="text-[var(--color-fg)]">{oauthCount}곳</b>은 로그인 한 번이면 자동으로 올라가고,</>}
+          {oauthCount > 0 && <> <b className="text-[var(--color-fg)]">{oauthCount}곳</b>은 계정 연결을 지원하고,</>}
           {' '}<b className="text-[var(--color-fg)]">{readyCount}곳</b>은 지금 바로 쓰실 수 있어요.
         </p>
 
@@ -229,7 +229,7 @@ function ChannelLine({
             WAITING_REASON[row.id] ?? '아직 준비 중이에요'
           ) : row.readiness === 'oauth' ? (
             row.connected
-              ? <span className="text-[var(--color-good)]">연결됐어요 · 자동으로 올라갑니다</span>
+              ? <span className="text-[var(--color-good)]">계정 연결됨 · 게시는 직접 확인해주세요</span>
               : OAUTH_CHANNELS.find((o) => o.id === row.id)?.unlocks
           ) : row.readiness === 'needsKey' ? (
             row.hasKey ? '키가 등록돼 있어요' : KEY_CHANNELS.find((k) => k.id === row.id)?.unlocks

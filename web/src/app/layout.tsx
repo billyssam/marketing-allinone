@@ -7,12 +7,13 @@ import { SwRegister } from '@/components/sw-register';
 import { InAppNotice } from '@/components/inapp-notice';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://marketing-allinone.vercel.app'),
   title: {
     default: '마케팅올인원 — 자영업자 마케팅 종합 SaaS',
     template: '%s · 마케팅올인원',
   },
   description:
-    '매일 아침 블로그·인스타 초안이 준비돼 있어요. 리뷰 답글까지 자동으로. 사장님은 확인하고 붙여넣기만.',
+    '매장 정보에 맞춘 콘텐츠 초안과 리뷰 답글을 준비합니다. 내용을 확인하고 각 채널에서 게시하세요.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'ko_KR',
     title: '마케팅올인원 — 자영업자 마케팅 종합 SaaS',
-    description: '매일 아침 마케팅이 끝나 있어요. 확인하고 붙여넣기만, 하루 5분.',
+    description: '콘텐츠 초안과 리뷰 답글을 한 화면에서. 내용을 확인하고 직접 게시하세요.',
   },
 };
 

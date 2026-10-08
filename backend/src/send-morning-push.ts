@@ -59,13 +59,14 @@ async function main() {
 
   for (const s of stores) {
     // 오늘 초안이 실제로 있을 때만 부른다 — 없는데 부르면 사장님이 헛걸음한다
-    const { data: todays } = await supabase
+    const { data: todays, error: postsError } = await supabase
       .from('posts')
       .select('channel')
       .eq('store_id', s.id)
       .gte('created_at', todayStart)
       .eq('status', 'draft')
       .contains('metadata', { auto: 'daily' });
+    if (postsError) throw new Error('알림 대상 초안 조회 실패');
     if (!todays?.length) {
       console.log(`[${storeLabel(s)}] 오늘 초안 없음 → 알림 안 보냄`);
       skipped++;

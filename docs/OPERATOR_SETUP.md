@@ -33,7 +33,7 @@ cd backend && npx tsx src/check-operator-leak.ts
 고객에게 우리 사정(심사 진행 상황·App ID)을 화면에 적지 않는다.
 못 여는 채널엔 "곧 열려요"라고만 쓴다 — 알아도 고객이 할 수 있는 게 없다.
 
-## 1. Meta 앱 (인스타 + 페북 + 스레드 한 번에)
+## 1. Meta 앱 (현재 OAuth 구현은 인스타그램)
 
 ```
 https://developers.facebook.com/apps
@@ -41,8 +41,8 @@ https://developers.facebook.com/apps
 
 1. 앱 만들기 → 유형 **비즈니스**
 2. 제품 추가 → **Instagram** · **Facebook 로그인**
-3. 권한 신청: `instagram_business_basic`, `instagram_business_content_publish`
-4. 앱 심사 제출 — **4~6주**. 필요한 자료는 전부 `docs/meta-review.md` 에 있다
+3. 현재 구현은 **Facebook Login** 경로다. 권한은 코드 `shared/channels/oauth-config.ts`와 일치시킨다: `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `business_management`. Instagram Login 경로의 다른 권한 이름과 섞지 않는다.
+4. 앱 심사 제출. 승인 일정은 Meta에서 확인한다. 자료는 `docs/meta-review.md`를 현재 경로와 대조한다.
    (데이터 삭제 콜백은 이미 구현·검증 완료: `/api/meta/data-deletion`)
 
 받은 값을 Vercel 환경변수에:
@@ -51,9 +51,9 @@ https://developers.facebook.com/apps
 META_APP_ID · META_APP_SECRET
 ```
 
-이 둘이 들어가는 순간 채널 화면에서 인스타·페북·스레드가
-`아직 못 엽니다` → `한 번 연결하면 자동` 으로 **저절로 올라간다**
-(`readinessOf()` 가 환경변수를 보고 판단한다 — 코드를 안 고쳐도 된다).
+이 둘이 들어가면 인스타 **계정 연결** 버튼을 제공한다. 콜백은 권한과 비즈니스 계정 ID를 실제 조회한다.
+Facebook·Threads는 각 채널의 인증·어댑터 구현 전까지 연결 완료로 표시하지 않는다.
+계정 연결과 자동 게시는 별도다. 현재 자동 게시 스케줄러의 운영 완주는 미검증이다.
 
 ## 2. Google Cloud (구글 비즈니스 프로필)
 
@@ -81,14 +81,21 @@ ALIGO_API_KEY · ALIGO_USER_ID
 
 ⚠️ 템플릿 심사 2주. 템플릿은 우리가 등록한다(고객이 하지 않는다).
 
-## 지금 상태
+## 4. 웹 푸시와 주간 전달
+
+- 2026-10-08: VAPID 키를 발급하여 기존 로컬 비밀 파일과 GitHub/Vercel Production에 등록했다. 키를 다시 발급해 덮어쓰면 기존 구독을 쓸 수 없으므로 임의 회전하지 않는다.
+- GitHub: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` secrets와 `VAPID_SUBJECT` variable.
+- Vercel: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`(공개 Config), `VAPID_PRIVATE_KEY`(Secret), `VAPID_SUBJECT`(사이트 URL).
+- 새 배포 후 고객이 기기에서 알림을 켜야 실제 발송 대상이 생긴다. 구독 없음은 발송 성공이 아니다.
+- 주간 전달은 운영자의 `TELEGRAM_BOT_TOKEN`·`TELEGRAM_CHAT_ID`가 필요하다. 설정·실제 전달 확인 전에는 준비 완료로 평가하지 않는다. 비밀값은 저장소 문서나 공개 로그에 남기지 않는다.
+
+## 현재 외부 설정 미완료
 
 ```bash
 cd backend && npx tsx src/audit-channels.ts
 ```
 
-세 가지 다 **아직 안 했다.** 그래서 OAuth 채널 4개가 고객 화면에서
-"곧 열려요"로 보이고 있다 — 눌러도 안 되는 버튼을 보이지 않기 위해서다.
+10월 8일 확인한 Production에는 Meta·Google OAuth·알림톡 운영 자격증명이 없다.
+`audit-channels.ts`는 과거 경로/판정을 포함하므로 단독 출시 근거로 쓰지 않는다.
 
-**가장 먼저 할 것은 Meta 앱이다.** 심사가 4~6주라 오늘 넣지 않으면
-10월 파일럿에 인스타 자동 발행이 못 들어간다.
+운영 앱 설정과 실제 계정 연결을 마친 뒤, 외부 게시 결과까지 따로 확인한다.

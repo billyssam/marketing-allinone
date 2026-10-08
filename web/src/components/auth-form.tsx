@@ -24,9 +24,9 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
         <span className="text-[15px] font-medium tracking-tight">마케팅올인원</span>
       </Link>
 
-      <h1 className="h2">{mode === 'login' ? '다시 오셨네요.' : '5분이면 시작해요.'}</h1>
+      <h1 className="h2">{mode === 'login' ? '다시 오셨네요.' : '초안부터 시작하세요.'}</h1>
       <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">
-        {mode === 'login' ? '사장님 계정으로 로그인하세요.' : '매장 하나로 모든 채널을 연결합니다.'}
+        {mode === 'login' ? '사장님 계정으로 로그인하세요.' : '매장 정보를 등록하고 콘텐츠 초안부터 준비하세요.'}
       </p>
 
       {socialSoon && (
@@ -50,6 +50,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       {/* 소셜 로그인 — 카카오(1순위)·네이버·구글 */}
       <div className="mt-8 space-y-2.5">
         <form action={signInWithProvider}>
+          <input type="hidden" name="next" value={params.get('next') ?? '/onboarding'} />
           <input type="hidden" name="provider" value="kakao" />
           <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#fee500] py-3 text-[14px] font-medium text-[#3c1e1e] transition hover:brightness-95">
             <span className="font-black">K</span> 카카오로 {mode === 'login' ? '로그인' : '시작하기'}
@@ -62,6 +63,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
             </button>
           </form>
           <form action={signInWithProvider}>
+            <input type="hidden" name="next" value={params.get('next') ?? '/onboarding'} />
             <input type="hidden" name="provider" value="google" />
             <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-hair-strong)] bg-white py-3 text-[13px] font-medium text-[#1f1f1f] transition hover:brightness-95">
               <span className="font-black text-[#4285f4]">G</span> 구글
@@ -75,19 +77,22 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       </div>
 
       <form action={formAction} className="space-y-3">
-        <input name="email" type="email" required placeholder="name@example.com" autoComplete="email"
+        <input type="hidden" name="next" value={params.get('next') ?? '/dashboard'} />
+        <label htmlFor="auth-email" className="block text-[13px] text-[var(--color-fg-2)]">이메일</label>
+        <input id="auth-email" name="email" type="email" required placeholder="name@example.com" autoComplete="email"
           className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 text-[14px] outline-none transition focus:border-[var(--color-amber)]" />
-        <input name="password" type="password" required placeholder="비밀번호" autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+        <label htmlFor="auth-password" className="block text-[13px] text-[var(--color-fg-2)]">비밀번호{mode === 'signup' ? ' · 6자 이상' : ''}</label>
+        <input id="auth-password" name="password" type="password" required minLength={mode === 'signup' ? 6 : undefined} placeholder="비밀번호" autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           className="w-full rounded-xl border border-[var(--color-hair)] bg-[var(--color-panel)] px-4 py-3 text-[14px] outline-none transition focus:border-[var(--color-amber)]" />
 
-        {state.error && <p className="text-[13px] text-[var(--color-bad)]">{state.error}</p>}
+        {state.error && <p role="alert" className="text-[13px] text-[var(--color-bad)]">{state.error}</p>}
 
         <button type="submit" disabled={pending} className="btn-primary w-full rounded-xl py-3 text-[14px] font-medium disabled:opacity-60">
           {pending ? '처리 중…' : mode === 'login' ? '로그인' : '무료로 시작하기'}
         </button>
 
         {mode === 'signup' && (
-          <p className="text-center text-[12px] leading-relaxed text-[var(--color-fg-4)]">
+          <p className="text-center text-[12px] leading-relaxed text-[var(--color-fg-2)]">
             가입하면 <Link href="/legal/terms" className="text-[var(--color-fg-3)] underline underline-offset-2 hover:text-[var(--color-fg-2)]">이용약관</Link>과{' '}
             <Link href="/legal/privacy" className="text-[var(--color-fg-3)] underline underline-offset-2 hover:text-[var(--color-fg-2)]">개인정보처리방침</Link>에 동의하게 됩니다.
           </p>
