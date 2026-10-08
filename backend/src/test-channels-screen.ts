@@ -127,6 +127,7 @@ async function main() {
         /발급받기/.test(sheet) ? '발급 링크 있음' : '어디서 받는지 안 알려준다');
       check('비밀번호가 아니라고 못 박는다', /비밀번호가 아니라/.test(sheet),
         /비밀번호가 아니라/.test(sheet) ? '안심 문구 있음' : '무엇을 넣는 건지 불안하다');
+      await page.getByRole('button', { name: '나중에', exact: true }).last().click();
     }
 
     // ⑤ 모바일은 설치 없이 쓰고, PC 설치 안내에는 실제 파일이 있어야 한다.
