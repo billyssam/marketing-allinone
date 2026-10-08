@@ -13,6 +13,8 @@ import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { contentChannelsFor } from '../../shared/channels/registry';
 import { checkPosts, criticalOf } from '../../shared/content-engine/quality';
+import { authConfigurationProblems } from '../../shared/auth-health';
+import { storeLabel } from './mask';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local'), quiet: true });
 loadEnv({ quiet: true });
@@ -46,6 +48,12 @@ async function checkService() {
 }
 
 async function checkAuth() {
+  const response = await fetch(url + '/auth/v1/settings', { headers: { apikey: key! }, signal: AbortSignal.timeout(15000) });
+  if (!response.ok) add('block', '인증 설정', 'Auth 설정을 읽지 못했습니다');
+  else {
+    const settings = await response.json();
+    for (const problem of authConfigurationProblems(settings, { signupMode: process.env.OWNER_SIGNUP_MODE, smtpDeclared: process.env.CUSTOM_SMTP_CONFIGURED === 'true' })) add('block', '인증 설정', problem);
+  }
   // 리다이렉트 허용목록 — 틀리면 초대 링크가 죽는다(화면으로는 안 보인다)
   const probeEmail = `preflight-${Date.now()}@example.com`;
   const { data: created, error } = await supabase.auth.admin.createUser({
@@ -99,8 +107,8 @@ async function checkStores() {
 
     const joinedToday = Date.parse((s.onboarded_at as string) ?? '') >= Date.parse(todayStart);
     if (!todays?.length) {
-      if (joinedToday) add('ok', `매장 · ${s.name}`, '오늘 가입 — 웰컴 초안이 담당');
-      else add('block', `매장 · ${s.name}`, '오늘 자동 초안 없음');
+      if (joinedToday) add('warn', `매장 · ${storeLabel(s)}`, '오늘 가입 — 웰컴 초안 실제 생성 여부를 확인해야 함');
+      else add('block', `매장 · ${storeLabel(s)}`, '오늘 자동 초안 없음');
     } else {
       const issues = checkPosts(
         todays.map((p) => ({
@@ -117,27 +125,30 @@ async function checkStores() {
       const crit = criticalOf(issues);
       const warns = issues.filter((i) => i.severity === 'warn');
       if (crit.length) {
-        add('block', `매장 · ${s.name}`, `그대로 내보내면 안 되는 결함 ${crit.length}건: ${crit.map((i) => `${i.rule}`).join(',')}`);
+        add('block', `매장 · ${storeLabel(s)}`, `그대로 내보내면 안 되는 결함 ${crit.length}건: ${crit.map((i) => `${i.rule}`).join(',')}`);
       }
       if (warns.length) {
-        add('warn', `매장 · ${s.name}`, `고쳐야 할 것 ${warns.length}건: ${warns.map((i) => `${i.rule}`).join(',')}`);
+        add('warn', `매장 · ${storeLabel(s)}`, `고쳐야 할 것 ${warns.length}건: ${warns.map((i) => `${i.rule}`).join(',')}`);
       }
-      if (!issues.length) add('ok', `매장 · ${s.name}`, `채널 ${channels.length} · 오늘 초안 ${todays.length} · 품질 통과`);
+      if (!issues.length) add('ok', `매장 · ${storeLabel(s)}`, `채널 ${channels.length} · 오늘 초안 ${todays.length} · 품질 통과`);
     }
 
-    if (!s.naver_place_url) add('warn', `매장 · ${s.name}`, '플레이스 미연결 — 리뷰 수집·사실 주입 불가');
-    else if (!tone.place_facts) add('warn', `매장 · ${s.name}`, '플레이스 크롤 아직 없음(다음 크론에서 수집)');
+    if (!s.naver_place_url) add('warn', `매장 · ${storeLabel(s)}`, '플레이스 미연결 — 리뷰 수집·사실 주입 불가');
+    else if (!tone.place_facts) add('warn', `매장 · ${storeLabel(s)}`, '플레이스 크롤 아직 없음(다음 크론에서 수집)');
   }
 }
 
 async function checkQuota() {
-  // flash 무료는 프로젝트당 20회/일. 매장당 기획+본문 2회를 쓰므로 매장 수로 여유를 가늠한다.
-  const { count } = await supabase.from('stores').select('id', { count: 'exact', head: true });
-  const n = count ?? 0;
-  const need = n * 2;
-  if (need > 20) add('block', 'Gemini 한도', `매장 ${n}곳 → 하루 flash ${need}회 필요 (무료 20회 초과) — 유료 전환 필요`);
-  else if (need > 14) add('warn', 'Gemini 한도', `매장 ${n}곳 → flash ${need}/20회. 재시도·수동생성이 겹치면 품질 강등 가능`);
-  else add('ok', 'Gemini 한도', `매장 ${n}곳 → flash ${need}/20회 여유`);
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+  if (!apiKey) { add('block', 'AI 연결', '생성용 키가 없습니다'); return; }
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+    headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) { add('block', 'AI 연결', '모델 목록 조회 실패: HTTP ' + response.status); return; }
+  const payload = await response.json() as { models?: { name: string; supportedGenerationMethods?: string[] }[] };
+  const ready = payload.models?.some((model) => model.name === 'models/gemini-2.5-flash' && model.supportedGenerationMethods?.includes('generateContent'));
+  if (!ready) add('block', 'AI 연결', '설정한 생성 모델을 사용할 수 없습니다');
+  else add('warn', 'AI 한도', '키·모델 조회 정상. 실제 생성 성공·남은 쿼터·청구 용량은 이 조회로 증명하지 않습니다. 매장 수로 무료 한도 여유를 단정하지 않습니다');
 }
 
 async function main() {
@@ -158,7 +169,7 @@ async function main() {
     for (const b of blocks) console.error(`   ${b.name} — ${b.detail}`);
     process.exit(1);
   }
-  console.log('\n✅ 파일럿을 열어도 되는 상태입니다.');
+  console.log('\n✅ 검사한 필수 항목 통과. 경고 및 실기기·메일·외부 게시 검증은 별도 확인해야 합니다.');
 }
 
 main().catch((e) => {

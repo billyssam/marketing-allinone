@@ -97,13 +97,15 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
     prompt: string,
   ): Promise<string> {
     try {
-      const m = genAI.getGenerativeModel({ model: modelName, systemInstruction, generationConfig });
+      const m = genAI.getGenerativeModel({ model: modelName, systemInstruction,
+        generationConfig: { ...generationConfig, maxOutputTokens: 8192 } });
       return (await m.generateContent(prompt)).response.text();
     } catch (e) {
       if (!isRateLimited(e) || modelName === FALLBACK_MODEL) throw e;
       fellBack = true;
       console.warn(`[gemini] ${modelName} 한도 → ${FALLBACK_MODEL} 폴백`);
-      const m = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction, generationConfig });
+      const m = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction,
+        generationConfig: { ...generationConfig, maxOutputTokens: 8192 } });
       return (await m.generateContent(prompt)).response.text();
     }
   }
