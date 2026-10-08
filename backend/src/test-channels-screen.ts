@@ -129,10 +129,17 @@ async function main() {
         /비밀번호가 아니라/.test(sheet) ? '안심 문구 있음' : '무엇을 넣는 건지 불안하다');
     }
 
-    // ⑤ 확장 안내 — 6곳을 한 번에 여는 유일한 동작이라 가장 앞이어야 한다
-    check('확장 안내가 채널 목록보다 앞에 있다',
-      screen.indexOf('크롬 확장을 깔면') !== -1 && screen.indexOf('크롬 확장을 깔면') < screen.indexOf('바로 씁니다'),
-      screen.includes('크롬 확장을 깔면') ? '목록보다 앞' : '확장 안내가 없다');
+    // ⑤ 모바일은 설치 없이 쓰고, PC 설치 안내에는 실제 파일이 있어야 한다.
+    check('모바일은 확장 없이 직접 게시할 수 있다',
+      /휴대폰에서는 초안을 복사/.test(screen) && /확장은 설치하지 않아도 됩니다/.test(screen),
+      '복사 경로와 선택 설치 안내');
+    await page.getByRole('link', { name: '설치 방법 보기' }).click();
+    await page.getByRole('link', { name: 'PC 크롬 확장 내려받기' }).waitFor({ state: 'visible' });
+    const downloadHref = await page.getByRole('link', { name: 'PC 크롬 확장 내려받기' }).getAttribute('href');
+    const download = downloadHref ? await page.request.get(new URL(downloadHref, BASE).toString()) : null;
+    check('확장 설치 파일을 실제로 받을 수 있다',
+      Boolean(download?.ok() && download.headers()['content-type']?.includes('zip')),
+      download?.ok() ? 'ZIP 다운로드 정상' : '설치 파일을 받을 수 없음');
 
   } finally {
     await browser.close();
