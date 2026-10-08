@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "마케팅올인원 — 원클릭 발행",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "매일 아침 준비된 글을 네이버 블로그·플레이스·밴드·당근·카카오채널·구글 비즈니스에 그대로 채워 넣습니다.",
   "permissions": ["storage", "activeTab", "tabs", "clipboardWrite", "clipboardRead"],
   "host_permissions": [
@@ -59,7 +59,6 @@
   "externally_connectable": {
     "matches": [
       "https://marketing-allinone.vercel.app/*",
-      "https://*.vercel.app/*",
       "http://localhost:3500/*",
       "http://127.0.0.1:3500/*"
     ]

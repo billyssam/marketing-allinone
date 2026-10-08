@@ -3,6 +3,7 @@
 // - draft를 chrome.storage.local에 보관 (사장님이 write 페이지 열 때까지 대기)
 
 const STORAGE_KEY = 'currentDraft';
+const DRAFT_TTL_MS = 30 * 60 * 1000;
 // GoBlogWrite.naver는 로그인된 계정의 write 페이지로 자동 리다이렉트 (blogId 파라미터 불필요)
 const NAVER_WRITE_URL = 'https://blog.naver.com/GoBlogWrite.naver';
 
@@ -31,6 +32,13 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
 
 // 대시보드(웹앱) → 익스텐션
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  try {
+    const origin = new URL(sender.url).origin;
+    if (!['https://marketing-allinone.vercel.app', 'http://localhost:3500', 'http://127.0.0.1:3500'].includes(origin)) {
+      sendResponse({ ok: false, error: '허용되지 않은 요청입니다' });
+      return;
+    }
+  } catch { sendResponse({ ok: false, error: '요청 출처를 확인하지 못했습니다' }); return; }
   if (message?.type === 'DRAFT_READY') {
     saveDraft(message.payload)
       .then(() => sendResponse({ ok: true }))
@@ -81,12 +89,19 @@ async function saveDraft(payload) {
       savedAt: new Date().toISOString(),
     },
   });
-  console.log('[블로그 원클릭] draft 저장됨:', payload?.title);
+  console.log('[블로그 원클릭] draft 저장됨');
 }
 
 async function getDraft() {
   const result = await chrome.storage.local.get(STORAGE_KEY);
-  return result[STORAGE_KEY] ?? null;
+  const draft = result[STORAGE_KEY];
+  if (!draft) return null;
+  const age = Date.now() - Date.parse(draft.savedAt);
+  if (!Number.isFinite(age) || age < 0 || age > DRAFT_TTL_MS) {
+    await chrome.storage.local.remove(STORAGE_KEY);
+    return null;
+  }
+  return draft;
 }
 
 async function injectToActiveTab() {

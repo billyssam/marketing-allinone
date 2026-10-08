@@ -39,7 +39,7 @@ function ensureFabOnLoad() {
 function renderFab(draft) {
   if (document.getElementById(FAB_ID)) return;
 
-  const bodyPlainText = htmlToText(draft.bodyHtml || '');
+  const bodyPlainText = draft.bodyPlain || htmlToText(draft.bodyHtml || '');
   const tagsText = (draft.tags || []).map((t) => `#${t}`).join(' ');
 
   const steps = [
@@ -88,14 +88,11 @@ function renderFab(draft) {
   const preview = fab.querySelector('[data-slot="preview"]');
   const hint = fab.querySelector('[data-slot="hint"]');
 
-  async function render() {
+  function render() {
     const s = steps[idx];
     stepLabel.textContent = `단계 ${idx + 1}/${steps.length} · ${s.label}`;
     preview.textContent = s.value.length > 80 ? s.value.slice(0, 80) + '…' : s.value;
-    hint.innerHTML = `👉 ${s.hint}`;
-    // 자동 복사 (UX 개선)
-    await copyStep(s);
-    hint.innerHTML = `✅ 클립보드에 <b>${s.label}</b> 준비됨. ${s.hint}`;
+    hint.textContent = `복사 버튼을 누른 뒤 ${s.hint}`;
   }
 
   async function copyStep(s) {
@@ -111,6 +108,7 @@ function renderFab(draft) {
         await navigator.clipboard.writeText(s.value);
       }
       console.log(`[FAB] ${s.label} 클립보드 복사 완료`);
+      hint.innerHTML = `✅ 클립보드에 <b>${s.label}</b> 준비됨. ${s.hint}`;
     } catch (err) {
       console.warn(`[FAB] 클립보드 실패:`, err.message);
       hint.innerHTML = `❌ 클립보드 실패. 수동 복사 필요.<br>내용: <code>${escapeHtml(s.value.slice(0, 60))}</code>`;
