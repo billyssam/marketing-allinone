@@ -1,5 +1,7 @@
 # 🖥️ 맥북에서 이어가기 — 인수인계
 
+최신 결과는 `docs/NEXT_SESSION.md`의 “최신 결과”와 `docs/FINAL_ACCEPTANCE.md`를 따른다. 운영 AI 실제 생성과 본인 블로그 비공개 발행까지 검증했다. 최종 로컬 테스트 261개 통과, 가상 데이터 정리 완료. SMTP 복구·실기기 알림·운영자 전달·동시 온보딩 DB 제약·Mac 실제 화면 복원은 여전히 미완료다. 이전 수치와 미실행 기록은 당시 상태이며 현재 완료 근거로 사용하지 않는다.
+
 ## 최신 재개 기록 — 2026-10-08
 
 먼저 `docs/NEXT_SESSION.md`와 `docs/CUSTOMER_JOURNEY_AUDIT.md`를 읽는다. 아래 초기 이관 메모의 상태·비용 추정은 현재 운영 증거가 아니다. 개인 프로젝트만 continuity save/resume으로 동기화한다. Mac이 상시 운영 기기이며 Windows 중복 워커는 켜지 않는다.
