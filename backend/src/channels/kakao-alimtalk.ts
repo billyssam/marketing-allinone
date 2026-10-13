@@ -2,7 +2,8 @@ import type { ChannelAdapter, Connection, DraftContent, PublishResult, StoreCont
 
 /**
  * 카카오 알림톡 — 완전 자동 (알리고 API).
- * 재방문 유도·예약 알림·쿠폰. 승인된 템플릿 코드 필수.
+ * 예약·주문 등 정보성 안내. 승인된 정보성 템플릿 코드 필수.
+ * 재방문 유도 광고는 별도 동의·상품 경로가 필요하며 이 어댑터의 용도가 아니다.
  */
 const ALIGO = 'https://kakaoapi.aligo.in/akv10/alimtalk/send/';
 

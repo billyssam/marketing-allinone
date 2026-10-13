@@ -12,6 +12,49 @@ import { smartstoreAdapter } from './channels/smartstore.js';
 import { kstIso, signClientSecret, splitWindows } from '../../shared/channels/smartstore-api.js';
 import { verifyChannelKey } from '../../shared/channels/key-verify.js';
 
+test('300건을 넘는 변경 내역도 다음 페이지까지 조회하고 중복 주문은 한 번만 집계한다', async (t) => {
+  const ids = Array.from({ length: 345 }, (_, i) => String(i + 1));
+  let changedCalls = 0;
+  t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith('last-changed-statuses')) {
+      changedCalls++;
+      assert.equal(url.searchParams.get('lastChangedTo'), '2026-09-02T00:00:00.000+09:00');
+      if (changedCalls === 1) return Response.json({ data: {
+        lastChangeStatuses: ids.slice(0, 300).map(productOrderId => ({ productOrderId })),
+        more: { moreFrom: '2026-09-01T12:00:00.000+09:00', moreSequence: 7 },
+      } });
+      assert.equal(url.searchParams.get('lastChangedFrom'), '2026-09-01T12:00:00.000+09:00');
+      assert.equal(url.searchParams.get('moreSequence'), '7');
+      return Response.json({ data: { lastChangeStatuses: ['1', ...ids.slice(300)].map(productOrderId => ({ productOrderId })) } });
+    }
+    const body = JSON.parse(String(init?.body)) as { productOrderIds: string[] };
+    assert.ok(body.productOrderIds.length <= 300);
+    return Response.json({ data: body.productOrderIds.map(productOrderId => ({
+      productOrderId, productOrder: { totalPaymentAmount: 1000, productOrderStatus: 'PAYED' },
+      order: { orderDate: '2026-09-01T10:00:00+09:00' },
+    })) });
+  });
+  const metrics = await smartstoreAdapter.fetchMetrics!(
+    { channelId: 'smartstore', storeId: 'qa', status: 'connected', accessToken: 'fake' },
+    { from: '2026-09-01T00:00:00+09:00', to: '2026-09-02T00:00:00+09:00' },
+  );
+  assert.equal(changedCalls, 2);
+  assert.equal(metrics.conversions, 345);
+  assert.equal(metrics.revenue, 345000);
+});
+
+test('페이지 커서가 반복되면 부분 매출을 성공으로 반환하지 않는다', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ data: {
+    lastChangeStatuses: [{ productOrderId: '1' }],
+    more: { moreFrom: '2026-09-01T12:00:00.000+09:00', moreSequence: 0 },
+  } }));
+  await assert.rejects(smartstoreAdapter.fetchMetrics!(
+    { channelId: 'smartstore', storeId: 'qa', status: 'connected', accessToken: 'fake' },
+    { from: '2026-09-01T00:00:00+09:00', to: '2026-09-02T00:00:00+09:00' },
+  ), /페이지가 반복/);
+});
+
 /** 네이버가 발급하는 시크릿과 같은 모양(bcrypt salt). 라운드만 낮춰 테스트를 빠르게 한다 */
 const SALT = '$2a$04$abcdefghijklmnopqrstuv';
 

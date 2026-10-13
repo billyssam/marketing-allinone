@@ -91,11 +91,26 @@ export const smartstoreAdapter: ChannelAdapter = {
     const ids: string[] = [];
     for (const w of splitWindows(fromMs, toMs)) {
       const q = new URLSearchParams({ lastChangedFrom: kstIso(w.from), lastChangedTo: kstIso(w.to) });
-      const res = (await commerceGet(token, `/v1/pay-order/seller/product-orders/last-changed-statuses?${q}`)) as
-        | { data?: { lastChangeStatuses?: { productOrderId?: string }[] } }
-        | null;
-      for (const s of res?.data?.lastChangeStatuses ?? []) {
-        if (s.productOrderId) ids.push(s.productOrderId);
+      const cursors = new Set<string>();
+      for (let page = 0; ; page++) {
+        // 300건 이후도 읽는다. 무한 반복·부분 집계를 정상 매출로 반환하지 않는다.
+        if (page >= 100) throw new Error('주문 변경 내역이 조회 한도를 넘었습니다. 기간을 줄여 다시 확인해주세요');
+        const res = (await commerceGet(token, `/v1/pay-order/seller/product-orders/last-changed-statuses?${q}`)) as
+          | { data?: { lastChangeStatuses?: { productOrderId?: string }[]; more?: { moreFrom?: string; moreSequence?: number } } }
+          | null;
+        for (const s of res?.data?.lastChangeStatuses ?? []) {
+          if (s.productOrderId) ids.push(s.productOrderId);
+        }
+        const more = res?.data?.more;
+        if (!more) break;
+        if (!more.moreFrom || !Number.isFinite(Date.parse(more.moreFrom)) || !Number.isInteger(more.moreSequence) || more.moreSequence! < 0) {
+          throw new Error('주문 변경 내역의 다음 페이지 정보를 확인하지 못했습니다');
+        }
+        const cursor = `${more.moreFrom}/${more.moreSequence}`;
+        if (cursors.has(cursor)) throw new Error('주문 변경 내역 페이지가 반복되어 집계를 중단했습니다');
+        cursors.add(cursor);
+        q.set('lastChangedFrom', more.moreFrom);
+        q.set('moreSequence', String(more.moreSequence));
       }
     }
 

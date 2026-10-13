@@ -87,7 +87,7 @@ export const CHANNELS: ChannelDef[] = [
   { id: 'naver_place', name: '네이버 플레이스', group: 'acquire', color: '#16d66a', automation: 'assisted', status: 'live', connect: 'extension', priority: 1,
     actions: ['소식 발행', '메뉴·사진 관리', '리뷰 답글', '예약 관리'], note: '지역 검색 노출의 심장' },
   { id: 'naver_blog', name: '네이버 블로그', group: 'acquire', color: '#16d66a', automation: 'assisted', status: 'live', connect: 'extension', priority: 2,
-    actions: ['AI 글 발행', '사진 배치', '태그'], note: '크롬확장 30초 발행 (검증됨)' },
+    actions: ['AI 글 초안', '사진 배치', '태그'], note: '초안 확인 후 직접 게시' },
   // ⚠️ automation은 "지금 실제로 되는 것" 기준. Meta/구글 공식 API 발행은 미구현이라
   //    캡션 생성 + 사장님 붙여넣기(assisted)가 정확한 표기다. 'auto'로 두면 거짓 약속.
   //    status도 마찬가지 — 매일 콘텐츠가 나오고 붙여넣기가 되면 live다(실측 기준).
@@ -133,7 +133,7 @@ export const CHANNELS: ChannelDef[] = [
 
   // ===== 재방문 =====
   { id: 'kakao_alimtalk', name: '카카오 알림톡', group: 'retain', color: '#ffcd3c', automation: 'auto', status: 'wip', connect: 'apikey', priority: 7,
-    actions: ['재방문 유도', '예약 알림', '쿠폰 발송'], requires: ['알림톡 사업자 등록', '템플릿 승인'] },
+    actions: ['예약·주문 등 정보성 안내'], requires: ['알림톡 사업자 등록', '정보성 템플릿 승인'] },
   { id: 'kakao_friendtalk', name: '카카오 친구톡', group: 'retain', color: '#ffcd3c', automation: 'auto', status: 'planned', connect: 'apikey', priority: 22, actions: ['이벤트·이미지 발송'] },
   { id: 'sms', name: 'SMS·문자', group: 'retain', color: '#86847d', automation: 'auto', status: 'planned', connect: 'apikey', priority: 23, actions: ['문자 마케팅'] },
   { id: 'membership', name: '멤버십·쿠폰·스탬프', group: 'retain', color: '#ffb534', automation: 'auto', status: 'planned', connect: 'apikey', priority: 24, actions: ['단골 적립', '쿠폰'] },

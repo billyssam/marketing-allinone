@@ -92,7 +92,7 @@ export const KEY_CHANNELS: {
   },
   {
     id: 'kakao_alimtalk',
-    unlocks: '단골에게 한 번에 알림톡을 보냅니다',
+    unlocks: '승인된 예약·주문 안내를 알림톡으로 보내요',
     issuer: '카카오 비즈니스',
     issueUrl: 'https://business.kakao.com/',
     /**
