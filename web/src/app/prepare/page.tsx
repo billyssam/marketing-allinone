@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { withJosa } from '@shared/korean';
 import { plainTextHtml } from '@shared/post-edit';
+import { DAANGN_PUBLICATION, daangnPublicationText } from '@shared/channels/daangn-publication';
 import { updatePostDraft } from '@/app/posts/actions';
 import { detectExtension, sendDraftToExtension, isOneClickChannel, ONE_CLICK_LABEL, type OneClickChannel } from '@/lib/extension';
 
@@ -34,7 +35,7 @@ const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: str
   google_gbp: { caption: true, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
   // 플레이스 '소식'·당근 '동네홍보'·밴드·카카오채널 — 모두 제목 없는 단일 텍스트 입력
   naver_place: { caption: true, hasTags: false, appHref: 'https://new.smartplace.naver.com/', appLabel: '스마트플레이스 열기', targetName: '플레이스 소식' },
-  danggeun: { caption: true, hasTags: false, appHref: 'https://www.daangn.com/', appLabel: '당근 열기', targetName: '당근 동네홍보' },
+  danggeun: { caption: true, hasTags: false, appHref: DAANGN_PUBLICATION.entryUrl, appLabel: '당근비즈니스 열기', targetName: '당근 비즈프로필 소식' },
   naver_band: { caption: true, hasTags: false, appHref: 'https://band.us/', appLabel: '밴드 열기', targetName: '밴드' },
   kakao_channel: { caption: true, hasTags: false, appHref: 'https://center-pf.kakao.com/', appLabel: '카카오 채널 관리자 열기', targetName: '카카오 채널' },
 };
@@ -139,6 +140,7 @@ function PrepareInner() {
     if (!d) return '';
     if (s === 'title') return d.title ?? '';
     if (s === 'body') {
+      if (d.channel === 'danggeun') return daangnPublicationText(d);
       // 단일 필드 채널(페북·구글)이고 제목이 따로 있으면 제목+본문 한 번에 붙이기
       const m = metaFor(d.channel);
       if (m.caption && d.title) return `${d.title}\n\n${d.bodyPlain ?? ''}`;
@@ -207,13 +209,17 @@ function PrepareInner() {
   const meta = desktop && (draft?.channel ?? 'blog') === 'blog'
     ? { ...channelMeta, appHref: 'https://blog.naver.com/GoBlogWrite.naver', appScheme: undefined, appLabel: '네이버 블로그 글쓰기 열기' }
     : channelMeta;
-  const stepLabel = meta.caption && step === 'body' ? '캡션' : info.label;
+  const isDaangn = draft?.channel === 'danggeun';
+  const stepLabel = isDaangn && step === 'body' ? '소식 내용' : meta.caption && step === 'body' ? '캡션' : info.label;
   const mobileHint = meta.caption
     ? isDone
       ? `이제 ${meta.targetName} 앱에서 게시 버튼만 누르면 끝이에요.`
       : `아래 버튼으로 ${withJosa(meta.targetName, '을를')} 열고, 새 게시물 캡션 칸에 길게 눌러 붙여넣으세요.`
     : info.hint;
-  const hint = desktop
+  const hint = isDaangn
+    ? isDone ? '당근에서 게시물이 실제로 보이는지 확인한 뒤 이 탭으로 돌아와주세요.'
+      : '내용을 복사한 뒤 당근비즈니스에서 게시할 비즈프로필의 소식 작성 화면을 열어 붙여넣으세요.'
+    : desktop
     ? isDone
       ? '외부 게시 화면에서 발행 버튼을 눌러주세요.'
       : `글쓰기 화면의 ${stepLabel} 칸을 클릭하고 Ctrl+V(맥은 ⌘+V)로 붙여넣으세요.`
@@ -258,6 +264,16 @@ function PrepareInner() {
           );
         })}
       </div>
+
+      {isDaangn && (
+        <aside aria-label="당근 소식 게시 안내" className="panel mt-5 rounded-[var(--radius)] p-4 text-[13px] leading-relaxed text-[var(--color-fg-2)]">
+          <p className="font-medium text-[var(--color-fg)]">{DAANGN_PUBLICATION.limit}</p>
+          <p className="mt-1">{DAANGN_PUBLICATION.limitHelp}</p>
+          <a href={DAANGN_PUBLICATION.policyUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--color-amber)] underline">당근 공식 한도 안내</a>
+          {!isDone && <ol className="mt-3 list-decimal space-y-1 pl-5">{DAANGN_PUBLICATION.steps.map((text) => <li key={text}>{text}</li>)}</ol>}
+          {!isDone && <p className="mt-2">로그인이나 비즈프로필 선택이 필요할 수 있어요. 업무 계정으로 앱에 로그인하면 기존 개인 계정이 로그아웃될 수 있으니 확인해주세요.</p>}
+        </aside>
+      )}
 
       {isDone ? (
         /* ── 완료 화면 ── */
@@ -402,8 +418,8 @@ function PrepareInner() {
         <div className="mt-8 space-y-2.5">
           <a
             href={meta.appHref}
-            target={desktop ? '_blank' : undefined}
-            rel={desktop ? 'noopener noreferrer' : undefined}
+            target={desktop || isDaangn ? '_blank' : undefined}
+            rel={desktop || isDaangn ? 'noopener noreferrer' : undefined}
             onClick={(e) => {
               setVisited(true);
               if (!meta.appScheme) return; // https만 있는 채널은 기본 동작(앱 있으면 OS가 앱으로 연다)

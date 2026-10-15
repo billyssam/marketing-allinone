@@ -94,7 +94,7 @@ export const CHANNELS: ChannelDef[] = [
   { id: 'instagram', name: '인스타그램', group: 'acquire', color: '#ff4d8d', automation: 'assisted', status: 'live', connect: 'oauth', priority: 3,
     actions: ['캡션·해시태그 생성', '붙여넣기 발행'], note: '공식 API 예약 발행은 준비 중' },
   { id: 'danggeun', name: '당근마켓', group: 'acquire', color: '#ff7e36', automation: 'assisted', status: 'wip', connect: 'manual', priority: 4,
-    actions: ['비즈프로필', '동네 홍보 글', '단골 쿠폰'], note: '동네 장사면 인스타보다 중요' },
+    actions: ['소식 초안', '직접 게시 안내'], note: '소식 하루 최대 5개 · 당근에서 작성 수 확인 후 직접 게시' },
   { id: 'google_business', name: '구글 비즈니스', group: 'acquire', color: '#4285f4', automation: 'assisted', status: 'live', connect: 'oauth', priority: 8,
     actions: ['게시물 생성', '붙여넣기 발행'], note: '외국인·관광 상권 강력' },
   { id: 'kakao_channel', name: '카카오 채널', group: 'acquire', color: '#ffcd3c', automation: 'assisted', status: 'wip', connect: 'apikey', priority: 9,

@@ -1,7 +1,8 @@
 import type { ChannelAdapter, Connection, DraftContent, Review, StoreContext } from '../../../shared/channels/adapter.js';
-import { buildHandoff } from './assisted-helpers.js';
+import { buildHandoff, stripHtml } from './assisted-helpers.js';
+import { DAANGN_PUBLICATION, daangnPublicationText } from '../../../shared/channels/daangn-publication.js';
 
-/** 당근마켓 — 반자동. 비즈프로필 글/단골쿠폰은 앱 딥링크 + 붙여넣기. */
+/** 당근 소식 초안과 직접 게시 안내. 쿠폰 발송·자동 게시는 지원하지 않는다. */
 export const danggeunAdapter: ChannelAdapter = {
   id: 'danggeun',
   mode: 'assisted',
@@ -10,9 +11,9 @@ export const danggeunAdapter: ChannelAdapter = {
   },
   async publish(_conn: Connection, draft: DraftContent) {
     return buildHandoff({
-      deeplink: 'https://www.daangn.com/kr/business/',
-      draft,
-      steps: ['당근 비즈니스 → 소식 작성', '내용 붙여넣기', '사진 첨부 후 게시'],
+      deeplink: DAANGN_PUBLICATION.entryUrl,
+      draft: { ...draft, title: undefined, bodyPlain: daangnPublicationText({ ...draft, bodyPlain: draft.bodyPlain || stripHtml(draft.bodyHtml ?? '') }) },
+      steps: [DAANGN_PUBLICATION.limit, DAANGN_PUBLICATION.limitHelp, ...DAANGN_PUBLICATION.steps],
     });
   },
 };

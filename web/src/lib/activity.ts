@@ -59,7 +59,7 @@ export function buildFeed(posts: PostForFeed[], reviews: ReviewForFeed[], nowMs:
     if (p.published_at) {
       events.push({
         at: Date.parse(p.published_at),
-        text: `${label} 발행 완료${title ? ` · ${title}` : ''}`,
+        text: `${label} 게시 확인${title ? ` · ${title}` : ''}`,
         color: 'var(--color-good)',
       });
     }
