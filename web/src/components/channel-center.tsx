@@ -46,7 +46,7 @@ export function ChannelCenter({
   const [actionError, setActionError] = useState('');
   const [openKey, setOpenKey] = useState<ChannelId | null>(null);
   const [extInstalled, setExtInstalled] = useState<boolean | null>(null);
-  const [, start] = useTransition();
+  const [saving, start] = useTransition();
 
   useEffect(() => {
     void detectExtension().then((r) => setExtInstalled(r.installed));
@@ -63,6 +63,7 @@ export function ChannelCenter({
   }, [list, recommended]);
 
   function onToggle(id: ChannelId, next: boolean) {
+    if (busy !== null || saving) return;
     setActionError('');
     setBusy(id);
     setList((prev) => prev.map((r) => (r.id === id ? { ...r, connected: next } : r))); // 낙관적
@@ -130,6 +131,7 @@ export function ChannelCenter({
           {' '}<b className="text-[var(--color-fg)]">{readyCount}곳</b>은 지금 바로 쓰실 수 있어요.
         </p>
 
+        {saving && <p role="status" className="mt-4 text-[13px] text-[var(--color-fg-2)]">채널 선택을 저장하고 있어요. 완료될 때까지 잠시 기다려주세요.</p>}
         {actionError && <p role="alert" className="mt-4 text-[13px] text-[var(--color-bad)]">{actionError}</p>}
         {/* 확장 — 6곳을 한 번에 여는 유일한 동작이라 가장 앞에 세운다.
             이미 깔았으면 조용히 확인만(설치를 다시 권하면 잔소리가 된다) */}
@@ -179,7 +181,7 @@ export function ChannelCenter({
                   <ChannelLine
                     key={r.id}
                     row={r}
-                    busy={busy === r.id}
+                    busy={busy !== null || saving}
                     recommended={recommended.includes(r.id)}
                     onToggle={onToggle}
                     onOpenKey={() => setOpenKey(r.id)}
