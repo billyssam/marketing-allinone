@@ -18,4 +18,4 @@
 
 ## 운영 반영
 
-코드 커밋·Production 성공 및 기본 운영 URL 확인 후 `NEXT_SESSION.md`와 `PLATFORM_WATCH.md`에 증거를 갱신한다. 배포 완료와 당근 실게시 완료를 구분한다. Gemini SDK·Meta v21.0/태그/permalink·네이버 수집·SMTP 등 다른 미완료를 이번 수정으로 닫지 않는다.
+`f67cc780c158696002d6f4e19de0d566ae03fb96` GitHub master push 및 Production deployment 7080904457 success 확인. 코드 품질 38662121241, 화면 38662121222 success. 운영 기본 주소에서 QA 로그인/초안/복사·한도 안내·게시 준비 후 draft 유지 및 확인 저장 검증. health 200/ok:true/db:true. 활동 문구 정정도 원격 CI에서 검증됐다. 배포 완료와 당근 실게시 완료를 구분한다. Gemini SDK·Meta v21.0/태그/permalink·네이버 수집·SMTP 등 다른 미완료를 이번 수정으로 닫지 않는다. Mac 상주 워커의 checkout/재기동은 검증하지 않았다.
