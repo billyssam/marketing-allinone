@@ -74,7 +74,7 @@ test('a selected Facebook page must match the identity returned by its Page toke
 });
 
 test('Facebook selection cookie is encrypted, owner/store bound, expiring and tamper resistant', () => {
-  const token = { accessToken: 'private-user-token', issuedAt: now, expiresIn: 3600 };
+  const token = { accessToken: 'qa-user-token', issuedAt: now, expiresIn: 3600 };
   const sealed = sealFacebookSelection('owner-1', 'store-1', token, 'app-secret', now);
   assert.ok(!sealed.includes(token.accessToken));
   assert.equal(openFacebookSelection(sealed, 'app-secret', 'owner-1', 'store-1', now)?.token.accessToken, token.accessToken);
