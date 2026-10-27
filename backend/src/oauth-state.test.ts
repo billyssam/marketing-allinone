@@ -98,7 +98,8 @@ test('구글은 offline·consent 를 붙인다 — 없으면 한 시간 뒤 조�
   assert.equal(u.searchParams.get('prompt'), 'consent');
 });
 
-test('미구현 채널을 Meta 계정 연결만으로 지원한다고 선언하지 않는다', () => {
-  assert.equal(OAUTH_CONFIG.facebook, undefined);
-  assert.equal(OAUTH_CONFIG.threads, undefined);
+test('Facebook·Threads는 Instagram 설정과 분리된 앱 자격증명을 요구한다', () => {
+  assert.equal(OAUTH_CONFIG.facebook?.clientIdEnv, 'FACEBOOK_APP_ID');
+  assert.equal(OAUTH_CONFIG.threads?.clientIdEnv, 'THREADS_APP_ID');
+  assert.notEqual(OAUTH_CONFIG.threads?.clientSecretEnv, OAUTH_CONFIG.instagram?.clientSecretEnv);
 });

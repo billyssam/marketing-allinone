@@ -17,6 +17,8 @@ import 'server-only';
 export function operatorReadyIntegrations(): string[] {
   const ready: string[] = [];
   if (process.env.META_APP_ID && process.env.META_APP_SECRET) ready.push('META_APP_ID');
+  if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) ready.push('FACEBOOK_APP_ID');
+  if (process.env.THREADS_APP_ID && process.env.THREADS_APP_SECRET) ready.push('THREADS_APP_ID');
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) ready.push('GOOGLE_CLIENT_ID');
   if (process.env.ALIGO_API_KEY && process.env.ALIGO_USER_ID) ready.push('ALIGO_API_KEY');
   return ready;

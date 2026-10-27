@@ -1,65 +1,27 @@
-# 소셜 로그인 OAuth 앱등록 가이드
+# 회원 로그인과 채널 OAuth 설정
 
-> ✅ Supabase 정본 = `exmbpietyadkjnunrhka` / 라이브 도메인 = https://marketing-allinone.vercel.app
-> 코드(카카오·구글=Supabase 네이티브, 네이버=커스텀 플로우)는 이미 완성 — **아래 외부 앱 등록만 하면 켜짐**.
+2026-10-27 재점검. 운영 Supabase는 `exmbpietyadkjnunrhka`, 운영 주소는 https://marketing-allinone.vercel.app 이다.
 
-## 공통 값 (복붙용)
+자격증명 존재·앱 등록만으로 실제 연결/게시 완료가 되지 않는다. 최신 준비표·공식 근거·현재 누락 사항은 [채널 운영 자격증명 준비](CHANNEL_CREDENTIALS_PREPARATION_2026-10-27.md)를 따른다.
 
-| 용도 | 값 |
-|---|---|
-| 카카오·구글 Redirect URI | `https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback` |
-| 네이버 Callback URL (운영) | `https://marketing-allinone.vercel.app/auth/naver/callback` |
-| 네이버 Callback URL (로컬) | `http://localhost:3000/auth/naver/callback` |
+| 목적 | 콜백 | 자격증명 입력 위치 |
+| --- | --- | --- |
+| Google/Kakao 회원 로그인 | https://exmbpietyadkjnunrhka.supabase.co/auth/v1/callback | 운영 Supabase의 해당 Providers |
+| Naver 회원 로그인 | https://marketing-allinone.vercel.app/auth/naver/callback | Vercel NAVER_CLIENT_ID / NAVER_CLIENT_SECRET |
+| Instagram 채널 | https://marketing-allinone.vercel.app/api/connect/instagram/callback | Vercel META_APP_ID / META_APP_SECRET |
+| Facebook 페이지 읽기 전용 | https://marketing-allinone.vercel.app/api/connect/facebook/callback | Vercel FACEBOOK_APP_ID / FACEBOOK_APP_SECRET |
+| Threads 읽기 전용 | https://marketing-allinone.vercel.app/api/connect/threads/callback | Vercel THREADS_APP_ID / THREADS_APP_SECRET |
+| Google Business Profile 채널 | https://marketing-allinone.vercel.app/api/connect/google_business/callback | Vercel GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET |
 
-## 1. 카카오 (제일 중요 — 사장님 대부분 카카오)
+회원 로그인 공급자의 앱·scope·콜백과 채널 운영 권한을 혼동하지 않는다. Naver 로그인은 블로그/플레이스 게시 권한이 아니고 Google OAuth Secret은 Gemini API 키가 아니다. Facebook/Threads 읽기 전용 OAuth를 구현했다. 운영 전용 앱 자격증명 등록·앱 심사·실제 인증은 아직 완료하지 않았다. 게시 권한과 실제 게시 성공을 의미하지 않는다.
 
-1. https://developers.kakao.com → 내 애플리케이션 → **애플리케이션 추가** (이름: 마케팅올인원)
-2. 앱 설정 → 플랫폼 → **Web 플랫폼 등록**: `https://marketing-allinone.vercel.app` (+ 로컬 테스트용 `http://localhost:3000`)
-3. 제품 설정 → **카카오 로그인 활성화** → Redirect URI에 위 공통 callback URL 등록
-4. 동의항목: 닉네임(필수), **카카오계정 이메일(필수 동의)** ← 이메일 없으면 Supabase 매칭 안 됨
-5. 앱 키 → **REST API 키** 복사 + 제품설정→보안→**Client Secret 생성** 복사
-6. → Supabase [Providers](https://supabase.com/dashboard/project/exmbpietyadkjnunrhka/auth/providers) → **Kakao** Enable → (Client ID = REST API 키, Client Secret) 입력 → Save
+## 회원 로그인 준비
 
-## 2. 구글
+- Google/Kakao 개발 콘솔에서 실제 운영자 소유 앱과 운영 콜백, 필요한 회원 프로필 항목, 동의화면·테스트/공개 조건을 확인한다. 소셜 공급자는 현재 운영 Auth 설정에서 비활성이다. 새 가입·인증을 사용자에게 재요청하지 않는다.
+- Naver는 자체 `/auth/naver/start` 및 `/auth/naver/callback` 흐름으로 검증한다. 공식 문서: https://developers.naver.com/docs/login/api/api.md
+- Supabase Site URL과 허용 Redirect URLs는 실제 운영 프로젝트에서 확인한다. 운영 Auth 콜백은 https://marketing-allinone.vercel.app/auth/callback 이며 로컬 테스트 주소를 운영 등록과 혼동하지 않는다.
+- 기존 안내의 확인메일 OFF 권장은 철회한다. 운영 확인메일을 임의로 끄지 않으며 정식 SMTP 준비와 가입/복구 메일 실제 수신·화면 복귀를 검증한다. 기본 발송기의 제한을 성공 1건으로 해소됐다고 판단하지 않는다.
 
-1. https://console.cloud.google.com → 새 프로젝트 → **APIs & Services → OAuth consent screen**
-   - External, 앱 이름·지원 이메일(billy5285@gmail.com). 테스트 모드로 시작 OK
-2. **Credentials → Create Credentials → OAuth client ID** (Web application)
-   - Authorized redirect URIs: 위 공통 callback URL
-3. Client ID + Client Secret 복사 → Supabase Providers → **Google** Enable → 입력 → Save
+## 적용·검증
 
-## 3. 네이버 (커스텀 플로우 — Supabase 네이티브 미지원)
-
-1. https://developers.naver.com → Application → **애플리케이션 등록**
-   - 사용 API: **네이버 로그인** / 제공 정보: 이메일(필수), 닉네임
-2. 서비스 URL: `https://marketing-allinone.vercel.app`
-   **Callback URL: 위 네이버 Callback URL(운영+로컬 둘 다 등록)**
-   (⚠️ 네이버만 Supabase callback이 아니라 **자체 구현** — `/auth/naver/start`→`/auth/naver/callback`, 서비스롤로 Supabase 유저 생성. 코드 이미 있음)
-3. Client ID + Client Secret → **Vercel 환경변수**에 추가(운영) + `web/.env.local`(로컬):
-   ```
-   NAVER_CLIENT_ID=...
-   NAVER_CLIENT_SECRET=...
-   ```
-   Vercel: `vercel env add NAVER_CLIENT_ID production` / `...SECRET...`
-
-## 4. Supabase URL 설정 (한 번만)
-
-[URL Configuration](https://supabase.com/dashboard/project/exmbpietyadkjnunrhka/auth/url-configuration)
-- **Site URL**: `https://marketing-allinone.vercel.app`
-- **Redirect URLs** 에 추가:
-  - `https://marketing-allinone.vercel.app/auth/callback`
-  - `http://localhost:3000/auth/callback` (로컬 개발용)
-
-## 5. (권장) 이메일 회원가입 매끄럽게 — 확인메일 OFF
-
-파일럿 사장님이 이메일로 가입할 때 확인메일 없이 바로 시작하게 하려면:
-[Sign In / Providers → Email](https://supabase.com/dashboard/project/exmbpietyadkjnunrhka/auth/providers) → **Confirm email 끄기(OFF)**
-- 코드는 확인메일 ON/OFF **둘 다 대응**(ON이면 "확인 메일 보냈어요" 안내). OFF면 즉시 온보딩 진입.
-- 소셜 로그인(카카오/구글)만 쓸 거면 이 단계 생략 가능.
-
-## 등록 후 체크리스트
-
-- [ ] 카카오·구글 = Supabase 대시보드 Providers에만 입력 (키를 코드/깃에 넣지 말 것)
-- [ ] 네이버 = Vercel env + `web/.env.local` 2줄
-- [ ] Supabase URL Configuration Site URL·Redirect URLs 등록
-- [ ] 운영 도메인에서 `/login` 각 버튼 실클릭 테스트 (완료 후 클로드가 검증)
+비밀값은 채팅/소스/명령 인자에 남기지 않고 승인된 설정 위치로만 전달한다. 키 등록·Provider 활성화·권한/DB 변경·배포는 이번 준비에서 수행하지 않았다. 설치 후 고객 OAuth 왕복, 거절/만료 처리, 계정 소유권, 일반 사용자 범위, 해제와 실제 외부 동작을 별도로 검증한다. 최신 읽기 전용 확인: 프로젝트 루트에서 `node --import tsx backend/src/check-channel-setup.ts --vercel`.

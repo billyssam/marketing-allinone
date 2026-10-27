@@ -37,10 +37,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
   if (!store) return NextResponse.redirect(new URL('/onboarding', req.url));
 
   // state = 매장·채널·nonce 를 담고 우리 시크릿으로 서명. 콜백에서 위조를 잡는다.
+  const nonce = randomBytes(12).toString('hex');
   const payload = JSON.stringify({
     storeId: store.id as string,
     channel,
-    nonce: randomBytes(12).toString('hex'),
+    nonce,
     at: Date.now(),
   });
   const body = Buffer.from(payload).toString('base64url');
@@ -50,5 +51,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
   // URL 조립은 shared 에 두고 테스트로 지킨다 — 파라미터 하나가 빠져도 실제 OAuth 를
   // 돌려야만 알 수 있는 종류의 결함이라, 라우트 안에 두면 영영 검증이 안 된다.
   const origin = new URL(req.url).origin;
-  return NextResponse.redirect(buildAuthUrl({ cfg, clientId, origin, channel, state }));
+  const response = NextResponse.redirect(buildAuthUrl({ cfg, clientId, origin, channel, state }));
+  if (channel === 'facebook' || channel === 'threads') response.cookies.set(`maio_oauth_${channel}`, nonce, {
+    httpOnly: true, secure: new URL(req.url).protocol === 'https:', sameSite: 'lax',
+    path: `/api/connect/${channel}/callback`, maxAge: 600,
+  });
+  response.headers.set('Cache-Control', 'no-store');
+  response.headers.set('Referrer-Policy', 'no-referrer');
+  return response;
 }

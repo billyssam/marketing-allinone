@@ -23,7 +23,27 @@ export interface OAuthConfig {
   tokenBody: 'form' | 'json';
 }
 
+// New Facebook flow is pinned independently; the existing Instagram flow is unchanged.
+export const FACEBOOK_GRAPH_BASE = 'https://graph.facebook.com/v26.0';
+export const THREADS_GRAPH_BASE = 'https://graph.threads.com/v1.0';
+
 export const OAUTH_CONFIG: Partial<Record<ChannelId, OAuthConfig>> = {
+  facebook: {
+    authUrl: 'https://www.facebook.com/v26.0/dialog/oauth',
+    tokenUrl: `${FACEBOOK_GRAPH_BASE}/oauth/access_token`,
+    clientIdEnv: 'FACEBOOK_APP_ID',
+    clientSecretEnv: 'FACEBOOK_APP_SECRET',
+    scopes: ['pages_show_list', 'pages_read_engagement'],
+    tokenBody: 'form',
+  },
+  threads: {
+    authUrl: 'https://www.threads.com/oauth/authorize',
+    tokenUrl: `${THREADS_GRAPH_BASE}/oauth/access_token`,
+    clientIdEnv: 'THREADS_APP_ID',
+    clientSecretEnv: 'THREADS_APP_SECRET',
+    scopes: ['threads_basic'],
+    tokenBody: 'form',
+  },
   instagram: {
     authUrl: 'https://www.facebook.com/v21.0/dialog/oauth',
     tokenUrl: 'https://graph.facebook.com/v21.0/oauth/access_token',

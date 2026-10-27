@@ -51,6 +51,8 @@ export const OAUTH_CHANNELS: {
   operatorReadyEnv: string;
 }[] = [
   { id: 'instagram', unlocks: '인스타 계정과 접근 권한을 확인해 연결해요', operatorReadyEnv: 'META_APP_ID' },
+  { id: 'facebook', unlocks: '관리하는 Facebook 페이지를 골라 연결해요', operatorReadyEnv: 'FACEBOOK_APP_ID' },
+  { id: 'threads', unlocks: 'Threads 계정을 확인해 연결해요', operatorReadyEnv: 'THREADS_APP_ID' },
   { id: 'google_business', unlocks: '구글 매장 계정을 확인해 연결해요', operatorReadyEnv: 'GOOGLE_CLIENT_ID' },
 ];
 

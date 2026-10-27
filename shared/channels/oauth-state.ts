@@ -15,3 +15,12 @@ export function verifyOAuthState(state: string, secret: string): { storeId: stri
     return { storeId: payload.storeId, channel: payload.channel };
   } catch { return null; }
 }
+
+export function verifyBoundOAuthState(state: string, secret: string, channel: string, nonceCookie: string | undefined) {
+  const verified = verifyOAuthState(state, secret);
+  if (!verified || verified.channel !== channel || !nonceCookie || !/^[a-f0-9]{24}$/.test(nonceCookie)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(state.split('.')[0], 'base64url').toString('utf8'));
+    return payload.nonce === nonceCookie ? verified : null;
+  } catch { return null; }
+}

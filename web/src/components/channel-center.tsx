@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app-header';
 import { toggleChannel } from '@/app/channels/actions';
-import { saveChannelKey } from '@/app/channels/actions';
+import { saveChannelKey, manageSocialConnection } from '@/app/channels/actions';
 import { detectExtension } from '@/lib/extension';
 import {
   canVerifyKey,
@@ -47,6 +48,9 @@ export function ChannelCenter({
   const [openKey, setOpenKey] = useState<ChannelId | null>(null);
   const [extInstalled, setExtInstalled] = useState<boolean | null>(null);
   const [saving, start] = useTransition();
+  const [actionMessage, setActionMessage] = useState('');
+  const router = useRouter();
+  useEffect(() => { setList(rows); }, [rows]);
 
   useEffect(() => {
     void detectExtension().then((r) => setExtInstalled(r.installed));
@@ -81,6 +85,19 @@ export function ChannelCenter({
   const readyCount = grouped.ready.length;
   const oauthCount = grouped.oauth.length;
 
+  function onManage(id: ChannelId, operation: 'verify' | 'refresh' | 'disconnect') {
+    if (busy !== null || saving) return;
+    setBusy(id); setActionError(''); setActionMessage('');
+    start(async () => {
+      try {
+        const result = await manageSocialConnection(id, operation);
+        if (result.error) setActionError(result.error);
+        else { setActionMessage(result.message ?? '연결 상태를 확인했어요.'); router.refresh(); }
+      } catch { setActionError('연결 작업을 완료하지 못했어요. 다시 시도해주세요.'); }
+      finally { setBusy(null); }
+    });
+  }
+
   /**
    * 연결 결과 안내. 주소창 문구는 **고객이 읽는 말**로만 옮긴다 —
    * `not_ready` 를 "App ID 가 없습니다"로 풀면 고객이 할 수 있는 게 없는 정보가 된다.
@@ -90,7 +107,9 @@ export function ChannelCenter({
     const q = new URLSearchParams(window.location.search);
     const connected = q.get('connected');
     if (connected) {
-      const name = rows.find((r) => r.id === connected)?.name ?? '채널';
+      const row = rows.find((r) => r.id === connected);
+      if (!row?.connected || row.readiness !== 'oauth') return { tone: 'info' as const, msg: '계정 연결 상태를 다시 확인해주세요.' };
+      const name = row.name;
       return { tone: 'ok' as const, msg: `${name} 계정이 연결됐어요. 게시할 내용은 확인 후 직접 올려 주세요.` };
     }
     if (q.get('canceled')) return { tone: 'info' as const, msg: '연결을 취소하셨어요. 언제든 다시 하실 수 있어요.' };
@@ -133,6 +152,7 @@ export function ChannelCenter({
 
         {saving && <p role="status" className="mt-4 text-[13px] text-[var(--color-fg-2)]">채널 선택을 저장하고 있어요. 완료될 때까지 잠시 기다려주세요.</p>}
         {actionError && <p role="alert" className="mt-4 text-[13px] text-[var(--color-bad)]">{actionError}</p>}
+        {actionMessage && <p role="status" className="mt-4 text-[13px] text-[var(--color-fg-2)]">{actionMessage}</p>}
         {/* 확장 — 6곳을 한 번에 여는 유일한 동작이라 가장 앞에 세운다.
             이미 깔았으면 조용히 확인만(설치를 다시 권하면 잔소리가 된다) */}
         {extInstalled === false && (
@@ -185,6 +205,7 @@ export function ChannelCenter({
                     recommended={recommended.includes(r.id)}
                     onToggle={onToggle}
                     onOpenKey={() => setOpenKey(r.id)}
+                    onManage={onManage}
                   />
                 ))}
               </div>
@@ -209,13 +230,14 @@ export function ChannelCenter({
 
 /** 한 줄 = 채널 하나. 왼쪽은 정체성, 오른쪽은 **지금 할 수 있는 것** */
 function ChannelLine({
-  row, busy, recommended, onToggle, onOpenKey,
+  row, busy, recommended, onToggle, onOpenKey, onManage,
 }: {
   row: ChannelRow;
   busy: boolean;
   recommended: boolean;
   onToggle: (id: ChannelId, next: boolean) => void;
   onOpenKey: () => void;
+  onManage: (id: ChannelId, operation: 'verify' | 'refresh' | 'disconnect') => void;
 }) {
   return (
     <div className="flex items-center gap-3 bg-[var(--color-panel)] px-4 py-3.5">
@@ -251,15 +273,21 @@ function ChannelLine({
         </div>
       </div>
 
-      <div className="shrink-0">
+      <div className="max-w-[55%] shrink-0">
         {row.readiness === 'oauth' ? (
-          // 고객은 자기 계정으로 로그인만 한다 — 앱 등록·심사는 우리가 끝내 뒀다
+          <div className="flex flex-wrap justify-end gap-2">
           <a
             href={`/api/connect/${row.id}`}
             className="btn-primary rounded-full px-4 py-1.5 text-[12.5px] font-medium"
           >
             {row.connected ? '다시 연결' : '연결하기'}
           </a>
+          {row.connected && (row.id === 'facebook' || row.id === 'threads') && <>
+            <button type="button" disabled={busy} onClick={() => onManage(row.id, 'verify')} className="rounded-full border px-3 py-1 text-[12px] disabled:opacity-50">연결 확인</button>
+            {row.id === 'threads' && <button type="button" disabled={busy} onClick={() => onManage(row.id, 'refresh')} className="rounded-full border px-3 py-1 text-[12px] disabled:opacity-50">연결 갱신</button>}
+          </>}
+          {row.hasKey && (row.id === 'facebook' || row.id === 'threads') && <button type="button" disabled={busy} onClick={() => onManage(row.id, 'disconnect')} className="rounded-full border px-3 py-1 text-[12px] disabled:opacity-50">연결 해제</button>}
+          </div>
         ) : row.readiness === 'needsKey' ? (
           <button
             type="button"
@@ -293,6 +321,7 @@ function ChannelLine({
             />
           </button>
         )}
+        {row.readiness !== 'oauth' && row.hasKey && (row.id === 'facebook' || row.id === 'threads') && <button type="button" disabled={busy} onClick={() => onManage(row.id, 'disconnect')} className="ml-2 rounded-full border px-3 py-1 text-[12px] disabled:opacity-50">계정 연결 해제</button>}
       </div>
     </div>
   );

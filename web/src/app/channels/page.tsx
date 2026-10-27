@@ -7,6 +7,7 @@ import { CHANNELS, CHANNEL_TO_POST } from '@shared/channels/registry';
 import { readinessOf } from '@shared/channels/readiness';
 import { NOT_LIVE_FILTER } from '@shared/posts/status';
 import { operatorReadyIntegrations } from '@/lib/operator-ready';
+import { socialConnectionUsable } from '@shared/channels/social-oauth';
 
 export const metadata = { title: '채널 연결' };
 
@@ -37,7 +38,7 @@ export default async function ChannelsPage() {
    * 표시와 실제를 **같은 줄에** 놓으면 거짓말이 불가능해진다.
    */
   const [connsRes, postsRes] = await Promise.all([
-    supabase.from('channel_connections').select('channel_id, status, access_token').eq('store_id', store.id),
+    supabase.from('channel_connections').select('channel_id, status, access_token, external_id, expires_at').eq('store_id', store.id),
     supabase.from('posts').select('channel, published_at').eq('store_id', store.id).not('status', 'in', NOT_LIVE_FILTER).limit(2000),
   ]);
 
@@ -66,7 +67,9 @@ export default async function ChannelsPage() {
       color: c.color,
       readiness,
       connected: readiness === 'oauth' || readiness === 'needsKey'
-        ? Boolean(conn?.status === 'connected' && conn?.access_token)
+        ? (c.id === 'facebook' || c.id === 'threads')
+          ? Boolean(conn && socialConnectionUsable(conn))
+          : Boolean(conn?.status === 'connected' && conn?.access_token)
         : Boolean(conn),
       hasKey: Boolean(conn?.access_token),
       made: postCh ? (made.get(postCh) ?? 0) : 0,

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyOAuthState as verifyState } from '@shared/channels/oauth-state';
+import { verifyOAuthState as verifyState, verifyBoundOAuthState } from '@shared/channels/oauth-state';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { oauthConfigOf, redirectUriFor } from '@shared/channels/oauth-config';
 import { verifyOAuthIdentity } from '@shared/channels/oauth-identity';
+import { exchangeSocialCode, threadsIdentity } from '@shared/channels/social-oauth';
+import { FACEBOOK_SELECTION_COOKIE, FACEBOOK_SELECTION_PATH, sealFacebookSelection } from '@shared/channels/facebook-selection';
 
 export const runtime = 'nodejs';
 
@@ -16,7 +18,15 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: string }> }) {
   const { channel } = await ctx.params;
   const url = new URL(req.url);
-  const back = (q: string) => NextResponse.redirect(new URL(`/channels?${q}`, req.url));
+  const social = channel === 'facebook' || channel === 'threads';
+  const clearNonce = (response: NextResponse) => {
+    if (social) response.cookies.set(`maio_oauth_${channel}`, '', { httpOnly: true, secure: url.protocol === 'https:',
+      sameSite: 'lax', path: `/api/connect/${channel}/callback`, maxAge: 0 });
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    return response;
+  };
+  const back = (q: string) => clearNonce(NextResponse.redirect(new URL(`/channels?${q}`, req.url)));
 
   const cfg = oauthConfigOf(channel);
   if (!cfg) return back('error=unknown_channel');
@@ -26,15 +36,19 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
   if (!clientId || !secret) return back('error=not_ready');
 
   // 고객이 창을 닫거나 거부한 경우 — 에러가 아니다. 조용히 되돌린다.
-  if (url.searchParams.get('error')) return back('canceled=1');
+  if (!social && url.searchParams.get('error')) return back('canceled=1');
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  if (!code || !state) return back('error=connect_failed');
+  if (!state || (!code && !url.searchParams.get('error'))) return back('error=connect_failed');
 
-  const verified = verifyState(state, secret);
+  const verified = social
+    ? verifyBoundOAuthState(state, secret, channel, req.cookies.get(`maio_oauth_${channel}`)?.value)
+    : verifyState(state, secret);
   // 🔴 서명이 안 맞으면 **남이 만든 링크**다. 절대 저장하지 않는다.
   if (!verified || verified.channel !== channel) return back('error=connect_failed');
+  if (url.searchParams.get('error')) return back('canceled=1');
+  if (!code) return back('error=connect_failed');
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -54,6 +68,30 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
   };
 
   try {
+    if (channel === 'facebook' || channel === 'threads') {
+      const token = await exchangeSocialCode(channel, cfg, { clientId, secret, code, redirectUri: redirectUriFor(url.origin, channel) });
+      if (channel === 'facebook') {
+        const pending = sealFacebookSelection(user.id, store.id, token, secret);
+        const response = NextResponse.redirect(new URL(FACEBOOK_SELECTION_PATH, req.url));
+        response.cookies.set(FACEBOOK_SELECTION_COOKIE, pending, {
+          httpOnly: true, secure: url.protocol === 'https:', sameSite: 'lax',
+          path: FACEBOOK_SELECTION_PATH, maxAge: 600,
+        });
+        response.headers.set('Cache-Control', 'no-store');
+        response.headers.set('Referrer-Policy', 'no-referrer');
+        return clearNonce(response);
+      }
+      const identity = await threadsIdentity(token.accessToken, token.subjectId);
+      const { error } = await admin.from('channel_connections').upsert({
+        store_id: store.id, channel_id: channel, status: 'connected', external_id: identity.externalId,
+        access_token: token.accessToken, refresh_token: null,
+        expires_at: new Date(token.issuedAt + token.expiresIn * 1000).toISOString(),
+        metadata: { connectedAt: new Date().toISOString(), via: channel, identityVerified: true,
+          permissionMode: 'read', tokenIssuedAt: token.issuedAt, tokenLifetimeSeconds: token.expiresIn },
+      }, { onConflict: 'store_id,channel_id' });
+      if (error) { await logFail('연결 정보 저장 실패'); return back('error=connect_failed'); }
+      return back(`connected=${channel}`);
+    }
     const origin = url.origin;
     const form = new URLSearchParams({
       client_id: clientId,
