@@ -13,7 +13,7 @@ export default function PrivacyPage() {
     <article>
       <div className="eyebrow">Legal</div>
       <h1 className="h1 mt-2">개인정보처리방침</h1>
-      <p className="mt-2 text-[13px] text-[var(--color-fg-3)]">시행일: 2026년 7월 22일</p>
+      <p className="mt-2 text-[13px] text-[var(--color-fg-3)]">최근 갱신: 2026년 10월 27일</p>
 
       <S title="1. 수집하는 정보">
         <p>마케팅올인원(이하 &ldquo;서비스&rdquo;)은 다음 정보를 수집·저장합니다.</p>
@@ -23,6 +23,7 @@ export default function PrivacyPage() {
           <li><b className="text-[var(--color-fg)]">공개 리뷰</b>: 회원이 등록한 플레이스 주소에서 수집한 공개 리뷰 내용</li>
           <li><b className="text-[var(--color-fg)]">단골 정보</b>: 회원이 직접 입력한 고객 이름·연락처(선택 기능)</li>
           <li><b className="text-[var(--color-fg)]">생성 기록</b>: 서비스가 만든 콘텐츠 초안과 이용 활동 로그</li>
+          <li><b className="text-[var(--color-fg)]">외부 채널 연결</b>: 회원이 연결을 허용한 경우 채널 계정·페이지 식별자, 접근 토큰, 토큰 만료 시각과 연결 확인 기록을 저장합니다. Facebook 페이지를 선택하는 동안에는 암호화된 임시 쿠키를 최대 10분간 사용합니다.</li>
         </ul>
       </S>
 
@@ -31,6 +32,7 @@ export default function PrivacyPage() {
           <li>회원 식별과 로그인 등 서비스 제공</li>
           <li>매장 맞춤 마케팅 콘텐츠(블로그·SNS 초안, 리뷰 답글, 재방문 메시지) 생성</li>
           <li>리뷰 수집·감정 분석 등 매장 운영 지표 제공</li>
+          <li>회원이 허용한 외부 채널의 계정·접근 권한 확인과 연결 유지. Facebook·Threads 연결은 현재 읽기 전용이며 게시 권한을 요청하지 않습니다.</li>
         </ul>
         <p>수집한 정보를 광고 판매, 제3자 마케팅 등 위 목적 외로 사용하지 않습니다.</p>
       </S>
@@ -47,6 +49,7 @@ export default function PrivacyPage() {
 
       <S title="4. 보유 기간과 파기">
         <p>회원 탈퇴 시 계정과 매장·콘텐츠·리뷰·단골 정보를 즉시 삭제합니다. 법령상 보존 의무가 있는 정보는 해당 기간 동안만 별도 보관 후 파기합니다.</p>
+        <p>Facebook·Threads는 채널 설정의 연결 해제로 저장된 접근 토큰·계정 식별자·만료 정보를 제거할 수 있습니다. 이 서비스에서 연결을 해제해도 외부 서비스의 앱 허용 권한은 남을 수 있으며, 해당 서비스 설정에서 별도로 철회할 수 있습니다. 연결 해제는 매장 정보나 작성한 초안을 삭제하지 않습니다.</p>
       </S>
 
       <S title="5. 단골(고객) 정보에 대한 책임">
