@@ -25,6 +25,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 export function PushToggle({ publicKey, emphasize = false }: { publicKey?: string; emphasize?: boolean }) {
   const [state, setState] = useState<State>('loading');
   const [busy, setBusy] = useState(false);
+  const [permissionPending, setPermissionPending] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -70,22 +71,32 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
     setBusy(true);
     setErr('');
     try {
-      const perm = await Notification.requestPermission();
+      let perm: NotificationPermission;
+      setPermissionPending(true);
+      try {
+        // 인앱 브라우저가 허용 요청에 응답하지 않아도 버튼을 계속 잠그지 않는다.
+        perm = await bounded(Notification.requestPermission(), 30_000);
+      } catch {
+        setErr('알림 허용 응답을 받지 못했어요. 브라우저의 알림 허용 창을 확인한 뒤 다시 눌러주세요. 창이 보이지 않으면 일반 Chrome 또는 Safari에서 열어주세요.');
+        return;
+      } finally {
+        setPermissionPending(false);
+      }
       if (perm !== 'granted') {
         setState(perm === 'denied' ? 'denied' : 'off');
         return;
       }
       const reg = await bounded(navigator.serviceWorker.ready);
-      const existing = await reg.pushManager.getSubscription();
+      const existing = await bounded(reg.pushManager.getSubscription());
       const saved = await bounded(savedPushEndpoints());
       if (!saved.ok) throw new Error('구독 확인 실패');
       const sameOwner = existing && saved.endpoints.includes(existing.endpoint);
       // 공유 기기에서 이전 계정의 구독을 새 계정에 그대로 붙이지 않는다.
-      if (existing && !sameOwner) await existing.unsubscribe();
-      const sub = (sameOwner ? existing : null) ?? await reg.pushManager.subscribe({
+      if (existing && !sameOwner) await bounded(existing.unsubscribe());
+      const sub = (sameOwner ? existing : null) ?? await bounded(reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
+      }));
       const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
       const res = await bounded(savePushSubscription({
         endpoint: json.endpoint ?? '',
@@ -108,12 +119,12 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
     setErr('');
     try {
       const reg = await bounded(navigator.serviceWorker.ready);
-      const sub = await reg.pushManager.getSubscription();
+      const sub = await bounded(reg.pushManager.getSubscription());
       if (sub) {
         const removed = await bounded(removePushSubscription(sub.endpoint));
         if (!removed.ok) throw new Error(removed.error);
         setState('off');
-        const unsubscribed = await sub.unsubscribe();
+        const unsubscribed = await bounded(sub.unsubscribe());
         if (!unsubscribed) throw new Error('해제 실패');
       }
       setState('off');
@@ -180,7 +191,7 @@ export function PushToggle({ publicKey, emphasize = false }: { publicKey?: strin
             : 'btn-primary shrink-0 rounded-full px-4 py-1.5 text-[12.5px] font-medium disabled:opacity-40'
         }
       >
-        {busy ? '저장 중…' : state === 'on' ? '알림 끄기' : '알림 켜기'}
+        {busy ? (permissionPending ? '허용 대기…' : '저장 중…') : state === 'on' ? '알림 끄기' : '알림 켜기'}
       </button>
     </div>
   );
