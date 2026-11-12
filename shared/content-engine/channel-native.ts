@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleContentClient } from './google-client';
 import type { ChannelId } from '../channels/registry';
 import type { DraftInput, DraftOutput } from './types';
 import { htmlToPlain } from './channel-formatter';
@@ -100,8 +100,8 @@ async function repairFactlessChannels(
   out: Partial<Record<ChannelId, NativeVersion>>,
   targets: ChannelId[],
   input: DraftInput,
-  genAI: GoogleGenerativeAI,
-  model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+  genAI: GoogleContentClient,
+  model: ReturnType<GoogleContentClient['getGenerativeModel']>,
   configuredModel?: string,
 ): Promise<void> {
   type Problem = { c: ChannelId; kind: 'voice' | 'fact' | 'short'; detail: string };
@@ -286,8 +286,8 @@ const isTransient = (e: unknown) =>
  * 외부 장애로 품질이 무너지면 안 된다. lite 재시도 2회 → 그래도 안 되면 flash 1회.
  */
 async function generateWithRetry(
-  genAI: GoogleGenerativeAI,
-  model: ReturnType<GoogleGenerativeAI['getGenerativeModel']>,
+  genAI: GoogleContentClient,
+  model: ReturnType<GoogleContentClient['getGenerativeModel']>,
   prompt: string,
   configuredModel?: string,
 ) {
@@ -339,7 +339,7 @@ export async function nativizeShortForm(
   master: DraftOutput,
   input: DraftInput,
   channels: ChannelId[],
-  config?: { apiKey?: string; model?: string },
+  config?: { apiKey?: string; model?: string; deadline?: number },
 ): Promise<Partial<Record<ChannelId, NativeVersion>>> {
   const targets = channels.filter((c) => SHORT_FORM.includes(c));
   if (!targets.length) return {};
@@ -360,7 +360,7 @@ export async function nativizeShortForm(
   const key = resolveKey(config);
   if (!key) return {}; // 키 없으면 조용히 스킵 (formatter 규칙기반 폴백)
 
-  const genAI = new GoogleGenerativeAI(key);
+  const genAI = new GoogleContentClient(key, config?.deadline);
   const model = genAI.getGenerativeModel({
     // 단문 재작성은 가벼운 작업 → flash-lite(무료 한도 더 큼: ~15RPM/1000RPD, 모델별 별도 버킷)
     // 마스터(기획·본문)는 flash 유지. 쿼터 분산 + RPM 압력 감소.
@@ -438,7 +438,7 @@ tags는 인스타에만 (해시태그용, # 없이 단어만, 최대 20). 나머
     } catch (e) {
       // 조용히 삼키면 크론에서 캡션이 규칙 폴백으로 나가도 아무도 모른다(실측으로 겪음)
       console.warn(
-        `[native] JSON 파싱 실패(finish=${finish}, len=${raw.length}): ${(e as Error).message}\n  앞 160자: ${raw.slice(0, 160)}`,
+        `[native] JSON 파싱 실패(finish=${finish}, len=${raw.length})`,
       );
       throw e;
     }

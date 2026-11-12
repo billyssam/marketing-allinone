@@ -56,7 +56,8 @@ export function ChannelMarketplace() {
                           {au.label}
                         </span>
                       </div>
-                      <div className="mono mt-2 truncate text-[10px] text-[var(--color-fg-3)]">{c.actions.join(' · ')}</div>
+                      <div className="mt-2 text-[11px] text-[var(--color-fg-3)]">플랫폼 기능: {c.actions.join(' · ')}</div>
+                      <p className="mt-1 text-[11px] text-[var(--color-fg-2)]">현재 앱의 지원 범위와 직접 처리할 단계는 연결 화면에서 확인하세요.</p>
                     </div>
                   );
                 })}

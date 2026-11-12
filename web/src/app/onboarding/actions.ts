@@ -9,6 +9,8 @@ import type { ChannelId } from '@shared/channels/registry';
 import type { StoreOffering } from '@shared/content-engine/types';
 import { CONTENT_CHANNELS, contentChannelsFor } from '@shared/channels/registry';
 import { generationFailure } from '@shared/generation-error';
+import { onboardingInput } from '@shared/store-input';
+import { reserveOnboarding, GenerationReservationError } from '@shared/generation-reservation';
 
 export interface OnboardingPayload {
   storeName: string;
@@ -21,9 +23,16 @@ export interface OnboardingPayload {
 }
 
 export async function completeOnboarding(payload: OnboardingPayload): Promise<{ ok: boolean; error?: string }> {
+  const checked = onboardingInput.safeParse(payload);
+  if (!checked.success) return { ok: false, error: '매장 정보·판매 항목·가격을 확인해주세요. 이름은 80자, 항목은 40개까지 입력할 수 있어요.' };
+  payload = { ...checked.data, channels: checked.data.channels as ChannelId[] };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: '로그인이 필요합니다' };
+  let release: () => Promise<void>;
+  try { release = await reserveOnboarding(createServiceClient(), user.id); }
+  catch (error) { return { ok: false, error: error instanceof GenerationReservationError ? error.message : '매장 설정 상태를 확인하지 못했어요.' }; }
+  try {
   if (!payload?.storeName?.trim() || !payload.industryId) return { ok: false, error: '매장 이름과 업종을 먼저 입력해주세요.' };
   const { data: existing, error: existingError } = await supabase.from('stores')
     .select('id,onboarded_at').eq('owner_id', user.id).maybeSingle();
@@ -35,7 +44,7 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
   const offerings: StoreOffering[] = (payload.offerings ?? [])
     .map((o) => ({
       name: (o.name ?? '').trim(),
-      price: typeof o.price === 'number' && !Number.isNaN(o.price) ? o.price : undefined,
+      price: typeof o.price === 'number' && Number.isFinite(o.price) && o.price >= 0 ? o.price : undefined,
     }))
     .filter((o) => o.name)
     .slice(0, 40);
@@ -125,4 +134,5 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
   }
 
   redirect('/dashboard');
+  } finally { await release(); }
 }

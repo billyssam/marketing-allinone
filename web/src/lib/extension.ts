@@ -15,6 +15,8 @@
  * 설치를 강요하면 첫날 이탈한다. 그래서 감지 실패는 조용히 false 다.
  */
 
+import { compatibleExtension } from '@shared/extension-version';
+
 const WEB = 'maio-web';
 const EXT = 'maio-ext';
 
@@ -52,7 +54,7 @@ function ask<T extends Record<string, unknown>>(
 /** 확장이 설치돼 있고 말이 통하는가. 설치 안 한 게 정상이므로 실패는 조용히 false. */
 export async function detectExtension(timeoutMs = 1200): Promise<{ installed: boolean; version?: string }> {
   const r = await ask({ type: 'PING' }, timeoutMs);
-  return r.ok ? { installed: true, version: r.version } : { installed: false };
+  return r.ok && compatibleExtension(r.version) ? { installed: true, version: r.version } : { installed: false, version: r.version };
 }
 
 /** 확장이 지금 채워 넣을 수 있는 채널 — 여기 없는 채널은 붙여넣기로 간다 */
@@ -88,5 +90,6 @@ export interface BlogDraftPayload {
 export async function sendDraftToExtension(
   payload: BlogDraftPayload,
 ): Promise<{ ok: boolean; error?: string; note?: string }> {
+  if (!(await detectExtension()).installed) return { ok: false, error: '확장을 최신 버전으로 업데이트하거나 직접 복사를 이용해주세요.' };
   return ask({ type: 'DRAFT_READY', payload }, 8000);
 }

@@ -118,6 +118,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
     }
 
     const identity = await verifyOAuthIdentity(channel, token.access_token);
+    let metaAppUserId: string | undefined;
+    if (channel === 'instagram') {
+      const subjectResponse = await fetch('https://graph.facebook.com/v21.0/me?fields=id', {
+        headers: { Authorization: `Bearer ${token.access_token}` }, signal: AbortSignal.timeout(10000),
+      });
+      const subject = await subjectResponse.json();
+      if (!subjectResponse.ok || typeof subject.id !== 'string' || !/^\d+$/.test(subject.id)) {
+        throw new Error('앱 사용자 식별자를 확인하지 못했습니다.');
+      }
+      metaAppUserId = subject.id;
+    }
     const rows = [{
       store_id: store.id,
       channel_id: channel,
@@ -126,7 +137,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
       access_token: token.access_token,
       refresh_token: token.refresh_token ?? null,
       expires_at: token.expires_in ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null,
-      metadata: { connectedAt: new Date().toISOString(), via: channel, identityVerified: true },
+      metadata: { connectedAt: new Date().toISOString(), via: channel, identityVerified: true,
+        ...(metaAppUserId ? { metaAppUserId } : {}) },
     }];
     const { error } = await admin
       .from('channel_connections')

@@ -12,6 +12,8 @@ import { detectExtension, sendDraftToExtension, isOneClickChannel, ONE_CLICK_LAB
 type Step = 'title' | 'body' | 'tags' | 'done';
 
 interface Draft {
+  reviewRequired?: boolean;
+  qualityNotes?: string[];
   status?: string;
   title: string;
   bodyHtml: string;
@@ -30,7 +32,7 @@ interface Draft {
 const CH_META: Record<string, { caption: boolean; hasTags: boolean; appHref: string; appScheme?: string; appLabel: string; targetName: string }> = {
   blog: { caption: false, hasTags: true, appHref: 'https://m.blog.naver.com', appScheme: 'naverblog://write', appLabel: '네이버 블로그 앱 열기', targetName: '블로그' },
   instagram: { caption: true, hasTags: false, appHref: 'https://www.instagram.com', appScheme: 'instagram://app', appLabel: '인스타그램 앱 열기', targetName: '인스타그램' },
-  threads: { caption: true, hasTags: false, appHref: 'https://www.threads.net', appLabel: '스레드 열기', targetName: '스레드' },
+  threads: { caption: true, hasTags: false, appHref: 'https://www.threads.com', appLabel: '스레드 열기', targetName: '스레드' },
   facebook: { caption: true, hasTags: false, appHref: 'https://www.facebook.com', appLabel: '페이스북 열기', targetName: '페이스북' },
   google_gbp: { caption: true, hasTags: false, appHref: 'https://business.google.com/posts', appLabel: '구글 비즈니스 열기', targetName: '구글 비즈니스' },
   // 플레이스 '소식'·당근 '동네홍보'·밴드·카카오채널 — 모두 제목 없는 단일 텍스트 입력
@@ -94,7 +96,7 @@ function PrepareInner() {
   }, []);
 
   async function sendToBlog() {
-    if (!draft || !isOneClickChannel(draft.channel)) return;
+    if (!draft || draft.reviewRequired || !isOneClickChannel(draft.channel)) return;
     setOneClick((s) => ({ ...s, sending: true, error: '' }));
     const res = await sendDraftToExtension({
       postId: postId ?? '',
@@ -112,6 +114,8 @@ function PrepareInner() {
   /** 손보기 — 초안이 마음에 안 들 때 그대로 올리게 두지 않는다(파일럿 첫날 확실히 나올 요구) */
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState('');
+  const [reviewBody, setReviewBody] = useState<string | undefined>();
+  const [reviewTitle, setReviewTitle] = useState<string | undefined>();
   const [saving, setSaving] = useState(false);
   const [editErr, setEditErr] = useState('');
 
@@ -181,7 +185,7 @@ function PrepareInner() {
         // 로드 완료 = 즉시 상태 클리어. 자동복사는 베스트에포트(제스처 없으면
         // 브라우저가 거부/무한대기할 수 있어 status를 여기에 묶으면 로딩 필이 잔존)
         setStatus({ tone: 'ok', msg: '' });
-        void copyCurrent(first, d);
+        if (!d.reviewRequired) void copyCurrent(first, d);
       })
       .catch(() => setStatus({ tone: 'err', msg: '초안을 불러오지 못했어요. 대시보드에서 다시 열어주세요.' }));
   }, [postId]);
@@ -246,8 +250,39 @@ function PrepareInner() {
     }
   }
 
+  if (draft?.reviewRequired) return (
+    <main className="mx-auto max-w-xl p-6">
+      <h1 className="text-xl font-semibold">게시 전에 초안을 확인해주세요</h1>
+      <p className="my-4">내용과 문장 끝을 확인하고 필요한 부분을 고쳐주세요. 검토를 마칠 때까지 복사·게시 보조를 잠시 멈췄어요.</p>
+      <ul>{draft.qualityNotes?.map((note, i) => <li key={i}>{note}</li>)}</ul>
+      <label className="block mt-4">제목
+        <input className="w-full border rounded p-3" value={reviewTitle ?? draft.title}
+          maxLength={120} onChange={(e) => setReviewTitle(e.target.value)} />
+      </label>
+      <label className="block mt-4">본문
+        <textarea className="w-full min-h-64 border rounded p-3" value={reviewBody ?? draft.bodyPlain}
+          maxLength={20000} onChange={(e) => setReviewBody(e.target.value)} />
+      </label>
+      <button className="btn-primary mt-4 p-3 rounded" disabled={saving} onClick={async () => {
+        if (!postId) return;
+        setSaving(true); setEditErr('');
+        try {
+          const result = await updatePostDraft(postId, { title: reviewTitle ?? draft.title, bodyPlain: reviewBody ?? draft.bodyPlain });
+          if (!result.ok) setEditErr(result.error ?? '저장하지 못했어요.');
+          else window.location.reload();
+        } catch { setEditErr('저장하지 못했어요. 다시 시도해주세요.'); }
+        finally { setSaving(false); }
+      }}>{saving ? '확인 중…' : '검토한 내용 저장'}</button>
+      {editErr && <p role="alert">{editErr}</p>}
+      <Link className="block mt-4" href="/posts">초안 목록으로</Link>
+    </main>
+  );
+
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-5 pb-8 pt-10">
+      {!!draft?.qualityNotes?.length && <aside className="mb-4 rounded border p-3 text-sm" aria-label="초안 품질 안내">
+        {draft.qualityNotes.map((note, i) => <p key={i}>{note}</p>)}
+      </aside>}
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <span className="eyebrow">{draft?.storeName ?? '붙여넣기 도우미'}</span>

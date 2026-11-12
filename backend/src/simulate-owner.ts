@@ -277,7 +277,14 @@ async function main() {
     const NEXT = /다음|시작|완료/;
 
     // 스텝1 — 매장 이름
-    if (await fillOrStuck(page, /쿵더쿵|상호|매장/, STORE, '스텝1 매장명')) taps++;
+    const storeNameInput = page.getByRole('textbox', { name: '매장 이름', exact: true });
+    if (await storeNameInput.count() === 1) {
+      await storeNameInput.fill(STORE);
+      taps++;
+    } else {
+      stuck('매장 이름 입력칸을 찾지 못해 이후 온보딩 단계를 실행하지 않는다');
+      return;
+    }
     if (await clickOrStuck(page, NEXT, '스텝1')) taps++;
     await page.waitForTimeout(900);
 

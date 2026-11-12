@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChannelId } from '@shared/channels/registry';
 import type { ChannelDraftBundle } from '@shared/content-engine/orchestrator';
 import { type PostChannel, CHANNEL_TO_POST } from '@shared/channels/registry';
+import { safeDraftHtml } from '@shared/safe-html';
+import { checkPosts } from '@shared/content-engine/quality';
 
 // posts.channel enum·매핑은 shared/channels/registry가 단일 원천 → 재수출
 export type { PostChannel };
@@ -63,6 +65,7 @@ export function postDisplayTitle(p: { title?: string | null; body_plain?: string
 export const CHANNEL_TO_POST_CHANNEL = CHANNEL_TO_POST;
 
 export interface PersistedPost {
+  reviewRequired: boolean;
   id: string;
   channel: PostChannel;
   engineChannel: ChannelId;
@@ -80,7 +83,14 @@ export async function persistDrafts(
   supabase: SupabaseClient,
   storeId: string,
   bundle: ChannelDraftBundle,
+  storeName = '',
 ): Promise<PersistedPost[]> {
+  const quality = checkPosts(Object.entries(bundle.perChannel).map(([channel, draft]) => ({
+    channel, title: draft?.title ?? null, bodyPlain: draft?.bodyPlain ?? '',
+  })), storeName, { storeHasFacts: false });
+  // Empty output must not become a successful, billable-looking draft.
+  if (quality.some((issue) => issue.rule === 'empty')) throw new Error('생성된 본문이 비어 있어 저장하지 않았어요.');
+  const needsReview = quality.some((issue) => issue.severity === 'critical') || Boolean(bundle.salvaged);
   const rows = Object.entries(bundle.perChannel)
     .map(([engineChannel, draft]) => {
       const channel = CHANNEL_TO_POST_CHANNEL[engineChannel as ChannelId];
@@ -89,7 +99,7 @@ export async function persistDrafts(
         store_id: storeId,
         channel,
         title: draft.title ?? null,
-        body_html: draft.bodyHtml ?? null,
+        body_html: draft.bodyHtml ? safeDraftHtml(draft.bodyHtml) : null,
         body_plain: draft.bodyPlain ?? null,
         tags: draft.tags ?? [],
         status: 'draft' as const,
@@ -97,6 +107,10 @@ export async function persistDrafts(
           engineChannel,
           native: draft.meta?.native === true,
           qualityNotes: bundle.master.qualityNotes ?? [],
+          degraded: bundle.degraded,
+          salvaged: bundle.salvaged,
+          quality,
+          reviewRequired: needsReview,
         },
       };
     })
@@ -104,26 +118,14 @@ export async function persistDrafts(
 
   if (rows.length === 0) return [];
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from('posts')
     .insert(rows)
     .select('id, channel, title, status, metadata');
 
-  // 채널별 실패 격리 — DB enum에 아직 없는 채널(마이그레이션 대기) 하나 때문에
-  // 나머지 채널 글까지 통째로 날아가지 않게. 개별 insert로 폴백해 되는 것만 저장한다.
-  if (error) {
-    const saved: NonNullable<typeof data> = [];
-    const skipped: string[] = [];
-    for (const row of rows) {
-      const r = await supabase.from('posts').insert(row).select('id, channel, title, status, metadata').maybeSingle();
-      if (r.error || !r.data) skipped.push(row.channel);
-      else saved.push(r.data);
-    }
-    if (!saved.length) throw new Error(`posts 저장 실패: ${error.message}`);
-    if (skipped.length) console.warn(`[posts] 저장 스킵(DB 미지원 채널): ${skipped.join(', ')}`);
-    data = saved;
-    error = null;
-  }
+  // One PostgREST INSERT is transactional. Never retry individually after an
+  // uncertain response: it can silently omit channels or duplicate saved drafts.
+  if (error || data?.length !== rows.length) throw new Error('선택한 채널의 초안을 모두 저장하지 못했어요. 목록을 확인한 뒤 다시 시도해주세요.');
 
   return (data ?? []).map((d) => ({
     id: d.id as string,
@@ -131,10 +133,13 @@ export async function persistDrafts(
     engineChannel: (d.metadata?.engineChannel ?? d.channel) as ChannelId,
     title: (d.title ?? null) as string | null,
     status: d.status as string,
+    reviewRequired: d.metadata?.reviewRequired === true,
   }));
 }
 
 export interface PrepareDraft {
+  reviewRequired?: boolean;
+  qualityNotes?: string[];
   storeName: string;
   channel: PostChannel;
   title: string;
@@ -154,7 +159,7 @@ export async function getPreparePost(
 ): Promise<PrepareDraft | null> {
   const { data, error } = await supabase
     .from('posts')
-    .select('title, body_html, body_plain, tags, channel, status, stores(name)')
+    .select('title, body_html, body_plain, tags, channel, status, metadata, stores(name)')
     .eq('id', postId)
     .maybeSingle();
 
@@ -166,9 +171,15 @@ export async function getPreparePost(
 
   return {
     storeName: storeName ?? '내 매장',
+    reviewRequired: data.metadata?.reviewRequired === true,
+    qualityNotes: [
+      ...(Array.isArray(data.metadata?.qualityNotes) ? data.metadata.qualityNotes.filter((note: unknown) => typeof note === 'string') : []),
+      ...(data.metadata?.degraded ? ['다른 모델로 생성한 초안입니다. 내용을 확인해주세요.'] : []),
+      ...(data.metadata?.salvaged ? ['응답을 복구한 초안입니다. 문장이 끝까지 작성됐는지 확인해주세요.'] : []),
+    ],
     channel: data.channel as PostChannel,
     title: data.title ?? '',
-    bodyHtml: data.body_html ?? '',
+    bodyHtml: safeDraftHtml(data.body_html ?? ''),
     bodyPlain: data.body_plain ?? '',
     tags: (data.tags ?? []) as string[],
     status: data.status as string,

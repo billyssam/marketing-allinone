@@ -185,14 +185,14 @@ export default async function PostsPage({ searchParams }: { searchParams: Promis
                       group === 'published' ? 'text-[var(--color-good)]' : group === 'archived' ? 'text-[var(--color-fg-4)]' : 'text-[var(--color-amber)]'
                     }`}
                   >
-                    {STATUS_LABEL[p.status as string] ?? (p.status as string)}
+                    {p.metadata?.reviewRequired ? '내용 검토 필요' : STATUS_LABEL[p.status as string] ?? (p.status as string)}
                   </span>
                   {group === 'draft' && (
                     <Link
                       href={`/prepare?post=${p.id}`}
                       className="btn-primary shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-medium"
                     >
-                      붙여넣기 →
+                      {p.metadata?.reviewRequired ? '검토·수정 →' : '붙여넣기 →'}
                     </Link>
                   )}
                   {group === 'published' && p.external_url && (

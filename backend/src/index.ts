@@ -8,11 +8,10 @@ const app = new Hono();
 
 app.use('*', logger());
 const WEB_ORIGIN = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
-const VERCEL_RE = /^https:\/\/.+\.vercel\.app$/;
 app.use('*', cors({
   origin: (origin) => {
     if (!origin) return null;
-    return origin === WEB_ORIGIN || VERCEL_RE.test(origin) ? origin : null;
+    return origin === WEB_ORIGIN ? origin : null;
   },
   credentials: true,
 }));

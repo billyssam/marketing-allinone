@@ -44,8 +44,13 @@ export async function GET(request: NextRequest) {
     // 3) find or create Supabase user
     const admin = createServiceClient();
     let userId: string | undefined;
-    const { data: list } = await admin.auth.admin.listUsers();
-    const found = list?.users?.find((u: { email?: string }) => u.email === email);
+    let found: { id: string } | undefined;
+    for (let page = 1; ; page++) {
+      const { data: list, error: listError } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (listError) throw new Error('회원 정보를 확인하지 못했습니다.');
+      found = list?.users?.find((u: { email?: string }) => u.email?.toLowerCase() === email.toLowerCase());
+      if (found || !list?.users?.length || list.users.length < 1000) break;
+    }
     if (found) {
       userId = found.id;
     } else {
@@ -71,7 +76,7 @@ export async function GET(request: NextRequest) {
     res.cookies.delete('naver_oauth_state');
     return res;
   } catch (e) {
-    console.error('[naver oauth]', e);
+    console.error('[naver oauth] 계정 검증 또는 세션 연결 실패');
     return NextResponse.redirect(`${origin}/login?error=naver_failed`);
   }
 }

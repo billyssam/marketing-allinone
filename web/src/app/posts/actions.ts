@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { plainTextHtml } from '@shared/post-edit';
+import { checkPosts } from '@shared/content-engine/quality';
 
 /**
  * 발행 취소 — "완료를 눌렀지만 실제로는 안 올린" 경우를 되돌린다.
@@ -31,7 +32,7 @@ export async function unpublishPost(postId: string): Promise<{ ok: boolean; erro
     .select('id')
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: '초안 상태를 저장하지 못했어요. 다시 시도해주세요.' };
   revalidatePath('/posts');
   revalidatePath('/dashboard');
   return { ok: Boolean(data) };
@@ -69,20 +70,36 @@ export async function updatePostDraft(
   if (patch.title && patch.title.trim().length > 120) return { ok: false, error: '제목은 120자 이내로 입력해주세요.' };
   const title = patch.title === undefined ? undefined : (patch.title ?? '').trim() || null;
 
+  const { data: current, error: readError } = await supabase.from('posts')
+    .select('status,title,body_plain,channel,metadata,updated_at,stores(name)').eq('id', postId).maybeSingle();
+  if (readError || !current) return { ok: false, error: '초안 상태를 확인하지 못했어요.' };
+  if (!['draft', 'ready'].includes(current.status) && !(current.status === 'failed' && current.metadata?.reviewRequired)) {
+    return { ok: false, error: '이 글은 수정할 수 없어요.' };
+  }
+  const store = current.stores as unknown as { name?: string } | null;
+  const quality = checkPosts([{ channel: current.channel, title: title === undefined ? current.title : title,
+    bodyPlain: body ?? current.body_plain }], store?.name ?? '', { storeHasFacts: false });
+  if (quality.some((issue) => issue.severity === 'critical')) {
+    return { ok: false, error: '본문의 계절·표현·내용을 다시 확인해주세요. 확인이 필요한 표현이 남아 있어요.' };
+  }
+
   const { data, error } = await supabase
     .from('posts')
     .update({
       ...(title !== undefined ? { title } : {}),
       ...(body ? { body_plain: body, body_html: plainTextHtml(body) } : {}),
+      ...(current.status === 'failed' ? { status: 'draft' } : {}),
+      metadata: { ...current.metadata, quality, reviewRequired: false, reviewedAt: new Date().toISOString() },
       // 사장님이 손댔다는 흔적 — 나중에 "어떤 글을 고쳐 쓰는가"를 보고 프롬프트를 고칠 근거가 된다
       updated_at: new Date().toISOString(),
     })
     .eq('id', postId)
-    .in('status', ['draft', 'ready']) // 발행·보관된 글은 건드리지 않는다
+    .eq('status', current.status)
+    .eq('updated_at', current.updated_at)
     .select('id')
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: '초안을 저장하지 못했어요. 다시 시도해주세요.' };
   if (!data) return { ok: false, error: '이미 발행했거나 보관된 글은 고칠 수 없어요' };
   revalidatePath('/posts');
   revalidatePath('/dashboard');

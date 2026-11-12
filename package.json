@@ -17,5 +17,12 @@
     "test": "npm test -w backend",
     "check": "npm run typecheck && npm test && npm run build && npm audit --audit-level=moderate",
     "build": "npm run build -w web && npm run build -w backend && npm run build -w bot"
+  },
+  "dependencies": {
+    "@google/genai": "3.2.0",
+    "sanitize-html": "2.18.2"
+  },
+  "devDependencies": {
+    "@types/sanitize-html": "2.16.2"
   }
 }

@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { reserveGeneration } from '@shared/generation-reservation';
+import { createServiceClient } from '@/lib/supabase/server';
 import { persistDrafts, type PersistedPost } from '@/lib/posts';
 import { generateChannelDrafts } from '@shared/content-engine/orchestrator';
 import { placeFromBrandTone } from '@shared/content-engine/place-facts';
@@ -90,7 +92,10 @@ export async function generateForStore(
   };
   const channels: ChannelId[] = opts.channels?.length ? opts.channels : ['naver_blog'];
 
-  const bundle = await generateChannelDrafts(input, channels);
-  const posts = await persistDrafts(supabase, store.id, bundle);
-  return { title: bundle.master.title, posts };
+  const reservation = await reserveGeneration(createServiceClient(), store.id);
+  try {
+    const bundle = await generateChannelDrafts(input, channels);
+    const posts = await persistDrafts(supabase, store.id, bundle, store.name);
+    return { title: bundle.master.title, posts };
+  } finally { await reservation.release(); }
 }

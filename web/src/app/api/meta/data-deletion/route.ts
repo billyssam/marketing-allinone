@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 import { createServiceClient } from '@/lib/supabase/server';
 
 /**
@@ -78,11 +78,21 @@ export async function POST(req: NextRequest) {
 
   // 연동 해제 — 그 Meta 사용자로 연결된 인스타 채널만 지운다
   const supabase = createServiceClient();
+  const { count: mapped, error: mappingError } = await supabase.from('channel_connections')
+    .select('id', { count: 'exact', head: true }).eq('channel_id', 'instagram')
+    .eq('metadata->>metaAppUserId', payload.user_id);
+  if (mappingError) return NextResponse.json({ error: 'mapping_check_failed' }, { status: 503 });
+  if (!mapped) {
+    const { count: legacy, error: legacyError } = await supabase.from('channel_connections')
+      .select('id', { count: 'exact', head: true }).eq('channel_id', 'instagram')
+      .eq('status', 'connected').is('metadata->>metaAppUserId', null);
+    if (legacyError || legacy) return NextResponse.json({ error: 'identity_mapping_required' }, { status: 409 });
+  }
   const { error } = await supabase
     .from('channel_connections')
     .delete()
     .eq('channel_id', 'instagram')
-    .eq('external_id', payload.user_id);
+    .eq('metadata->>metaAppUserId', payload.user_id);
   if (error) {
     console.error('[meta/data-deletion] 연동 삭제 실패:', error.message);
     return NextResponse.json({ error: 'delete_failed' }, { status: 500 });
@@ -90,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   // Meta 규격: 확인 URL + 추적용 코드를 돌려준다. 사용자가 그 URL로 진행 상황을 볼 수 있어야 한다.
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'https://marketing-allinone.vercel.app';
-  const code = `ig-${payload.user_id}`;
+  const code = `ig-${randomUUID()}`;
   return NextResponse.json({
     url: `${base}/legal/data-deletion?code=${encodeURIComponent(code)}`,
     confirmation_code: code,

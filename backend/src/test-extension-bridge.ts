@@ -133,7 +133,7 @@ async function main() {
     window.__maioRelay = [];
     window.chrome = {
       runtime: {
-        getManifest: function () { return { version: '0.3.0' }; },
+        getManifest: function () { return { version: '0.5.2' }; },
         sendMessage: function (msg, cb) {
           window.__maioRelay.push(msg && msg.type);
           if (cb) cb({ ok: true });

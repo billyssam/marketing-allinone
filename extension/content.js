@@ -248,6 +248,13 @@ function containsStart(a, b, len = 8) {
 }
 
 async function typeInto(doc, el, value, asHtml) {
+  // Provider/old-draft HTML is untrusted, including beforeinput/clipboard paths.
+  if (asHtml) {
+    value = String(value).replace(/&(?!(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);)/gi, '&amp;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/&lt;(\/?)(p|br|h2|h3|h4|strong|b|em|i|ul|ol|li|blockquote)\s*\/?&gt;/gi,
+        (_, slash, tag) => `<${slash}${tag.toLowerCase()}>`);
+  }
   // 사용자가 클릭한 것처럼 focus 트리거
   const rect = el.getBoundingClientRect();
   el.dispatchEvent(new MouseEvent('mousedown', {

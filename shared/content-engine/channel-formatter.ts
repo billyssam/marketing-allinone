@@ -9,7 +9,7 @@ import type { DraftOutput } from './types';
  * 채널별 규칙:
  *  - naver_blog       : 풀 (title + bodyHtml + tags 전부 + 사진 순서)
  *  - naver_place      : 소식 단문 (~300자 plain, 사진 1~2, 태그 없음)
- *  - instagram        : 캡션(훅+요약) + 해시태그(최대 30) + 사진
+ *  - instagram        : 캡션(훅+요약) + 해시태그(앱 내부 예산 20) + 사진
  *  - danggeun         : 동네 홍보 친근 단문 (~500자, 해시태그 없음)
  *  - threads          : 짧은 후킹 (~450자)
  *  - facebook/google  : 중간 길이 + 사진
@@ -50,8 +50,8 @@ export function formatForChannel(
     case 'instagram': {
       const caption = buildCaption(draft, plain, 600);
       return {
-        bodyPlain: `${caption}\n\n${hashtags(draft.tags, 30)}`,
-        tags: draft.tags.slice(0, 30),
+        bodyPlain: `${caption}\n\n${hashtags(draft.tags, 20)}`,
+        tags: draft.tags.slice(0, 20),
         images: ordered.length ? ordered : [],
         meta: { format: 'ig_caption' },
       };

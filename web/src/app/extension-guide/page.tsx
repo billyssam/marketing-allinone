@@ -54,7 +54,8 @@ export default function ExtensionGuidePage() {
           아이디·비밀번호는 받지 않습니다 — 사장님이 이미 로그인해 둔 창을 그대로 씁니다.
         </p>
         <a href="/marketing-allinone-extension.zip" download
-          className="btn-primary mt-5 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">PC 크롬 확장 내려받기</a>
+          className="btn-primary mt-5 inline-block rounded-full px-5 py-2.5 text-[14px] font-medium">PC 크롬 확장 0.5.2 내려받기</a>
+        <p className="mt-2 text-sm text-[var(--color-fg-2)]">이미 설치했다면 같은 폴더의 파일을 교체하고 확장 관리 화면에서 새로고침해주세요. 이전 버전에서는 직접 복사를 이용할 수 있어요.</p>
         <Link href="/dashboard" className="ml-4 inline-block text-[13px] text-[var(--color-fg-2)] underline underline-offset-4">설치 없이 초안 보기</Link>
 
         {/* 순서가 정보다 — 번호는 장식이 아니라 실제로 이 차례대로 눌러야 한다 */}

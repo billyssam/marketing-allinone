@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleContentClient } from './google-client';
 import { z } from 'zod';
 import { BASE_SYSTEM_PROMPT } from './prompts/base';
 import { getIndustryPrompt } from './registry';
@@ -7,6 +7,7 @@ import { dropFabricatedRegionTags } from './place-facts';
 import { salvageDraftJson } from './salvage-json';
 import { resolveBusinessType } from '../business/taxonomy';
 import type { DraftInput, DraftOutput } from './types';
+import { safeDraftHtml } from '../safe-html';
 
 /** 태그를 배열로 정규화 — 모델이 "a, b, c" 문자열로 줄 때가 있다 */
 function toStringArray(v: unknown): string[] {
@@ -30,7 +31,7 @@ function toStringArray(v: unknown): string[] {
  */
 export const draftOutputSchema = z.object({
   title: z.string().min(1).max(120),
-  bodyHtml: z.string().min(50),
+  bodyHtml: z.string().min(50).transform(safeDraftHtml),
   tags: z.preprocess(toStringArray, z.array(z.string()).max(15)),
   suggestedPhotoOrder: z.preprocess(
     (v) => (Array.isArray(v) ? v.filter((n) => Number.isInteger(n) && (n as number) >= 0) : []),
@@ -40,6 +41,7 @@ export const draftOutputSchema = z.object({
 });
 
 export interface GeminiClientConfig {
+  deadline?: number;
   apiKey?: string;
   planningModel?: string;
   writingModel?: string;
@@ -76,7 +78,7 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
   }
   // 키 형식 검증은 하지 않는다 — Google이 새로 도입한 AQ. 프리픽스 등도 유효하기 때문.
 
-  const genAI = new GoogleGenerativeAI(apiKey);
+  const genAI = new GoogleContentClient(apiKey, config.deadline);
   // 기본: 두 단계 모두 Flash (무료 티어 유지). Pro는 결제 활성화 시 수동 지정.
   const planningModelName = config.planningModel ?? 'gemini-2.5-flash';
   const writingModelName = config.writingModel ?? 'gemini-2.5-flash';
@@ -99,14 +101,14 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
     try {
       const m = genAI.getGenerativeModel({ model: modelName, systemInstruction,
         generationConfig: { ...generationConfig, maxOutputTokens: 8192 } });
-      return (await m.generateContent(prompt)).response.text();
+      return (await m.generateContent(prompt, { timeout: 20000 })).response.text();
     } catch (e) {
       if (!isRateLimited(e) || modelName === FALLBACK_MODEL) throw e;
       fellBack = true;
       console.warn(`[gemini] ${modelName} 한도 → ${FALLBACK_MODEL} 폴백`);
       const m = genAI.getGenerativeModel({ model: FALLBACK_MODEL, systemInstruction,
         generationConfig: { ...generationConfig, maxOutputTokens: 8192 } });
-      return (await m.generateContent(prompt)).response.text();
+      return (await m.generateContent(prompt, { timeout: 20000 })).response.text();
     }
   }
 

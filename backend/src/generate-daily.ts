@@ -23,6 +23,7 @@ import { resolveBusinessType } from '../../shared/business/taxonomy.js';
 import { dailyDirective, repeatedTitleWords, titleDirective, recentFirstWords } from '../../shared/content-engine/angles.js';
 import { seasonalContext } from '../../shared/content-engine/seasonal.js';
 import { checkPosts, criticalOf } from '../../shared/content-engine/quality.js';
+import { safeDraftHtml } from '../../shared/safe-html.js';
 import { storeLabel, isMasked } from './mask.js';
 import type { DraftInput, IndustryId, BrandTone } from '../../shared/content-engine/types.js';
 
@@ -278,25 +279,19 @@ async function main() {
         ),
       );
 
-      let { data: inserted, error: insErr } = await supabase
+      if (critical.some((issue) => issue.rule === 'empty')) throw new Error('빈 본문은 저장하지 않습니다.');
+      const checkedRows = rows.map((row) => ({ ...row,
+        body_html: row.body_html ? safeDraftHtml(row.body_html) : row.body_html,
+        metadata: { ...row.metadata, quality: critical, qualityNotes: bundle.master.qualityNotes ?? [],
+          reviewRequired: critical.length > 0 || Boolean(bundle.salvaged) },
+      }));
+      const { data: inserted, error: insErr } = await supabase
         .from('posts')
-        .insert(rows)
+        .insert(checkedRows)
         .select('id, channel, title');
       // 채널별 실패 격리 — DB enum 미지원 채널(마이그레이션 대기) 하나 때문에
       // 그날 전 채널 초안이 통째로 날아가지 않게 개별 insert로 폴백한다.
-      if (insErr) {
-        const saved: NonNullable<typeof inserted> = [];
-        const skipped: string[] = [];
-        for (const row of rows) {
-          const r = await supabase.from('posts').insert(row).select('id, channel, title').maybeSingle();
-          if (r.error || !r.data) skipped.push(row.channel);
-          else saved.push(r.data);
-        }
-        if (!saved.length) throw new Error(insErr.message);
-        if (skipped.length) console.log(`[${storeLabel(s)}] ⚠️ 저장 스킵(DB 미지원 채널): ${skipped.join(', ')}`);
-        inserted = saved;
-        insErr = null;
-      }
+      if (insErr || inserted?.length !== rows.length) throw new Error('선택한 채널 초안을 모두 저장하지 못했습니다. 자동 개별 재시도는 하지 않습니다.');
 
       made++;
       if (bundle.degraded) degraded++;

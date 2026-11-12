@@ -6,6 +6,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { getBusinessType } from '@shared/business/taxonomy';
 import { resolvePlaceUrl, placeUrlMessage } from '@/lib/place-url';
 import type { StoreOffering } from '@shared/content-engine/types';
+import { settingsInput } from '@shared/store-input';
 
 export async function updateStore(input: {
   name: string;
@@ -15,6 +16,9 @@ export async function updateStore(input: {
   address?: string;
   offerings?: StoreOffering[];
 }): Promise<{ ok?: true; error?: string }> {
+  const checked = settingsInput.safeParse(input);
+  if (!checked.success) return { error: '매장 정보·판매 항목·가격을 확인해주세요. 이름은 80자, 항목은 40개까지 입력할 수 있어요.' };
+  input = checked.data;
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,7 +45,7 @@ export async function updateStore(input: {
     const cleaned: StoreOffering[] = input.offerings
       .map((o) => ({
         name: (o.name ?? '').trim(),
-        price: typeof o.price === 'number' && !Number.isNaN(o.price) ? o.price : undefined,
+        price: typeof o.price === 'number' && Number.isFinite(o.price) && o.price >= 0 ? o.price : undefined,
         unit: o.unit?.trim() || undefined,
         note: o.note?.trim() || undefined,
       }))
@@ -64,7 +68,7 @@ export async function updateStore(input: {
       updated_at: new Date().toISOString(),
     })
     .eq('owner_id', user.id);
-  if (error) return { error: error.message };
+  if (error) return { error: '설정을 저장하지 못했어요. 잠시 후 다시 시도해주세요.' };
 
   revalidatePath('/settings');
   revalidatePath('/dashboard');
@@ -87,12 +91,12 @@ export async function deleteAccount(input: { confirm: string }): Promise<{ error
   const admin = createServiceClient();
   // 1) 매장 삭제 — posts·reviews·regulars·channel_connections는 on delete cascade
   const { error: storeErr } = await admin.from('stores').delete().eq('owner_id', user.id);
-  if (storeErr) return { error: `매장 데이터 삭제 실패: ${storeErr.message}` };
+  if (storeErr) return { error: '매장 데이터를 정리하지 못했어요. 잠시 후 다시 시도해주세요.' };
 
   // 2) 세션 쿠키 정리 후 auth 계정 삭제
   await supabase.auth.signOut();
   const { error: userErr } = await admin.auth.admin.deleteUser(user.id);
-  if (userErr) return { error: `계정 삭제 실패: ${userErr.message}` };
+  if (userErr) return { error: '계정 삭제를 마무리하지 못했어요. 다시 로그인한 뒤 삭제를 재시도해주세요.' };
 
   redirect('/');
 }

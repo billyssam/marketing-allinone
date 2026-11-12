@@ -83,6 +83,12 @@ export function GenerateButton({
         }
         throw new Error(serverMsg ?? '생성에 실패했어요. 잠시 후 다시 시도해주세요.');
       }
+      const result = await res.json();
+      if (result.reviewRequired) {
+        setError('초안은 저장됐어요. 초안 목록에서 내용을 검토하고 수정한 뒤 게시해주세요.');
+        router.refresh();
+        return;
+      }
       setOpen(false);
       setAngle('');
       setPickedAngle('');

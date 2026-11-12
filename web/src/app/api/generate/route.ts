@@ -4,6 +4,9 @@ import { generateForStore } from '@/lib/generate';
 import { contentChannelsFor, type ChannelId } from '@shared/channels/registry';
 import type { DraftInput } from '@shared/content-engine/types';
 import { generationFailure } from '@shared/generation-error';
+import { GenerationReservationError } from '@shared/generation-reservation';
+import { generationInput } from '@shared/generation-input';
+import { sameOriginRequest } from '@shared/request-origin';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -21,6 +24,7 @@ interface GenerateBody {
  * 인증된 사장님의 매장 하나 → Gemini 마스터 1회 생성 → 채널별 재단 → posts(status='draft') 저장.
  */
 export async function POST(req: NextRequest) {
+  if (!sameOriginRequest(req)) return NextResponse.json({ error: '요청을 확인해주세요.' }, { status: 403 });
   if (!isSupabaseConfigured) {
     return NextResponse.json({ error: '서비스 연결을 확인하고 있어요. 잠시 후 다시 시도해주세요.' }, { status: 503 });
   }
@@ -38,11 +42,13 @@ export async function POST(req: NextRequest) {
 
   let body: GenerateBody = {};
   try {
-    const parsed = await req.json();
-    // null/원시값 바디 방어 — 객체일 때만 채택(그 외엔 기본값)
-    if (parsed && typeof parsed === 'object') body = parsed as GenerateBody;
+    const raw = await req.text();
+    if (raw.length > 64000) return NextResponse.json({ error: '요청 내용이 너무 커요.' }, { status: 413 });
+    const parsed = generationInput.safeParse(raw ? JSON.parse(raw) : {});
+    if (!parsed.success) return NextResponse.json({ error: '생성할 채널·주제·길이를 확인해주세요.' }, { status: 400 });
+    body = parsed.data;
   } catch {
-    // body 없이 호출 가능 — 기본값 사용
+    return NextResponse.json({ error: '요청 형식을 확인해주세요.' }, { status: 400 });
   }
 
   // 매장 조회: body.storeId 지정 시 그걸로(소유권은 RLS가 보증), 없으면 내 첫 매장
@@ -111,8 +117,10 @@ export async function POST(req: NextRequest) {
       title,
       posts,
       count: posts.length,
+      reviewRequired: posts.some((post) => post.reviewRequired),
     });
   } catch (err) {
+    if (err instanceof GenerationReservationError) return NextResponse.json({ error: err.message }, { status: err.status });
     const failure = generationFailure(err);
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }

@@ -63,7 +63,7 @@ export default async function DashboardPage() {
     // 지난 글은 지우지 않고 아래 '최근 초안'에 남김 — 브리핑은 오늘 할 일이어야 함(무덤 방지)
     // limit 6이었는데 8채널을 연결하면 2건이 잘려 만든 글이 대시보드에서 아예 안 보였다.
     // 지금은 우선순위 카드가 1~2개만 세우고 나머지는 접으므로 넉넉히 가져와도 부담이 없다.
-    supabase.from('posts').select('id, channel, title, body_plain, status').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(12),
+    supabase.from('posts').select('id, channel, title, body_plain, status, metadata').eq('store_id', store.id).in('status', ['draft', 'ready']).gte('created_at', new Date(Date.now() - 2 * 86_400_000).toISOString()).order('created_at', { ascending: false }).limit(12),
     // + 답글 대기 리뷰
     supabase.from('reviews').select('id, source, rating, content').eq('store_id', store.id).not('reply_draft', 'is', null).is('reply_sent_at', null).order('posted_at', { ascending: false }).limit(3),
     // 답글 안 단 **부정** 리뷰 — 글보다 급하다. 위 목록은 limit 3이라 부정이 밀려 안 보일 수 있어 따로 본다.
@@ -214,8 +214,8 @@ export default async function DashboardPage() {
       channelLabel: POST_CHANNEL_LABEL[p.channel as PostChannel] ?? p.channel,
       color: POST_CHANNEL_COLOR[p.channel as PostChannel] ?? 'var(--color-amber)',
       title: postDisplayTitle(p),
-      status: p.status === 'ready' ? '발행 준비됨' : '초안 준비됨',
-      actionLabel: '붙여넣기 →',
+      status: p.metadata?.reviewRequired ? '내용 검토 필요' : p.status === 'ready' ? '발행 준비됨' : '초안 준비됨',
+      actionLabel: p.metadata?.reviewRequired ? '검토·수정 →' : '붙여넣기 →',
       href: `/prepare?post=${p.id}`,
     })),
     ...reviewItems,
@@ -249,8 +249,8 @@ export default async function DashboardPage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="eyebrow">{business.label} · 오늘</div>
-            <h1 className="h1 mt-2">{store.name} 사장님, 좋은 아침이에요.</h1>
-            <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">{marketingFocusFor(business)} 마케팅을 오늘도 준비했어요.</p>
+            <h1 className="h1 mt-2">{store.name} 사장님, 안녕하세요.</h1>
+            <p className="mt-2 text-[14px] text-[var(--color-fg-2)]">{marketingFocusFor(business)} 오늘의 초안과 진행 상태를 확인하세요.</p>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/channels" className="rounded-full border border-[var(--color-hair-strong)] px-4 py-2 text-[13px] text-[var(--color-fg-2)] hover:text-[var(--color-fg)]">

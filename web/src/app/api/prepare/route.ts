@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/server';
 import { getPreparePost } from '@/lib/posts';
 import { canConfirmPublication, publicationUrl } from '@shared/publication-proof';
+import { sameOriginRequest } from '@shared/request-origin';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return NextResponse.json({ error: '로그인이 필요해요' }, { status: 401 });
-  if (req.headers.get('origin') !== req.nextUrl.origin) return NextResponse.json({ error: '요청을 확인해주세요' }, { status: 403 });
+  if (!sameOriginRequest(req)) return NextResponse.json({ error: '요청을 확인해주세요' }, { status: 403 });
   let body: { post?: string; confirmed?: boolean; externalUrl?: unknown } = {};
   try {
     body = await req.json();
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
     .select('id,status,channel,metadata').eq('id', postId).maybeSingle();
   if (readError) return NextResponse.json({ error: '초안 상태를 확인하지 못했어요' }, { status: 500 });
   if (!post) return NextResponse.json({ error: '초안을 찾을 수 없습니다' }, { status: 404 });
+  if (post.metadata?.reviewRequired) return NextResponse.json({ error: '초안을 먼저 검토하고 수정해주세요.' }, { status: 409 });
   const externalUrl = publicationUrl(body.externalUrl, post.channel);
   if (externalUrl === null) return NextResponse.json({ error: '해당 채널의 HTTPS 게시물 주소를 입력해주세요' }, { status: 400 });
   if (post.status === 'published') return NextResponse.json({ ok: true, updated: false });

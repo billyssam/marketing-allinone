@@ -34,6 +34,7 @@ export async function generateChannelDrafts(
   images: MasterImage[] = [],
   config?: GeminiClientConfig,
 ): Promise<ChannelDraftBundle> {
+  config = { ...config, deadline: config?.deadline ?? Date.now() + 45000 };
   const gemini = createGeminiClient(config);
   const master = await gemini.generate(input);
 
