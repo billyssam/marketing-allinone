@@ -121,6 +121,7 @@ export async function completeOnboarding(payload: OnboardingPayload): Promise<{ 
         console.error('[onboarding] 웰컴 드래프트 생성 실패:', failure.status);
         try {
           await createServiceClient().from('activity_log').insert({
+            owner_id: user.id,
             store_id: store.id,
             event: 'welcome_draft_failed',
             // 원인을 그대로 남긴다 — 429(쿼터)인지 404(모델 폐기)인지 파싱 실패인지가 갈린다

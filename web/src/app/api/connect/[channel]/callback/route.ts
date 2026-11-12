@@ -61,6 +61,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ channel: st
   const admin = createServiceClient();
   const logFail = async (why: string) => {
     await admin.from('activity_log').insert({
+      owner_id: user.id,
       store_id: store.id,
       event: 'channel_connect_failed',
       detail: { channel, message: why.slice(0, 500), at: new Date().toISOString() },

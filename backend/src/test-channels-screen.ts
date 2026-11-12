@@ -135,8 +135,8 @@ async function main() {
       /휴대폰에서는 초안을 복사/.test(screen) && /확장은 설치하지 않아도 됩니다/.test(screen),
       '복사 경로와 선택 설치 안내');
     await page.getByRole('link', { name: '설치 방법 보기' }).click();
-    await page.getByRole('link', { name: 'PC 크롬 확장 내려받기' }).waitFor({ state: 'visible' });
-    const downloadHref = await page.getByRole('link', { name: 'PC 크롬 확장 내려받기' }).getAttribute('href');
+    await page.getByRole('link', { name: /PC 크롬 확장(?: \d+\.\d+\.\d+)? 내려받기/ }).waitFor({ state: 'visible' });
+    const downloadHref = await page.getByRole('link', { name: /PC 크롬 확장(?: \d+\.\d+\.\d+)? 내려받기/ }).getAttribute('href');
     const download = downloadHref ? await page.request.get(new URL(downloadHref, BASE).toString()) : null;
     check('확장 설치 파일을 실제로 받을 수 있다',
       Boolean(download?.ok() && download.headers()['content-type']?.includes('zip')),
