@@ -1,5 +1,8 @@
 import { GoogleGenAI, type GenerateContentConfig } from '@google/genai';
 
+export const DEFAULT_TEXT_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_SHORT_FORM_MODEL = 'gemini-2.5-flash-lite';
+
 /** Small text/JSON adapter for our content engine. Provider, API key/project and
  * model names remain explicit; switching SDKs never creates a billing project.
  * SDK retries are disabled because the engine owns its finite retry budget.
@@ -7,7 +10,20 @@ import { GoogleGenAI, type GenerateContentConfig } from '@google/genai';
 export class GoogleContentClient {
   private readonly client: GoogleGenAI;
   constructor(apiKey: string, private readonly deadline = Date.now() + 45000) {
-    this.client = new GoogleGenAI({ apiKey, httpOptions: { timeout: 20000, retryOptions: { attempts: 1 } } });
+    // These text/JSON requests use systemInstruction, which requires v1beta for our models.
+    this.client = new GoogleGenAI({ apiKey, apiVersion: 'v1beta', httpOptions: { timeout: 20000, retryOptions: { attempts: 1 } } });
+  }
+  async unavailableModels(modelNames: string[]): Promise<string[]> {
+    const missing = new Set(modelNames.map(name => name.replace(/^models\//, '')));
+    const models = await this.client.models.list({
+      config: { pageSize: 100, abortSignal: AbortSignal.timeout(15000) },
+    });
+    for await (const model of models) {
+      if (model.name && model.supportedActions?.includes('generateContent')) {
+        missing.delete(model.name.replace(/^models\//, ''));
+      }
+    }
+    return [...missing];
   }
   getGenerativeModel(options: { model: string; systemInstruction?: string; generationConfig?: GenerateContentConfig }) {
     const client = this.client;

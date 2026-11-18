@@ -11,6 +11,7 @@ test('당근은 제목·본문을 하나로 전달하고 한도·복귀 안내�
   assert.equal(result.handoff?.deeplink, 'https://business.daangn.com/');
   assert.deepEqual(result.handoff?.clipboard, [{ label: '본문', text: '검증용 제목\n\n가상 검증 본문' }]);
   assert.ok(result.handoff?.steps.some(s => s.includes('하루 최대 5개')));
+  assert.ok(result.handoff?.steps.some(s => s.includes('2026년 12월 12일') && s.includes('개별 통지') && s.includes('채팅주문')));
   assert.ok(result.handoff?.steps.some(s => s.includes('이 탭으로 돌아와')));
 });
 

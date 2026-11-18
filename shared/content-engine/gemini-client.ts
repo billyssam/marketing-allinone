@@ -1,4 +1,4 @@
-import { GoogleContentClient } from './google-client';
+import { GoogleContentClient, DEFAULT_TEXT_MODEL, DEFAULT_SHORT_FORM_MODEL } from './google-client';
 import { z } from 'zod';
 import { BASE_SYSTEM_PROMPT } from './prompts/base';
 import { getIndustryPrompt } from './registry';
@@ -80,13 +80,13 @@ export function createGeminiClient(config: GeminiClientConfig = {}): GeminiClien
 
   const genAI = new GoogleContentClient(apiKey, config.deadline);
   // 기본: 두 단계 모두 Flash (무료 티어 유지). Pro는 결제 활성화 시 수동 지정.
-  const planningModelName = config.planningModel ?? 'gemini-2.5-flash';
-  const writingModelName = config.writingModel ?? 'gemini-2.5-flash';
+  const planningModelName = config.planningModel ?? DEFAULT_TEXT_MODEL;
+  const writingModelName = config.writingModel ?? DEFAULT_TEXT_MODEL;
   const temperature = config.temperature ?? 0.75;
 
   // 무료 flash 일일한도(실측: 프로젝트당 20/일) 소진 시 flash-lite로 폴백.
   // 모델별 쿼터 버킷이 분리라 lite(한도 훨씬 큼)가 살아있음 → 품질 우선 + 용량 확보.
-  const FALLBACK_MODEL = 'gemini-2.5-flash-lite';
+  const FALLBACK_MODEL = DEFAULT_SHORT_FORM_MODEL;
   const isRateLimited = (e: unknown) => /429|quota|rate/i.test(e instanceof Error ? e.message : String(e));
   // generate 1회 동안 폴백이 한 번이라도 쓰였는지(품질 추적용)
   let fellBack = false;

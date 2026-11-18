@@ -13,7 +13,7 @@ export const danggeunAdapter: ChannelAdapter = {
     return buildHandoff({
       deeplink: DAANGN_PUBLICATION.entryUrl,
       draft: { ...draft, title: undefined, bodyPlain: daangnPublicationText({ ...draft, bodyPlain: draft.bodyPlain || stripHtml(draft.bodyHtml ?? '') }) },
-      steps: [DAANGN_PUBLICATION.limit, DAANGN_PUBLICATION.limitHelp, ...DAANGN_PUBLICATION.steps],
+      steps: [DAANGN_PUBLICATION.limit, DAANGN_PUBLICATION.limitHelp, DAANGN_PUBLICATION.paymentPolicy, ...DAANGN_PUBLICATION.steps],
     });
   },
 };

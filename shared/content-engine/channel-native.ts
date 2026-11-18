@@ -1,4 +1,4 @@
-import { GoogleContentClient } from './google-client';
+import { GoogleContentClient, DEFAULT_TEXT_MODEL, DEFAULT_SHORT_FORM_MODEL } from './google-client';
 import type { ChannelId } from '../channels/registry';
 import type { DraftInput, DraftOutput } from './types';
 import { htmlToPlain } from './channel-formatter';
@@ -300,7 +300,7 @@ async function generateWithRetry(
         // lite가 계속 과부하면 flash로 한 번 더(모델별 인프라가 달라 회복될 때가 있음)
         if (isTransient(e) && !configuredModel) {
           console.warn('[native] flash-lite 지속 장애 → gemini-2.5-flash로 1회 폴백');
-          const alt = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig: cfg });
+          const alt = genAI.getGenerativeModel({ model: DEFAULT_TEXT_MODEL, generationConfig: cfg });
           return await alt.generateContent(prompt);
         }
         throw e;
@@ -364,7 +364,7 @@ export async function nativizeShortForm(
   const model = genAI.getGenerativeModel({
     // 단문 재작성은 가벼운 작업 → flash-lite(무료 한도 더 큼: ~15RPM/1000RPD, 모델별 별도 버킷)
     // 마스터(기획·본문)는 flash 유지. 쿼터 분산 + RPM 압력 감소.
-    model: config?.model ?? 'gemini-2.5-flash-lite',
+    model: config?.model ?? DEFAULT_SHORT_FORM_MODEL,
     generationConfig: {
       temperature: 0.9,
       responseMimeType: 'application/json',

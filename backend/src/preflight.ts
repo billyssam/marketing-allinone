@@ -15,6 +15,7 @@ import { contentChannelsFor } from '../../shared/channels/registry';
 import { checkPosts, criticalOf } from '../../shared/content-engine/quality';
 import { authConfigurationProblems } from '../../shared/auth-health';
 import { storeLabel } from './mask';
+import { GoogleContentClient, DEFAULT_TEXT_MODEL, DEFAULT_SHORT_FORM_MODEL } from '../../shared/content-engine/google-client';
 
 loadEnv({ path: resolve(process.cwd(), '../web/.env.local'), quiet: true });
 loadEnv({ quiet: true });
@@ -139,16 +140,15 @@ async function checkStores() {
 }
 
 async function checkQuota() {
-  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
   if (!apiKey) { add('block', 'AI 연결', '생성용 키가 없습니다'); return; }
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
-    headers: { 'x-goog-api-key': apiKey }, signal: AbortSignal.timeout(15000),
-  });
-  if (!response.ok) { add('block', 'AI 연결', '모델 목록 조회 실패: HTTP ' + response.status); return; }
-  const payload = await response.json() as { models?: { name: string; supportedGenerationMethods?: string[] }[] };
-  const ready = payload.models?.some((model) => model.name === 'models/gemini-2.5-flash' && model.supportedGenerationMethods?.includes('generateContent'));
-  if (!ready) add('block', 'AI 연결', '설정한 생성 모델을 사용할 수 없습니다');
-  else add('warn', 'AI 한도', '키·모델 조회 정상. 실제 생성 성공·남은 쿼터·청구 용량은 이 조회로 증명하지 않습니다. 매장 수로 무료 한도 여유를 단정하지 않습니다');
+  try {
+    const missing = await new GoogleContentClient(apiKey).unavailableModels([DEFAULT_TEXT_MODEL, DEFAULT_SHORT_FORM_MODEL]);
+    if (missing.length) add('block', 'AI 연결', '사용할 수 없는 생성 모델: ' + missing.join(', '));
+    else add('warn', 'AI 한도', '기본·폴백 모델 조회 정상. 실제 생성 성공·남은 쿼터·청구 용량은 별도 검증이 필요합니다');
+  } catch {
+    add('block', 'AI 연결', '생성에 사용하는 SDK로 모델 목록을 확인하지 못했습니다');
+  }
 }
 
 async function main() {

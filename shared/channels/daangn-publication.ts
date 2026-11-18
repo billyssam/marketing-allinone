@@ -2,6 +2,8 @@
 export const DAANGN_PUBLICATION = {
   entryUrl: 'https://business.daangn.com/',
   policyUrl: 'https://business.daangn.com/notice/detail/303',
+  paymentPolicyUrl: 'https://business.daangn.com/notice/detail/436',
+  paymentPolicy: '2026년 12월 12일부터 선입금 후 배송·배달하는 식품 판매 등 당근이 개별 통지한 비즈프로필은 채팅으로 받은 선결제 주문에 채팅주문 결제를 사용해야 해요. 대상이라면 소식에서도 계좌번호·계좌이체·외부 결제를 유도하지 않도록 확인해주세요.',
   limit: '당근 소식은 하루 최대 5개까지 작성할 수 있어요.',
   limitHelp: '당근에서 오늘 작성한 소식 수를 확인해주세요. 한도를 채웠다면 초안을 보관하고 다음 날 게시하세요.',
   steps: [

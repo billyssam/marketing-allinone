@@ -305,6 +305,8 @@ function PrepareInner() {
           <p className="font-medium text-[var(--color-fg)]">{DAANGN_PUBLICATION.limit}</p>
           <p className="mt-1">{DAANGN_PUBLICATION.limitHelp}</p>
           <a href={DAANGN_PUBLICATION.policyUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--color-amber)] underline">당근 공식 한도 안내</a>
+          <p className="mt-3">{DAANGN_PUBLICATION.paymentPolicy}</p>
+          <a href={DAANGN_PUBLICATION.paymentPolicyUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--color-amber)] underline">당근 결제 정책 안내</a>
           {!isDone && <ol className="mt-3 list-decimal space-y-1 pl-5">{DAANGN_PUBLICATION.steps.map((text) => <li key={text}>{text}</li>)}</ol>}
           {!isDone && <p className="mt-2">로그인이나 비즈프로필 선택이 필요할 수 있어요. 업무 계정으로 앱에 로그인하면 기존 개인 계정이 로그아웃될 수 있으니 확인해주세요.</p>}
         </aside>
