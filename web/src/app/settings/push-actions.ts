@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { MAX_PUSH_DEVICES, parsePushSubscription, selectPushSubscriptions } from '@shared/push-subscription';
 
 /**
  * 웹 푸시 구독 저장 — "매일 아침 폰으로 알려주기".
@@ -17,18 +18,17 @@ export interface PushSub {
   keys: { p256dh: string; auth: string };
 }
 
-const MAX_DEVICES = 5;
-
 export async function savedPushEndpoints(): Promise<{ ok: boolean; endpoints: string[] }> {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return { ok: false, endpoints: [] };
-  const subs = Array.isArray(user.user_metadata?.push_subs) ? user.user_metadata.push_subs as PushSub[] : [];
-  return { ok: true, endpoints: subs.map((sub) => sub.endpoint).filter(Boolean) };
+  const { subscriptions } = selectPushSubscriptions(user.user_metadata?.push_subs);
+  return { ok: true, endpoints: subscriptions.map(sub => sub.endpoint) };
 }
 
 export async function savePushSubscription(sub: PushSub): Promise<{ ok: boolean; error?: string }> {
-  if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
+  const valid = parsePushSubscription(sub);
+  if (!valid) {
     return { ok: false, error: '구독 정보가 올바르지 않아요' };
   }
   const supabase = await createClient();
@@ -37,10 +37,8 @@ export async function savePushSubscription(sub: PushSub): Promise<{ ok: boolean;
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: '로그인이 필요합니다' };
 
-  const prev = Array.isArray(user.user_metadata?.push_subs)
-    ? (user.user_metadata.push_subs as PushSub[])
-    : [];
-  const next = [sub, ...prev.filter((s) => s.endpoint !== sub.endpoint)].slice(0, MAX_DEVICES);
+  const prev = selectPushSubscriptions(user.user_metadata?.push_subs).subscriptions;
+  const next = [valid, ...prev.filter(s => s.endpoint !== valid.endpoint)].slice(0, MAX_PUSH_DEVICES);
 
   const { error } = await supabase.auth.updateUser({ data: { push_subs: next } });
   if (error) return { ok: false, error: '알림 설정을 저장하지 못했어요. 다시 시도해주세요.' };
@@ -54,9 +52,7 @@ export async function removePushSubscription(endpoint: string): Promise<{ ok: bo
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: '로그인이 필요합니다' };
 
-  const prev = Array.isArray(user.user_metadata?.push_subs)
-    ? (user.user_metadata.push_subs as PushSub[])
-    : [];
+  const prev = selectPushSubscriptions(user.user_metadata?.push_subs).subscriptions;
   const { error } = await supabase.auth.updateUser({
     data: { push_subs: prev.filter((s) => s.endpoint !== endpoint) },
   });

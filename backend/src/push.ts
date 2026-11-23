@@ -6,6 +6,7 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
+import { selectPushSubscriptions, validVapidKeyPair } from '../../shared/push-subscription.js';
 
 export interface PushSub {
   endpoint: string;
@@ -24,7 +25,7 @@ export interface PushPayload {
 export function configurePush(): boolean {
   const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv) return false;
+  if (!pub || !priv || !validVapidKeyPair(pub, priv)) return false;
   webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? 'mailto:noreply@example.com', pub, priv);
   return true;
 }
@@ -43,13 +44,15 @@ export async function pushToOwner(
   supabase: SupabaseClient,
   ownerId: string,
   payload: PushPayload,
-  send = (sub: PushSub, body: string) => webpush.sendNotification(sub as webpush.PushSubscription, body, { timeout: 10_000 }),
+  send: (sub: PushSub, body: string) => Promise<unknown> = (sub, body) => webpush.sendNotification(sub as webpush.PushSubscription, body, { timeout: 10_000 }),
 ): Promise<PushResult> {
   const out: PushResult = { sent: 0, gone: 0, failed: 0 };
   const { data: userRes, error: readError } = await supabase.auth.admin.getUserById(ownerId);
   if (readError || !userRes?.user) throw new Error('알림 구독 조회 실패');
   const meta = userRes?.user?.user_metadata ?? {};
-  const subs = (Array.isArray(meta.push_subs) ? meta.push_subs : []) as PushSub[];
+  const selection = selectPushSubscriptions(meta.push_subs);
+  const subs = selection.subscriptions;
+  out.failed += selection.rejected;
   if (!subs.length) return out;
 
   const body = JSON.stringify(payload);
@@ -74,9 +77,9 @@ export async function pushToOwner(
     const { data: current, error } = await supabase.auth.admin.getUserById(ownerId);
     if (error || !current?.user) throw new Error('만료 구독 조회 실패');
     const latestMeta = current.user.user_metadata ?? {};
-    const latestSubs = Array.isArray(latestMeta.push_subs) ? latestMeta.push_subs as PushSub[] : [];
+    const latestSubs = selectPushSubscriptions(latestMeta.push_subs, expired).subscriptions;
     const { error: updateError } = await supabase.auth.admin.updateUserById(ownerId, {
-      user_metadata: { ...latestMeta, push_subs: latestSubs.filter(sub => !expired.has(sub.endpoint)) },
+      user_metadata: { ...latestMeta, push_subs: latestSubs },
     });
     if (updateError) throw new Error('만료 구독 정리 실패');
   }

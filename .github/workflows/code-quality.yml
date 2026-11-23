@@ -18,3 +18,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      # Only trusted master pushes receive these existing operation secrets.
+      # PR jobs never receive them; this check makes no notification/API calls.
+      - name: 운영 푸시 키 구성 확인 (발송 없음)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: node --import tsx backend/src/check-push-config.ts

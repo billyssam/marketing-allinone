@@ -80,6 +80,14 @@ self.addEventListener('fetch', (event) => {
  * 웹 푸시는 VAPID 자체 발급이라 무료·심사 없음. 안드로이드 크롬에서 바로 되고,
  * iOS는 홈 화면에 추가한 경우(16.4+) 된다 — 그래서 설치 유도가 먼저다.
  */
+function notificationTarget(value) {
+  try {
+    const url = new URL(typeof value === 'string' && value ? value : '/dashboard', self.location.origin);
+    if (url.origin === self.location.origin && !url.username && !url.password) return url.href;
+  } catch {}
+  return new URL('/dashboard', self.location.origin).href;
+}
+
 self.addEventListener('push', (event) => {
   let payload = {};
   try {
@@ -87,15 +95,16 @@ self.addEventListener('push', (event) => {
   } catch {
     payload = { body: event.data ? event.data.text() : '' };
   }
-  const title = payload.title || '마케팅올인원';
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) payload = {};
+  const title = typeof payload.title === 'string' && payload.title ? payload.title : '마케팅올인원';
   const options = {
-    body: payload.body || '오늘 글이 준비됐어요.',
+    body: typeof payload.body === 'string' && payload.body ? payload.body : '오늘 글이 준비됐어요.',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     // 같은 태그면 알림이 쌓이지 않고 갱신된다 — 하루 여러 번 울려도 목록이 지저분해지지 않게
-    tag: payload.tag || 'daily',
+    tag: typeof payload.tag === 'string' && payload.tag ? payload.tag : 'daily',
     renotify: true,
-    data: { url: payload.url || '/dashboard' },
+    data: { url: notificationTarget(payload.url) },
     // 사장님은 주방·매장에서 폰을 본다. 진동으로 한 번 알리고 끝.
     requireInteraction: false,
   };
@@ -104,12 +113,19 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/dashboard';
+  const url = notificationTarget(event.notification.data && event.notification.data.url);
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (list) => {
       // 이미 열려 있는 탭이 있으면 그걸 쓴다 — 탭이 계속 늘어나면 사장님이 헷갈린다
       for (const c of list) {
-        if (c.url.includes(url) && 'focus' in c) return c.focus();
+        if (c.url === url && 'focus' in c) return c.focus();
+      }
+      const own = list.find(c => c.url.startsWith(self.location.origin + '/') && 'navigate' in c && 'focus' in c);
+      if (own) {
+        try {
+          const navigated = await own.navigate(url);
+          if (navigated) return navigated.focus();
+        } catch {}
       }
       return self.clients.openWindow(url);
     }),

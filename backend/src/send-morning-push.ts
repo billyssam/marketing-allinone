@@ -33,7 +33,7 @@ if (!url || !key) {
 }
 if (!configurePush()) {
   // 조용히 성공하면 "알림이 왜 안 오지"를 아무도 못 찾는다 — 명시적으로 실패시킨다
-  console.error('env 누락: NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (npx web-push generate-vapid-keys)');
+  console.error('알림 키가 없거나 서로 맞지 않습니다: NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY');
   process.exit(1);
 }
 
